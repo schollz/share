@@ -27,8 +27,23 @@
     <title>{{ if .Name}}Share {{.Name}}{{else}}Share a file{{end}}</title>
     <style>
         .main {
-            padding-top: 100px;
-        }
+        padding-top: 100px;
+    }
+    .list {
+                display: flex;
+        flex-wrap: wrap;
+    }
+
+    .list > div {
+        padding: 0.4em;
+    }
+    body {
+        text-decoration-skip: ink;
+    }
+
+    .hide {
+        display:none;
+    }
     </style>
 </head>
 
@@ -96,6 +111,11 @@
                 </span></div>
         </div>
         {{end}}
+        <div id="history" class="dropzone hide">
+            <p style="margin-bottom: 0.5em;">Previous files:</p>
+            <div id="historylist" class="list">
+            </div>
+        </div>
         <footer>
             <p align="center" style="margin-bottom:0">
                 <img src="/static/logo47.png" style="max-width: 100px">
@@ -217,11 +237,17 @@
     var clipboard = new ClipboardJS('.btn');
     </script>
     <script>
+    if (localStorage.length > 0) {
+        document.getElementById("history").className = "dropzone";
+    }
+    html = ""
     for (var i = 0, len = localStorage.length; i < len; i++) {
         var key = localStorage.key(i);
         var value = localStorage[key];
         console.log(key + " => " + value);
+        html += `<div><a href="/${key}/${value}">${value}</a></div>`
     }
+    document.getElementById("historylist").innerHTML = html;
     </script>
     {{ if .Name}}
     <script>
