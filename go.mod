@@ -7,7 +7,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/h2non/filetype v1.0.8
 	github.com/hako/durafmt v0.0.0-20190612201238-650ed9f29a84
-	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
 	github.com/schollz/logger v1.0.1
 	github.com/stretchr/testify v1.3.0
 )
