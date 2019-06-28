@@ -237,17 +237,25 @@
     var clipboard = new ClipboardJS('.btn');
     </script>
     <script>
-    if (localStorage.length > 0) {
-        document.getElementById("history").className = "dropzone";
-    }
-    html = ""
+    document.getElementById("historylist").innerHTML = "";
     for (var i = 0, len = localStorage.length; i < len; i++) {
         var key = localStorage.key(i);
         var value = localStorage[key];
         console.log(key + " => " + value);
-        html += `<div><a href="/${key}/${value}">${value}</a></div>`
+        fetch(`/exists/${key}/${value}`)
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(myJson) {
+                if (myJson.exists == "yes") {
+                    document.getElementById("history").className = "dropzone";
+                    document.getElementById("historylist").innerHTML = document.getElementById("historylist").innerHTML + `<div><a href="/${myJson.id}/${myJson.name}">${myJson.name}</a></div>`;
+
+                } else {
+                    localStorage.removeItem(myJson.id);
+                }
+            });
     }
-    document.getElementById("historylist").innerHTML = html;
     </script>
     {{ if .Name}}
     <script>
