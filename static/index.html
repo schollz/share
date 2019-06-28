@@ -25,10 +25,15 @@
     <link rel="stylesheet" href="/static/dropzone.css">
     <link rel="stylesheet" href="/static/style.css">
     <title>{{ if .Name}}Share {{.Name}}{{else}}Share a file{{end}}</title>
+    <style>
+        .main {
+            padding-top: 100px;
+        }
+    </style>
 </head>
 
-<body>
-    <main>
+<body class="body">
+    <main class="main">
         <center>
             <div id="snackbar">Copied<br>{{.Config.PublicURL}}/{{.ID}}<br>to clipboard</div>
         </center>
@@ -211,6 +216,18 @@
     });
     var clipboard = new ClipboardJS('.btn');
     </script>
+    <script>
+    for (var i = 0, len = localStorage.length; i < len; i++) {
+        var key = localStorage.key(i);
+        var value = localStorage[key];
+        console.log(key + " => " + value);
+    }
+    </script>
+    {{ if .Name}}
+    <script>
+    localStorage.setItem('{{.ID}}', '{{.Name}}');
+    </script>
+    {{end}}
 </body>
 
 </html>
