@@ -13,7 +13,7 @@ import (
 	"hash/fnv"
 	"html/template"
 	"io"
-	"io/ioutil"
+
 	"math"
 	"math/rand"
 	"net/http"
@@ -75,6 +75,44 @@ func main() {
 	flag.Float64Var(&c.MinutesPerGigabyte, "min-per-gig", 30, "number of minutes per gigabyte to scale auto-deletion")
 	flag.Parse()
 
+	if dataDirEnv := os.Getenv("DATA_DIR"); os.Getenv("DATA_DIR") != "" {
+		c.ContentDirectory = dataDirEnv
+	}
+	if publicUrlEnv := os.Getenv("PUBLIC_URL"); os.Getenv("PUBLIC_URL") != "" {
+		c.PublicURL = publicUrlEnv
+	}
+	if portEnv := os.Getenv("PORT"); os.Getenv("PORT") != "" {
+		c.Port = portEnv
+	}
+	if debugEnv := os.Getenv("DEBUG"); os.Getenv("DEBUG") != "" {
+		debug, err := strconv.ParseBool(debugEnv)
+		if err != nil {
+			panic(err)
+		}
+		c.Debug = debug
+	}
+	if maxFileBytesEnv := os.Getenv("MAX_FILE_BYTES"); os.Getenv("MAX_FILE_BYTES") != "" {
+		maxFileBytes, err := strconv.ParseInt(maxFileBytesEnv, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		c.MaxBytesPerFile = maxFileBytes
+	}
+	if maxTotalBytesEnv := os.Getenv("MAX_TOTAL_BYTES"); os.Getenv("MAX_TOTAL_BYTES") != "" {
+		maxTotalBytes, err := strconv.ParseInt(maxTotalBytesEnv, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		c.MaxBytesTotal = maxTotalBytes
+	}
+	if minPerGigEnv := os.Getenv("MIN_PER_GIG"); os.Getenv("MIN_PER_GIG") != "" {
+		minPerGig, err := strconv.ParseFloat(minPerGigEnv, 64)
+		if err != nil {
+			panic(err)
+		}
+		c.MinutesPerGigabyte = minPerGig
+	}
+
 	// set a random seed for random activities
 	rand.Seed(time.Now().UnixNano())
 
@@ -132,7 +170,7 @@ func deleteOld(removeTempFiles ...bool) {
 	}
 
 	// find all the meta informaiton
-	files, err := ioutil.ReadDir(c.ContentDirectory)
+	files, err := os.ReadDir(c.ContentDirectory)
 	if err != nil {
 		log.Error(err)
 		return
@@ -315,7 +353,7 @@ func (p *Page) handlePost(w http.ResponseWriter, r *http.Request) (err error) {
 	uuid := r.FormValue("dzuuid")
 	log.Debugf("working on chunk %d/%d for %s", chunkNum, totalChunks, uuid)
 
-	f, err := ioutil.TempFile(c.ContentDirectory, "sharetemp")
+	f, err := os.CreateTemp(c.ContentDirectory, "sharetemp")
 	if err != nil {
 		log.Error(err)
 		return
@@ -340,7 +378,7 @@ func (p *Page) handlePost(w http.ResponseWriter, r *http.Request) (err error) {
 			log.Debugf("%+v", uploadsFileNames)
 			delete(uploadsInProgress, uuid)
 
-			fFinal, _ := ioutil.TempFile(c.ContentDirectory, "sharetemp")
+			fFinal, _ := os.CreateTemp(c.ContentDirectory, "sharetemp")
 			fFinalgz := gzip.NewWriter(fFinal)
 			originalSize := int64(0)
 			for i := 1; i <= totalChunks; i++ {
@@ -427,7 +465,7 @@ func (p *Page) handleShowDataInBrowser(w http.ResponseWriter, r *http.Request) (
 	log.Debugf("%+v", p)
 	if p.IsASCII && p.Size < 10000000 {
 		log.Debugf("showing page %s", p.ID)
-		b, _ := ioutil.ReadFile(p.NameOnDisk)
+		b, _ := os.ReadFile(p.NameOnDisk)
 		gr, errGzip := gzip.NewReader(bytes.NewBuffer(b))
 		if errGzip != nil {
 			err = errGzip
@@ -436,7 +474,7 @@ func (p *Page) handleShowDataInBrowser(w http.ResponseWriter, r *http.Request) (
 		}
 		defer gr.Close()
 		var textBytes []byte
-		textBytes, err = ioutil.ReadAll(gr)
+		textBytes, err = io.ReadAll(gr)
 		if err != nil {
 			log.Error(err)
 			return
@@ -617,7 +655,7 @@ func loadPageInfo(id string) (p *Page, err error) {
 // writeAllBytes takes a reader and writes it to the content directory.
 // It throws an error if the number of bytes written exceeds what is set.
 func writeAllBytes(fname string, src io.Reader) (fnameFull string, err error) {
-	f, err := ioutil.TempFile(c.ContentDirectory, "sharetemp")
+	f, err := os.CreateTemp(c.ContentDirectory, "sharetemp")
 	if err != nil {
 		log.Error(err)
 		return
