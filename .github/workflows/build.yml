@@ -1,4 +1,4 @@
-name: Build Server
+name: CI/CD
 
 on:
   push:

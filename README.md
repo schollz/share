@@ -17,22 +17,42 @@
 
 Share moves files between machines with a clean web UI and a focused CLI.
 
-## Install
 
-Grab `share_linux.zip`, `share_macos.zip`, or `share_windows.zip` from the [latest release](https://github.com/schollz/share/releases/latest), unpack it, move the resulting binary into your `PATH`, and make it executable (`share.exe` on Windows ships ready to run). On Linux you can also install with 
+## Usage
+
+Goto https://share.schollz.com and enter a room. Have another peer enter the same room to share files between the two.
+
+### Command-line Interface
+
+Optionally, you can also transfer files via the command-line between machines (through website or direct CLI-to-CLI).
+
+Either download the [latest release](https://github.com/schollz/share/releases/latest) or install with:
 
 ```bash
 curl https://share.schollz.com | bash
 ```
 
-## Usage
+Or build from source with `make server`.
 
-Run `share serve` to host the local web interface on `http://localhost:3001` for drag-and-drop transfers, or use the CLI directly:
+Then you can also send and receive files from the command-line between other command-line users or users on the web interface.
 
-- Send a file or folder with `share send <file> <room>` to push through the relay at `share.schollz.com` (override with `--domain` or `--server`).
-- Receive from another peer with `share receive <room>` and optionally `--output` to choose the destination folder.
+**Sending a file:**
 
-You can also join rooms from the hosted web app at https://share.schollz.com when a browser-only workflow is easier.
+```bash
+share send <file>
+```
+
+**Receiving a file:**
+
+```bash 
+share receive
+```
+
+## About
+
+This project is created and maintained by [Zack](https://schollz.com). If you find it useful, please consider sponsoring me on [GitHub Sponsors](https://github.com/sponsors/schollz).
+
+It works by using a simple peer-to-peer connection through a knowledge-free websocket-based relay server. All data transferred is encrypted using end-to-end encryption with ECDH P-256 key exchange and AES-GCM authenticated encryption, meaning the relay server does not have access to the data being transferred.
 
 ## License
 
