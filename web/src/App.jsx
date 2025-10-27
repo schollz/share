@@ -281,27 +281,27 @@ export default function App() {
     }, [pathRoom, connected, connectToRoom]);
 
     return (
-        <div className="min-h-screen bg-white p-4 md:p-8 font-mono">
-            <div className="max-w-4xl mx-auto">
+        <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8 font-mono flex items-center justify-center">
+            <div className="max-w-4xl w-full">
                 {/* Header */}
-                <div className="bg-black text-white border-8 border-black p-8 mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                    <h1 className="text-6xl font-black mb-4 uppercase tracking-tight">
+                <div className="bg-black text-white border-4 sm:border-8 border-black p-3 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                    <h1 className="text-2xl sm:text-5xl md:text-6xl font-black mb-1 sm:mb-4 uppercase tracking-tight">
                         SHARE
                     </h1>
-                    <p className="text-xl font-bold leading-tight">
-                        E2EE FILE TRANSFER // ECDH + AES-GCM // ZERO-KNOWLEDGE RELAY
+                    <p className="text-xs sm:text-lg md:text-xl font-bold leading-tight">
+                        E2EE FILE TRANSFER
                     </p>
                     {myMnemonic && (
-                        <div className="mt-4 bg-white text-black px-4 py-2 inline-block border-4 border-black font-black text-2xl uppercase">
+                        <div className="mt-2 sm:mt-4 bg-white text-black px-2 py-1 sm:px-4 sm:py-2 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-2xl uppercase">
                             {myMnemonic}
                         </div>
                     )}
                 </div>
 
                 {/* Connection Panel */}
-                <div className="bg-gray-200 border-8 border-black p-6 mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                    <h2 className="text-3xl font-black mb-4 uppercase">ROOM</h2>
-                    <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <div className="bg-gray-200 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                    <h2 className="text-2xl sm:text-3xl font-black mb-3 sm:mb-4 uppercase">ROOM</h2>
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
                         <input
                             type="text"
                             placeholder="ENTER ROOM ID"
@@ -309,12 +309,12 @@ export default function App() {
                             disabled={connected}
                             onChange={(e) => setRoomId(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && !connected && connectToRoom()}
-                            className="flex-1 border-4 border-black p-4 text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 focus:ring-black"
+                            className="flex-1 border-2 sm:border-4 border-black p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 focus:ring-black"
                         />
                         <button
                             onClick={connectToRoom}
                             disabled={connected}
-                            className={`border-4 border-black px-8 py-4 text-xl font-black uppercase transition-all whitespace-nowrap ${connected
+                            className={`border-2 sm:border-4 border-black px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-xl font-black uppercase transition-all whitespace-nowrap ${connected
                                 ? "bg-gray-400 cursor-not-allowed"
                                 : "bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
                                 } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`}
@@ -322,9 +322,9 @@ export default function App() {
                             {connected ? "CONNECTED" : "CONNECT"}
                         </button>
                     </div>
-                    <div className="bg-black text-white border-4 border-black p-3 font-bold text-lg break-words">
+                    <div className="bg-black text-white border-2 sm:border-4 border-black p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words">
                         {peerMnemonic ? (
-                            <>PEER: {peerMnemonic.toUpperCase()} // CONNECTED</>
+                            <>PEER: {peerMnemonic.toUpperCase()}</>
                         ) : (
                             <>STATUS: {status.toUpperCase()}</>
                         )}
@@ -333,15 +333,14 @@ export default function App() {
 
                 {/* File Transfer Panel */}
                 {connected && (
-                    <div className="bg-gray-300 border-8 border-black p-6 mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                        {/* <h2 className="text-3xl font-black mb-4 uppercase">TRANSFER</h2> */}
+                    <div className="bg-gray-300 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         <label
-                            className={`block border-4 border-black p-8 text-center text-2xl font-black uppercase ${hasAesKey
+                            className={`block border-2 sm:border-4 border-black p-6 sm:p-8 text-center text-xl sm:text-2xl font-black uppercase ${hasAesKey
                                 ? "bg-white cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                                 : "bg-gray-400 cursor-not-allowed"
                                 }`}
                         >
-                            {hasAesKey ? "SHARE" : "WAITING FOR PEER..."}
+                            {hasAesKey ? "SHARE" : "WAITING..."}
                             <input
                                 type="file"
                                 className="hidden"
@@ -351,12 +350,12 @@ export default function App() {
                         </label>
 
                         {downloadUrl && (
-                            <div className="mt-4 bg-white border-4 border-black p-4">
-                                <div className="text-xl font-black mb-2">FILE READY:</div>
+                            <div className="mt-3 sm:mt-4 bg-white border-2 sm:border-4 border-black p-3 sm:p-4">
+                                <div className="text-base sm:text-xl font-black mb-2">FILE READY:</div>
                                 <a
                                     href={downloadUrl}
                                     download={downloadName}
-                                    className="text-2xl font-black underline hover:no-underline text-black"
+                                    className="text-lg sm:text-2xl font-black underline hover:no-underline text-black break-all"
                                 >
                                     📥 {downloadName}
                                 </a>
