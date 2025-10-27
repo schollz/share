@@ -280,7 +280,7 @@ export default function App() {
                 receivedBytesRef.current = 0;
 
                 log(`Incoming encrypted file: ${msg.name} (${formatBytes(msg.total_size)})`);
-                setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: Date.now() });
+                setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: Date.now(), fileName: msg.name });
                 return;
             }
 
@@ -302,7 +302,8 @@ export default function App() {
                     percent,
                     speed,
                     eta,
-                    startTime: downloadProgress?.startTime || Date.now()
+                    startTime: downloadProgress?.startTime || Date.now(),
+                    fileName: fileNameRef.current
                 });
                 return;
             }
@@ -331,7 +332,7 @@ export default function App() {
                     const elapsed = (Date.now() - (downloadProgress?.startTime || Date.now())) / 1000;
                     const speed = elapsed > 0 ? fileTotalSizeRef.current / elapsed : 0;
 
-                    setDownloadProgress({ percent: 100, speed, eta: 0 });
+                    setDownloadProgress({ percent: 100, speed, eta: 0, fileName: fileNameRef.current });
 
                     const blob = new Blob([plainBytes], { type: "application/octet-stream" });
                     const url = URL.createObjectURL(blob);
@@ -347,7 +348,6 @@ export default function App() {
                     document.body.removeChild(a);
 
                     log(`Decrypted and prepared download "${fileNameRef.current}"`);
-                    setTimeout(() => setDownloadProgress(null), 2000);
                 } catch (err) {
                     console.error(err);
                     log("Decryption failed");
@@ -368,19 +368,19 @@ export default function App() {
 
                 try {
                     const startTime = Date.now();
-                    setDownloadProgress({ percent: 0, speed: 0, eta: 0 });
+                    setDownloadProgress({ percent: 0, speed: 0, eta: 0, fileName: name });
 
                     const iv = base64ToUint8(iv_b64);
                     const ciphertext = base64ToUint8(data_b64);
 
-                    setDownloadProgress({ percent: 50, speed: 0, eta: 0 });
+                    setDownloadProgress({ percent: 50, speed: 0, eta: 0, fileName: name });
 
                     const plainBytes = await decryptBytes(aesKeyRef.current, iv, ciphertext);
 
                     const elapsed = (Date.now() - startTime) / 1000;
                     const speed = size / elapsed;
 
-                    setDownloadProgress({ percent: 100, speed, eta: 0 });
+                    setDownloadProgress({ percent: 100, speed, eta: 0, fileName: name });
 
                     const blob = new Blob([plainBytes], { type: "application/octet-stream" });
                     const url = URL.createObjectURL(blob);
@@ -396,7 +396,6 @@ export default function App() {
                     document.body.removeChild(a);
 
                     log(`Decrypted and prepared download "${name}"`);
-                    setTimeout(() => setDownloadProgress(null), 2000);
                 } catch (err) {
                     console.error(err);
                     log("Decryption failed");
@@ -427,7 +426,7 @@ export default function App() {
         }
         try {
             const startTime = Date.now();
-            setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime });
+            setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime, fileName: file.name });
 
             const arrBuf = await file.arrayBuffer();
             log(`Encrypting "${file.name}" (${formatBytes(arrBuf.byteLength)})`);
@@ -468,7 +467,7 @@ export default function App() {
                 const remainingBytes = ciphertext.length - sentBytes;
                 const eta = speed > 0 ? remainingBytes / speed : 0;
 
-                setUploadProgress({ percent, speed, eta, startTime });
+                setUploadProgress({ percent, speed, eta, startTime, fileName: file.name });
 
                 // Small delay to allow UI updates
                 await new Promise(resolve => setTimeout(resolve, 10));
@@ -481,10 +480,9 @@ export default function App() {
 
             const elapsed = (Date.now() - startTime) / 1000;
             const speed = file.size / elapsed;
-            setUploadProgress({ percent: 100, speed, eta: 0 });
+            setUploadProgress({ percent: 100, speed, eta: 0, fileName: file.name });
 
             log(`Sent encrypted file "${file.name}"`);
-            setTimeout(() => setUploadProgress(null), 2000);
         } catch (err) {
             console.error(err);
             log("Failed to send file");
@@ -581,11 +579,11 @@ export default function App() {
                 {connected && (
                     <div className="bg-gray-300 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         {uploadProgress && (
-                            <ProgressBar progress={uploadProgress} label="Sending file" />
+                            <ProgressBar progress={uploadProgress} label={`Sending ${uploadProgress.fileName}`} />
                         )}
 
                         {downloadProgress && (
-                            <ProgressBar progress={downloadProgress} label="Receiving file" />
+                            <ProgressBar progress={downloadProgress} label={`Receiving ${downloadProgress.fileName}`} />
                         )}
 
                         <label
