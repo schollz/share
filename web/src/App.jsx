@@ -296,13 +296,13 @@ export default function App() {
                             <div className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase">
                                 {myMnemonic}
                             </div>
-                            <span className="text-white text-lg sm:text-xl font-black">↔</span>
+                            <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
                             <a href={`/${roomId}`} className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase no-underline cursor-pointer hover:bg-white">
                                 {window.location.host}/{roomId}
                             </a>
                             {peerMnemonic && (
                                 <>
-                                    <span className="text-white text-lg sm:text-xl font-black">↔</span>
+                                    <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
                                     <div className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase">
                                         {peerMnemonic}
                                     </div>
