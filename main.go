@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
 	"embed"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"github.com/schollz/share/src/relay"
 
 	"github.com/spf13/cobra"
+	"github.com/tyler-smith/go-bip39"
 )
 
 //go:embed web/dist install.sh
@@ -53,7 +55,7 @@ var sendCmd = &cobra.Command{
 		if len(args) >= 2 {
 			roomID = args[1]
 		} else {
-			roomID = promptForRoom()
+			roomID = generateRandomRoom()
 		}
 		server, _ := cmd.Flags().GetString("server")
 		if server == "" {
@@ -89,6 +91,29 @@ func promptForRoom() string {
 	reader := bufio.NewReader(os.Stdin)
 	roomID, _ := reader.ReadString('\n')
 	return strings.TrimSpace(roomID)
+}
+
+func generateRandomRoom() string {
+	// Generate 16 bytes of random entropy
+	entropy := make([]byte, 16)
+	_, err := rand.Read(entropy)
+	if err != nil {
+		// Fallback to a simple random name if entropy generation fails
+		return fmt.Sprintf("room-%d", os.Getpid())
+	}
+
+	// Generate BIP39 mnemonic from entropy
+	mnemonic, err := bip39.NewMnemonic(entropy)
+	if err != nil {
+		return fmt.Sprintf("room-%d", os.Getpid())
+	}
+
+	// Extract first 2 words
+	words := strings.Split(mnemonic, " ")
+	if len(words) >= 2 {
+		return words[0] + "-" + words[1]
+	}
+	return words[0]
 }
 
 func getWebSocketURL(domain string) string {
