@@ -1,6 +1,8 @@
+<img width="1262" height="1251" alt="target" src="https://github.com/user-attachments/assets/9f10996c-0c61-4f40-887c-0e7831fdd9cc" />
+
 <p align="center">
   <a href="https://www.youtube.com/watch?v=zViMACW6VbQ">
-    <img width="600" alt="vlcsnap-2025-08-23-18h24m04s244" src="https://github.com/user-attachments/assets/7d4c36c0-bd28-4611-a41b-ddf864af045c" />
+    <img width="600" alt="share-screenshot" src="https://github.com/user-attachments/assets/7d4c36c0-bd28-4611-a41b-ddf864af045c" />
   </a>
   <br>
   <a href="https://github.com/schollz/share/releases/latest">
