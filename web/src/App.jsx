@@ -276,7 +276,6 @@ export default function App() {
 
                 fileNameRef.current = msg.name;
                 fileTotalSizeRef.current = msg.total_size;
-                fileIVRef.current = base64ToUint8(msg.iv_b64);
                 fileChunksRef.current = [];
                 receivedBytesRef.current = 0;
 
@@ -286,26 +285,37 @@ export default function App() {
             }
 
             if (msg.type === "file_chunk") {
-                const chunkData = base64ToUint8(msg.chunk_data);
-                fileChunksRef.current.push(chunkData);
-                receivedBytesRef.current += chunkData.length;
+                try {
+                    // Decrypt chunk immediately with its own IV
+                    const chunkIV = base64ToUint8(msg.iv_b64);
+                    const cipherChunk = base64ToUint8(msg.chunk_data);
 
-                const elapsed = (Date.now() - (downloadProgress?.startTime || Date.now())) / 1000;
-                const speed = elapsed > 0 ? receivedBytesRef.current / elapsed : 0;
-                const percent = fileTotalSizeRef.current > 0
-                    ? Math.round((receivedBytesRef.current / fileTotalSizeRef.current) * 100)
-                    : 0;
+                    const plainChunk = await decryptBytes(aesKeyRef.current, chunkIV, cipherChunk);
 
-                const remainingBytes = fileTotalSizeRef.current - receivedBytesRef.current;
-                const eta = speed > 0 ? remainingBytes / speed : 0;
+                    // Store decrypted chunk
+                    fileChunksRef.current.push(plainChunk);
+                    receivedBytesRef.current += plainChunk.length;
 
-                setDownloadProgress({
-                    percent,
-                    speed,
-                    eta,
-                    startTime: downloadProgress?.startTime || Date.now(),
-                    fileName: fileNameRef.current
-                });
+                    const elapsed = (Date.now() - (downloadProgress?.startTime || Date.now())) / 1000;
+                    const speed = elapsed > 0 ? receivedBytesRef.current / elapsed : 0;
+                    const percent = fileTotalSizeRef.current > 0
+                        ? Math.round((receivedBytesRef.current / fileTotalSizeRef.current) * 100)
+                        : 0;
+
+                    const remainingBytes = fileTotalSizeRef.current - receivedBytesRef.current;
+                    const eta = speed > 0 ? remainingBytes / speed : 0;
+
+                    setDownloadProgress({
+                        percent,
+                        speed,
+                        eta,
+                        startTime: downloadProgress?.startTime || Date.now(),
+                        fileName: fileNameRef.current
+                    });
+                } catch (err) {
+                    console.error("Chunk decryption failed:", err);
+                    log("Chunk decryption failed");
+                }
                 return;
             }
 
@@ -317,21 +327,17 @@ export default function App() {
                 }
 
                 try {
-                    log("Decrypting file...");
-
-                    // Reassemble ciphertext from chunks
+                    // Reassemble plaintext from decrypted chunks
                     const totalLen = fileChunksRef.current.reduce((sum, chunk) => sum + chunk.length, 0);
-                    const ciphertext = new Uint8Array(totalLen);
+                    const plainBytes = new Uint8Array(totalLen);
                     let offset = 0;
                     for (const chunk of fileChunksRef.current) {
-                        ciphertext.set(chunk, offset);
+                        plainBytes.set(chunk, offset);
                         offset += chunk.length;
                     }
 
-                    const plainBytes = await decryptBytes(aesKeyRef.current, fileIVRef.current, ciphertext);
-
                     const elapsed = (Date.now() - (downloadProgress?.startTime || Date.now())) / 1000;
-                    const speed = elapsed > 0 ? fileTotalSizeRef.current / elapsed : 0;
+                    const speed = elapsed > 0 ? totalLen / elapsed : 0;
 
                     setDownloadProgress({ percent: 100, speed, eta: 0, fileName: fileNameRef.current });
 
@@ -351,7 +357,7 @@ export default function App() {
                     log(`Decrypted and prepared download "${fileNameRef.current}"`);
                 } catch (err) {
                     console.error(err);
-                    log("Decryption failed");
+                    log("Failed to assemble file");
                     setDownloadProgress(null);
                 }
                 return;
@@ -429,49 +435,57 @@ export default function App() {
             const startTime = Date.now();
             setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime, fileName: file.name });
 
-            const arrBuf = await file.arrayBuffer();
-            log(`Encrypting "${file.name}" (${formatBytes(arrBuf.byteLength)})`);
+            log(`Streaming file "${file.name}" (${formatBytes(file.size)})`);
 
-            const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, arrBuf);
-
-            log(`Sending file in chunks...`);
-
-            // Send file_start message
+            // Send file_start message (with original file size, not encrypted size)
             sendMsg({
                 type: "file_start",
                 name: file.name,
-                total_size: ciphertext.length,
-                iv_b64: uint8ToBase64(iv)
+                total_size: file.size
             });
 
-            // Send in chunks (256KB per chunk)
+            // Stream file in chunks, encrypting each chunk individually
             const chunkSize = 256 * 1024;
-            const totalChunks = Math.ceil(ciphertext.length / chunkSize);
             let sentBytes = 0;
+            let chunkNum = 0;
 
-            for (let i = 0; i < totalChunks; i++) {
-                const start = i * chunkSize;
-                const end = Math.min(start + chunkSize, ciphertext.length);
-                const chunk = ciphertext.slice(start, end);
+            // Use File stream API for memory-efficient reading
+            const stream = file.stream();
+            const reader = stream.getReader();
 
-                sendMsg({
-                    type: "file_chunk",
-                    chunk_num: i,
-                    chunk_data: uint8ToBase64(chunk)
-                });
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                sentBytes += chunk.length;
-                const elapsed = (Date.now() - startTime) / 1000;
-                const speed = elapsed > 0 ? sentBytes / elapsed : 0;
-                const percent = Math.round((sentBytes / ciphertext.length) * 100);
+                    // Encrypt this chunk with its own IV
+                    const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, value);
 
-                const remainingBytes = ciphertext.length - sentBytes;
-                const eta = speed > 0 ? remainingBytes / speed : 0;
+                    // Send chunk with its IV
+                    sendMsg({
+                        type: "file_chunk",
+                        chunk_num: chunkNum,
+                        chunk_data: uint8ToBase64(ciphertext),
+                        iv_b64: uint8ToBase64(iv)
+                    });
 
-                setUploadProgress({ percent, speed, eta, startTime, fileName: file.name });
+                    sentBytes += value.length;
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    const speed = elapsed > 0 ? sentBytes / elapsed : 0;
+                    const percent = Math.round((sentBytes / file.size) * 100);
 
-                // Small delay to allow UI updates
-                await new Promise(resolve => setTimeout(resolve, 10));
+                    const remainingBytes = file.size - sentBytes;
+                    const eta = speed > 0 ? remainingBytes / speed : 0;
+
+                    setUploadProgress({ percent, speed, eta, startTime, fileName: file.name });
+
+                    chunkNum++;
+
+                    // Small delay to allow UI updates
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+            } finally {
+                reader.releaseLock();
             }
 
             // Send file_end message
