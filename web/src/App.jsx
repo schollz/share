@@ -150,6 +150,7 @@ export default function App() {
     const [uploadProgress, setUploadProgress] = useState(null);
     const [downloadProgress, setDownloadProgress] = useState(null);
     const [showErrorModal, setShowErrorModal] = useState(false);
+    const [showAboutModal, setShowAboutModal] = useState(false);
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -547,8 +548,16 @@ export default function App() {
                     <h1 className="text-3xl sm:text-5xl md:text-6xl font-black mb-2 sm:mb-4 uppercase tracking-tight">
                         <a href="/" className="text-white no-underline cursor-pointer hover:text-white">SHARE</a>
                     </h1>
-                    <p className="text-sm sm:text-lg md:text-xl font-bold leading-tight">
+                    <p className="flex items-center gap-2 text-sm sm:text-lg md:text-xl font-bold leading-tight">
                         <a href="https://github.com/schollz/share" target="_blank" rel="noopener noreferrer" className="text-white no-underline cursor-pointer hover:text-white">E2EE FILE TRANSFER</a>
+                        <button
+                            type="button"
+                            onClick={() => setShowAboutModal(true)}
+                            className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer"
+                            aria-label="About Share"
+                        >
+                            ?
+                        </button>
                     </p>
                     {myMnemonic && (
                         <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
@@ -590,7 +599,7 @@ export default function App() {
                             disabled={connected}
                             className={`border-2 sm:border-4 border-black px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-xl font-black uppercase transition-all whitespace-nowrap ${connected
                                 ? "bg-gray-400 cursor-not-allowed"
-                                : "bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                                : "bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 cursor-pointer"
                                 } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`}
                         >
                             {connected ? "CONNECTED" : "CONNECT"}
@@ -659,9 +668,39 @@ export default function App() {
                                 setShowErrorModal(false);
                                 setRoomId('');
                             }}
-                            className="w-full border-2 sm:border-4 border-black bg-black text-white px-6 py-3 sm:py-4 text-lg sm:text-xl font-black uppercase hover:bg-gray-900 transition-colors"
+                            className="w-full border-2 sm:border-4 border-black bg-black text-white px-6 py-3 sm:py-4 text-lg sm:text-xl font-black uppercase hover:bg-gray-900 transition-colors cursor-pointer"
                         >
                             OK
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* About Modal */}
+            {showAboutModal && (
+                <div
+                    className="fixed inset-0 bg-[rgba(15,15,15,0.7)] flex items-center justify-center z-50 p-4"
+                    onClick={() => setShowAboutModal(false)}
+                >
+                    <div
+                        className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-3 text-center">WHAT IS SHARE?</h2>
+                        <p className="text-sm sm:text-base font-bold mb-3 text-center">
+                            Share links two peers to stream files with end-to-end encryption via a neutral relay.
+                        </p>
+                        <p className="text-sm sm:text-base font-bold mb-4 text-center">
+                            Use the CLI to swap files between web or terminals:
+                            <br />
+                            <code>curl https://share.schollz.com | bash</code>
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setShowAboutModal(false)}
+                            className="w-full border-2 sm:border-4 border-black bg-black text-white px-4 py-2 sm:py-3 text-sm sm:text-lg font-black uppercase hover:bg-gray-900 transition-colors cursor-pointer"
+                        >
+                            Close
                         </button>
                     </div>
                 </div>
