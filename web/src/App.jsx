@@ -292,8 +292,22 @@ export default function App() {
                         <a href="https://github.com/schollz/share" target="_blank" rel="noopener noreferrer" className="text-white no-underline cursor-pointer hover:text-white">E2EE FILE TRANSFER</a>
                     </p>
                     {myMnemonic && (
-                        <div className="mt-3 sm:mt-4 bg-white text-black px-3 py-1 sm:px-4 sm:py-2 inline-block border-2 sm:border-4 border-black font-black text-lg sm:text-2xl uppercase">
-                            {myMnemonic}
+                        <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
+                            <div className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase">
+                                {myMnemonic}
+                            </div>
+                            <span className="text-white text-lg sm:text-xl font-black">↔</span>
+                            <a href={`/${roomId}`} className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase no-underline cursor-pointer hover:bg-white">
+                                {window.location.host}/{roomId}
+                            </a>
+                            {peerMnemonic && (
+                                <>
+                                    <span className="text-white text-lg sm:text-xl font-black">↔</span>
+                                    <div className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase">
+                                        {peerMnemonic}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -335,12 +349,12 @@ export default function App() {
                 {connected && (
                     <div className="bg-gray-300 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         <label
-                            className={`block border-2 sm:border-4 border-black p-6 sm:p-8 text-center text-xl sm:text-2xl font-black uppercase ${hasAesKey
-                                ? "bg-white cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                                : "bg-gray-400 cursor-not-allowed"
+                            className={`block border-2 sm:border-4 border-black p-6 sm:p-8 text-center font-black uppercase ${hasAesKey
+                                ? "bg-white cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-xl sm:text-2xl"
+                                : "bg-gray-400 cursor-not-allowed text-sm sm:text-base"
                                 }`}
                         >
-                            {hasAesKey ? "SHARE" : "WAITING..."}
+                            {hasAesKey ? "SHARE" : `WAITING FOR PEER TO JOIN ${window.location.host}/${roomId}`.toUpperCase()}
                             <input
                                 type="file"
                                 className="hidden"
