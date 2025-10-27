@@ -182,5 +182,4 @@ func SendFile(filePath, roomID, serverURL string) {
 	}()
 
 	<-done
-	fmt.Println("Transfer complete!")
 }
