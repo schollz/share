@@ -105,10 +105,25 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 				fmt.Println("🤝 Derived shared AES key (E2EE ready)")
 
-				// Create progress bar for encryption
+				// Encrypt the entire file first
+				iv, ciphertext, err := crypto.EncryptAESGCM(sharedSecret, data)
+				if err != nil {
+					log.Fatalf("Failed to encrypt file: %v", err)
+				}
+
+				// Send file_start message
+				fileStartMsg := map[string]interface{}{
+					"type":       "file_start",
+					"name":       fileName,
+					"total_size": fileSize,
+					"iv_b64":     base64.StdEncoding.EncodeToString(iv),
+				}
+				conn.WriteJSON(fileStartMsg)
+
+				// Create progress bar
 				bar := progressbar.NewOptions64(
-					fileSize,
-					progressbar.OptionSetDescription("📦 Encrypting & sending"),
+					int64(len(ciphertext)),
+					progressbar.OptionSetDescription("📦 Sending"),
 					progressbar.OptionSetWriter(os.Stderr),
 					progressbar.OptionShowBytes(true),
 					progressbar.OptionSetWidth(10),
@@ -121,20 +136,36 @@ func SendFile(filePath, roomID, serverURL string) {
 					progressbar.OptionFullWidth(),
 				)
 
-				iv, ciphertext, err := crypto.EncryptAESGCM(sharedSecret, data)
-				if err != nil {
-					log.Fatalf("Failed to encrypt file: %v", err)
+				// Send in chunks (256KB per chunk)
+				chunkSize := 256 * 1024
+				totalChunks := (len(ciphertext) + chunkSize - 1) / chunkSize
+
+				for i := 0; i < totalChunks; i++ {
+					start := i * chunkSize
+					end := start + chunkSize
+					if end > len(ciphertext) {
+						end = len(ciphertext)
+					}
+
+					chunk := ciphertext[start:end]
+					chunkMsg := map[string]interface{}{
+						"type":       "file_chunk",
+						"chunk_num":  i,
+						"chunk_data": base64.StdEncoding.EncodeToString(chunk),
+					}
+					conn.WriteJSON(chunkMsg)
+					bar.Add(len(chunk))
+
+					// Small delay to allow network transmission
+					time.Sleep(10 * time.Millisecond)
 				}
 
-				fileMsg := map[string]interface{}{
-					"type":     "file",
-					"name":     fileName,
-					"size":     fileSize,
-					"iv_b64":   base64.StdEncoding.EncodeToString(iv),
-					"data_b64": base64.StdEncoding.EncodeToString(ciphertext),
+				// Send file_end message
+				fileEndMsg := map[string]interface{}{
+					"type": "file_end",
 				}
-				conn.WriteJSON(fileMsg)
-				bar.Add64(fileSize)
+				conn.WriteJSON(fileEndMsg)
+
 				fmt.Printf("🚀 Sent encrypted file '%s' to %s (%d bytes)\n", fileName, peerMnemonic, len(data))
 
 				time.Sleep(500 * time.Millisecond)

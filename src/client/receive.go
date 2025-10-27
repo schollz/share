@@ -18,6 +18,20 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// formatBytes formats bytes into human-readable string
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
 // ReceiveFile receives a file from the specified room via the relay server
 func ReceiveFile(roomID, serverURL, outputDir string) {
 	clientID := uuid.New().String()
@@ -45,6 +59,12 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 	conn.WriteJSON(joinMsg)
 
 	var sharedSecret []byte
+	var fileChunks [][]byte
+	var fileName string
+	var fileIV []byte
+	var totalSize int64
+	var receivedBytes int64
+	var bar *progressbar.ProgressBar
 
 	sendPublicKey := func() {
 		pubKeyBytes := privKey.PublicKey().Bytes()
@@ -90,7 +110,83 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			}
 			fmt.Println("🤝 Derived shared AES key (E2EE ready)")
 
+		case "file_start":
+			if sharedSecret == nil {
+				fmt.Println("❌ Can't decrypt yet (no shared key)")
+				continue
+			}
+
+			fileName = msg.Name
+			totalSize = msg.TotalSize
+			fileIV, _ = base64.StdEncoding.DecodeString(msg.IvB64)
+			fileChunks = make([][]byte, 0)
+			receivedBytes = 0
+
+			fmt.Printf("📦 Incoming encrypted file: %s (%s)\n", fileName, formatBytes(totalSize))
+
+			// Create progress bar for receiving
+			bar = progressbar.NewOptions64(
+				totalSize,
+				progressbar.OptionSetDescription("📥 Receiving"),
+				progressbar.OptionSetWriter(os.Stderr),
+				progressbar.OptionShowBytes(true),
+				progressbar.OptionSetWidth(10),
+				progressbar.OptionThrottle(65*time.Millisecond),
+				progressbar.OptionShowCount(),
+				progressbar.OptionOnCompletion(func() {
+					fmt.Fprint(os.Stderr, "\n")
+				}),
+				progressbar.OptionSpinnerType(14),
+				progressbar.OptionFullWidth(),
+			)
+
+		case "file_chunk":
+			if bar == nil {
+				continue
+			}
+
+			chunkData, _ := base64.StdEncoding.DecodeString(msg.ChunkData)
+			fileChunks = append(fileChunks, chunkData)
+			receivedBytes += int64(len(chunkData))
+			bar.Add(len(chunkData))
+
+		case "file_end":
+			if bar == nil {
+				continue
+			}
+
+			bar.Finish()
+
+			// Reassemble the ciphertext
+			totalCipherLen := 0
+			for _, chunk := range fileChunks {
+				totalCipherLen += len(chunk)
+			}
+
+			ciphertext := make([]byte, 0, totalCipherLen)
+			for _, chunk := range fileChunks {
+				ciphertext = append(ciphertext, chunk...)
+			}
+
+			fmt.Println("🔓 Decrypting file...")
+
+			plaintext, err := crypto.DecryptAESGCM(sharedSecret, fileIV, ciphertext)
+			if err != nil {
+				log.Fatalf("❌ Decryption failed: %v", err)
+			}
+
+			outputPath := filepath.Join(outputDir, fileName)
+			err = os.WriteFile(outputPath, plaintext, 0644)
+			if err != nil {
+				log.Fatalf("Failed to write file: %v", err)
+			}
+
+			fmt.Printf("✅ Decrypted and saved file: %s (%d bytes)\n", outputPath, len(plaintext))
+			fmt.Println("✨ Transfer complete!")
+			return
+
 		case "file":
+			// Backward compatibility: handle old-style single-message transfers
 			if sharedSecret == nil {
 				fmt.Println("❌ Can't decrypt yet (no shared key)")
 				continue
@@ -98,10 +194,9 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 
 			fmt.Printf("📦 Incoming encrypted file: %s\n", msg.Name)
 
-			// Create progress bar for receiving
 			bar := progressbar.NewOptions64(
 				msg.Size,
-				progressbar.OptionSetDescription("📥 Receiving & decrypting"),
+				progressbar.OptionSetDescription("📥 Receiving"),
 				progressbar.OptionSetWriter(os.Stderr),
 				progressbar.OptionShowBytes(true),
 				progressbar.OptionSetWidth(10),
@@ -117,12 +212,15 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			iv, _ := base64.StdEncoding.DecodeString(msg.IvB64)
 			ciphertext, _ := base64.StdEncoding.DecodeString(msg.DataB64)
 
+			bar.Add64(msg.Size)
+			bar.Finish()
+
+			fmt.Println("🔓 Decrypting file...")
+
 			plaintext, err := crypto.DecryptAESGCM(sharedSecret, iv, ciphertext)
 			if err != nil {
 				log.Fatalf("❌ Decryption failed: %v", err)
 			}
-
-			bar.Add64(msg.Size)
 
 			outputPath := filepath.Join(outputDir, msg.Name)
 			err = os.WriteFile(outputPath, plaintext, 0644)

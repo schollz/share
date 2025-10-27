@@ -138,6 +138,13 @@ export default function App() {
     const myMnemonicRef = useRef(null);
     const clientIdRef = useRef(crypto.randomUUID());
 
+    // For chunked file reception
+    const fileChunksRef = useRef([]);
+    const fileNameRef = useRef(null);
+    const fileIVRef = useRef(null);
+    const fileTotalSizeRef = useRef(0);
+    const receivedBytesRef = useRef(0);
+
     function log(msg) {
         console.log(msg);
     }
@@ -239,7 +246,94 @@ export default function App() {
                 return;
             }
 
+            if (msg.type === "file_start") {
+                if (!aesKeyRef.current) {
+                    log("❌ Can't decrypt yet (no shared key)");
+                    return;
+                }
+
+                fileNameRef.current = msg.name;
+                fileTotalSizeRef.current = msg.total_size;
+                fileIVRef.current = base64ToUint8(msg.iv_b64);
+                fileChunksRef.current = [];
+                receivedBytesRef.current = 0;
+
+                log(`📦 Incoming encrypted file: ${msg.name} (${formatBytes(msg.total_size)})`);
+                setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: Date.now() });
+                return;
+            }
+
+            if (msg.type === "file_chunk") {
+                const chunkData = base64ToUint8(msg.chunk_data);
+                fileChunksRef.current.push(chunkData);
+                receivedBytesRef.current += chunkData.length;
+
+                const elapsed = (Date.now() - (downloadProgress?.startTime || Date.now())) / 1000;
+                const speed = elapsed > 0 ? receivedBytesRef.current / elapsed : 0;
+                const percent = fileTotalSizeRef.current > 0
+                    ? Math.round((receivedBytesRef.current / fileTotalSizeRef.current) * 100)
+                    : 0;
+
+                setDownloadProgress({
+                    percent,
+                    speed,
+                    eta: 0,
+                    startTime: downloadProgress?.startTime || Date.now()
+                });
+                return;
+            }
+
+            if (msg.type === "file_end") {
+                if (!aesKeyRef.current || fileChunksRef.current.length === 0) {
+                    log("❌ No file data received");
+                    setDownloadProgress(null);
+                    return;
+                }
+
+                try {
+                    log("🔓 Decrypting file...");
+
+                    // Reassemble ciphertext from chunks
+                    const totalLen = fileChunksRef.current.reduce((sum, chunk) => sum + chunk.length, 0);
+                    const ciphertext = new Uint8Array(totalLen);
+                    let offset = 0;
+                    for (const chunk of fileChunksRef.current) {
+                        ciphertext.set(chunk, offset);
+                        offset += chunk.length;
+                    }
+
+                    const plainBytes = await decryptBytes(aesKeyRef.current, fileIVRef.current, ciphertext);
+
+                    const elapsed = (Date.now() - (downloadProgress?.startTime || Date.now())) / 1000;
+                    const speed = elapsed > 0 ? fileTotalSizeRef.current / elapsed : 0;
+
+                    setDownloadProgress({ percent: 100, speed, eta: 0 });
+
+                    const blob = new Blob([plainBytes], { type: "application/octet-stream" });
+                    const url = URL.createObjectURL(blob);
+                    setDownloadUrl(url);
+                    setDownloadName(fileNameRef.current);
+
+                    // auto trigger browser download
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = fileNameRef.current || "download.bin";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+
+                    log(`✅ Decrypted and prepared download "${fileNameRef.current}"`);
+                    setTimeout(() => setDownloadProgress(null), 2000);
+                } catch (err) {
+                    console.error(err);
+                    log("❌ Decryption failed");
+                    setDownloadProgress(null);
+                }
+                return;
+            }
+
             if (msg.type === "file") {
+                // Backward compatibility: handle old-style single-message transfers
                 const { name, size, iv_b64, data_b64 } = msg;
                 log(`📦 Incoming encrypted file: ${name}`);
 
@@ -255,7 +349,6 @@ export default function App() {
                     const iv = base64ToUint8(iv_b64);
                     const ciphertext = base64ToUint8(data_b64);
 
-                    // Simulate progress for decryption
                     setDownloadProgress({ percent: 50, speed: 0, eta: 0 });
 
                     const plainBytes = await decryptBytes(aesKeyRef.current, iv, ciphertext);
@@ -310,28 +403,57 @@ export default function App() {
         }
         try {
             const startTime = Date.now();
-            setUploadProgress({ percent: 0, speed: 0, eta: 0 });
+            setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime });
 
             const arrBuf = await file.arrayBuffer();
-            log(`🔒 Encrypting "${file.name}" (${arrBuf.byteLength} bytes)`);
-
-            setUploadProgress({ percent: 30, speed: 0, eta: 0 });
+            log(`🔒 Encrypting "${file.name}" (${formatBytes(arrBuf.byteLength)})`);
 
             const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, arrBuf);
 
-            const elapsed = (Date.now() - startTime) / 1000;
-            const speed = file.size / elapsed;
+            log(`📤 Sending file in chunks...`);
 
-            setUploadProgress({ percent: 70, speed, eta: 0 });
-
+            // Send file_start message
             sendMsg({
-                type: "file",
+                type: "file_start",
                 name: file.name,
-                size: file.size,
-                iv_b64: uint8ToBase64(iv),
-                data_b64: uint8ToBase64(ciphertext)
+                total_size: file.size,
+                iv_b64: uint8ToBase64(iv)
             });
 
+            // Send in chunks (256KB per chunk)
+            const chunkSize = 256 * 1024;
+            const totalChunks = Math.ceil(ciphertext.length / chunkSize);
+            let sentBytes = 0;
+
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * chunkSize;
+                const end = Math.min(start + chunkSize, ciphertext.length);
+                const chunk = ciphertext.slice(start, end);
+
+                sendMsg({
+                    type: "file_chunk",
+                    chunk_num: i,
+                    chunk_data: uint8ToBase64(chunk)
+                });
+
+                sentBytes += chunk.length;
+                const elapsed = (Date.now() - startTime) / 1000;
+                const speed = elapsed > 0 ? sentBytes / elapsed : 0;
+                const percent = Math.round((sentBytes / ciphertext.length) * 100);
+
+                setUploadProgress({ percent, speed, eta: 0, startTime });
+
+                // Small delay to allow UI updates
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+
+            // Send file_end message
+            sendMsg({
+                type: "file_end"
+            });
+
+            const elapsed = (Date.now() - startTime) / 1000;
+            const speed = file.size / elapsed;
             setUploadProgress({ percent: 100, speed, eta: 0 });
 
             log(`🚀 Sent encrypted file "${file.name}"`);
