@@ -57,12 +57,11 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 	conn.WriteJSON(joinMsg)
 
 	var sharedSecret []byte
-	var fileChunks [][]byte
 	var fileName string
-	var fileIV []byte
 	var totalSize int64
 	var receivedBytes int64
 	var bar *progressbar.ProgressBar
+	var outputFile *os.File
 
 	sendPublicKey := func() {
 		pubKeyBytes := privKey.PublicKey().Bytes()
@@ -109,9 +108,14 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 
 			fileName = msg.Name
 			totalSize = msg.TotalSize
-			fileIV, _ = base64.StdEncoding.DecodeString(msg.IvB64)
-			fileChunks = make([][]byte, 0)
 			receivedBytes = 0
+
+			// Create output file for streaming
+			outputPath := filepath.Join(outputDir, fileName)
+			outputFile, err = os.Create(outputPath)
+			if err != nil {
+				log.Fatalf("Failed to create output file: %v", err)
+			}
 
 			// Create progress bar for receiving
 			bar = progressbar.NewOptions64(
@@ -130,45 +134,38 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			)
 
 		case "file_chunk":
-			if bar == nil {
+			if bar == nil || outputFile == nil {
 				continue
 			}
 
-			chunkData, _ := base64.StdEncoding.DecodeString(msg.ChunkData)
-			fileChunks = append(fileChunks, chunkData)
-			receivedBytes += int64(len(chunkData))
-			bar.Add(len(chunkData))
+			// Decrypt this chunk with its own IV
+			chunkIV, _ := base64.StdEncoding.DecodeString(msg.IvB64)
+			cipherChunk, _ := base64.StdEncoding.DecodeString(msg.ChunkData)
+
+			plainChunk, err := crypto.DecryptAESGCM(sharedSecret, chunkIV, cipherChunk)
+			if err != nil {
+				log.Fatalf("Failed to decrypt chunk: %v", err)
+			}
+
+			// Write decrypted chunk directly to file
+			n, err := outputFile.Write(plainChunk)
+			if err != nil {
+				log.Fatalf("Failed to write to file: %v", err)
+			}
+
+			receivedBytes += int64(n)
+			bar.Add(n)
 
 		case "file_end":
-			if bar == nil {
+			if bar == nil || outputFile == nil {
 				continue
 			}
 
 			bar.Finish()
-
-			// Reassemble the ciphertext
-			totalCipherLen := 0
-			for _, chunk := range fileChunks {
-				totalCipherLen += len(chunk)
-			}
-
-			ciphertext := make([]byte, 0, totalCipherLen)
-			for _, chunk := range fileChunks {
-				ciphertext = append(ciphertext, chunk...)
-			}
-
-			plaintext, err := crypto.DecryptAESGCM(sharedSecret, fileIV, ciphertext)
-			if err != nil {
-				log.Fatalf("Decryption failed: %v", err)
-			}
+			outputFile.Close()
 
 			outputPath := filepath.Join(outputDir, fileName)
-			err = os.WriteFile(outputPath, plaintext, 0644)
-			if err != nil {
-				log.Fatalf("Failed to write file: %v", err)
-			}
-
-			fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(int64(len(plaintext))))
+			fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(totalSize))
 			return
 
 		case "file":

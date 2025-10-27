@@ -26,11 +26,6 @@ func SendFile(filePath, roomID, serverURL string) {
 	}
 	fileSize := fileInfo.Size()
 
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		log.Fatalf("Failed to read file: %v", err)
-	}
-
 	fileName := filepath.Base(filePath)
 	clientID := uuid.New().String()
 
@@ -112,24 +107,24 @@ func SendFile(filePath, roomID, serverURL string) {
 					log.Fatalf("Failed to derive shared secret: %v", err)
 				}
 
-				// Encrypt the entire file first
-				iv, ciphertext, err := crypto.EncryptAESGCM(sharedSecret, data)
+				// Open file for streaming
+				file, err := os.Open(filePath)
 				if err != nil {
-					log.Fatalf("Failed to encrypt file: %v", err)
+					log.Fatalf("Failed to open file: %v", err)
 				}
+				defer file.Close()
 
-				// Send file_start message
+				// Send file_start message (no IV needed here anymore)
 				fileStartMsg := map[string]interface{}{
 					"type":       "file_start",
 					"name":       fileName,
 					"total_size": fileSize,
-					"iv_b64":     base64.StdEncoding.EncodeToString(iv),
 				}
 				conn.WriteJSON(fileStartMsg)
 
 				// Create progress bar
 				bar := progressbar.NewOptions64(
-					int64(len(ciphertext)),
+					fileSize,
 					progressbar.OptionSetDescription("Sending"),
 					progressbar.OptionSetWriter(os.Stderr),
 					progressbar.OptionShowBytes(true),
@@ -143,28 +138,40 @@ func SendFile(filePath, roomID, serverURL string) {
 					progressbar.OptionFullWidth(),
 				)
 
-				// Send in chunks (256KB per chunk)
+				// Stream file in chunks, encrypting each chunk individually
 				chunkSize := 256 * 1024
-				totalChunks := (len(ciphertext) + chunkSize - 1) / chunkSize
+				buffer := make([]byte, chunkSize)
+				chunkNum := 0
 
-				for i := 0; i < totalChunks; i++ {
-					start := i * chunkSize
-					end := start + chunkSize
-					if end > len(ciphertext) {
-						end = len(ciphertext)
+				for {
+					n, err := file.Read(buffer)
+					if n > 0 {
+						plainChunk := buffer[:n]
+
+						// Encrypt this chunk with its own IV
+						iv, cipherChunk, err := crypto.EncryptAESGCM(sharedSecret, plainChunk)
+						if err != nil {
+							log.Fatalf("Failed to encrypt chunk: %v", err)
+						}
+
+						// Send chunk with its IV
+						chunkMsg := map[string]interface{}{
+							"type":       "file_chunk",
+							"chunk_num":  chunkNum,
+							"chunk_data": base64.StdEncoding.EncodeToString(cipherChunk),
+							"iv_b64":     base64.StdEncoding.EncodeToString(iv),
+						}
+						conn.WriteJSON(chunkMsg)
+						bar.Add(n)
+						chunkNum++
+
+						// Small delay to allow network transmission
+						time.Sleep(10 * time.Millisecond)
 					}
 
-					chunk := ciphertext[start:end]
-					chunkMsg := map[string]interface{}{
-						"type":       "file_chunk",
-						"chunk_num":  i,
-						"chunk_data": base64.StdEncoding.EncodeToString(chunk),
+					if err == os.ErrClosed || err != nil {
+						break
 					}
-					conn.WriteJSON(chunkMsg)
-					bar.Add(len(chunk))
-
-					// Small delay to allow network transmission
-					time.Sleep(10 * time.Millisecond)
 				}
 
 				// Send file_end message
@@ -173,7 +180,7 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 				conn.WriteJSON(fileEndMsg)
 
-				fmt.Printf("Sent encrypted file '%s' to %s (%d bytes)\n", fileName, peerMnemonic, len(data))
+				fmt.Printf("Sent encrypted file '%s' to %s (%s)\n", fileName, peerMnemonic, formatBytes(fileSize))
 
 				time.Sleep(500 * time.Millisecond)
 				done <- true
