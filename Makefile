@@ -11,6 +11,7 @@ server: web
 	go build -ldflags "$(LDFLAGS)" -o share .
 
 build: server
+	@echo "Build completed at $(shell date)"
 
 install: build
 	go install
