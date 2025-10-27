@@ -36,6 +36,7 @@ type IncomingMessage struct {
 	ClientID string `json:"clientId,omitempty"`
 	Pub      string `json:"pub,omitempty"`
 	Name     string `json:"name,omitempty"`
+	Size     int64  `json:"size,omitempty"`
 	IvB64    string `json:"iv_b64,omitempty"`
 	DataB64  string `json:"data_b64,omitempty"`
 }
@@ -47,6 +48,7 @@ type OutgoingMessage struct {
 	RoomID   string   `json:"roomId,omitempty"`
 	Pub      string   `json:"pub,omitempty"`
 	Name     string   `json:"name,omitempty"`
+	Size     int64    `json:"size,omitempty"`
 	IvB64    string   `json:"iv_b64,omitempty"`
 	DataB64  string   `json:"data_b64,omitempty"`
 	SelfID   string   `json:"selfId,omitempty"`
@@ -214,6 +216,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				RoomID:   client.RoomID,
 				Pub:      in.Pub,
 				Name:     in.Name,
+				Size:     in.Size,
 				IvB64:    in.IvB64,
 				DataB64:  in.DataB64,
 			}

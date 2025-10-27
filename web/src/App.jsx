@@ -74,7 +74,45 @@ function base64ToUint8(b64) {
     return out;
 }
 
+/* ------------------- Helper Functions ------------------- */
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
+function formatSpeed(bytesPerSecond) {
+    return formatBytes(bytesPerSecond) + '/s';
+}
+
 /* ------------------- React Component ------------------- */
+
+function ProgressBar({ progress, label }) {
+    if (!progress) return null;
+
+    return (
+        <div className="bg-white border-2 sm:border-4 border-black p-3 sm:p-4 mb-3 sm:mb-4">
+            <div className="text-sm sm:text-base font-black mb-2 uppercase">{label}</div>
+            <div className="relative w-full h-6 sm:h-8 bg-gray-200 border-2 border-black">
+                <div
+                    className="absolute top-0 left-0 h-full bg-black transition-all duration-300"
+                    style={{ width: `${progress.percent}%` }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold">
+                    {progress.percent}%
+                </div>
+            </div>
+            {progress.speed > 0 && (
+                <div className="mt-2 text-xs sm:text-sm font-bold">
+                    Speed: {formatSpeed(progress.speed)}
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function App() {
     // Parse room from URL path (e.g., /myroom -> "myroom")
@@ -88,6 +126,8 @@ export default function App() {
     const [myMnemonic, setMyMnemonic] = useState(null);
     const [peerMnemonic, setPeerMnemonic] = useState(null);
     const [hasAesKey, setHasAesKey] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(null);
+    const [downloadProgress, setDownloadProgress] = useState(null);
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -200,7 +240,7 @@ export default function App() {
             }
 
             if (msg.type === "file") {
-                const { name, iv_b64, data_b64 } = msg;
+                const { name, size, iv_b64, data_b64 } = msg;
                 log(`📦 Incoming encrypted file: ${name}`);
 
                 if (!aesKeyRef.current) {
@@ -209,9 +249,21 @@ export default function App() {
                 }
 
                 try {
+                    const startTime = Date.now();
+                    setDownloadProgress({ percent: 0, speed: 0, eta: 0 });
+
                     const iv = base64ToUint8(iv_b64);
                     const ciphertext = base64ToUint8(data_b64);
+
+                    // Simulate progress for decryption
+                    setDownloadProgress({ percent: 50, speed: 0, eta: 0 });
+
                     const plainBytes = await decryptBytes(aesKeyRef.current, iv, ciphertext);
+
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    const speed = size / elapsed;
+
+                    setDownloadProgress({ percent: 100, speed, eta: 0 });
 
                     const blob = new Blob([plainBytes], { type: "application/octet-stream" });
                     const url = URL.createObjectURL(blob);
@@ -227,9 +279,11 @@ export default function App() {
                     document.body.removeChild(a);
 
                     log(`✅ Decrypted and prepared download "${name}"`);
+                    setTimeout(() => setDownloadProgress(null), 2000);
                 } catch (err) {
                     console.error(err);
                     log("❌ Decryption failed");
+                    setDownloadProgress(null);
                 }
                 return;
             }
@@ -254,16 +308,39 @@ export default function App() {
             log("⚠️ No file or key not ready");
             return;
         }
-        const arrBuf = await file.arrayBuffer();
-        log(`🔒 Encrypting "${file.name}" (${arrBuf.byteLength} bytes)`);
-        const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, arrBuf);
-        sendMsg({
-            type: "file",
-            name: file.name,
-            iv_b64: uint8ToBase64(iv),
-            data_b64: uint8ToBase64(ciphertext)
-        });
-        log(`🚀 Sent encrypted file "${file.name}"`);
+        try {
+            const startTime = Date.now();
+            setUploadProgress({ percent: 0, speed: 0, eta: 0 });
+
+            const arrBuf = await file.arrayBuffer();
+            log(`🔒 Encrypting "${file.name}" (${arrBuf.byteLength} bytes)`);
+
+            setUploadProgress({ percent: 30, speed: 0, eta: 0 });
+
+            const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, arrBuf);
+
+            const elapsed = (Date.now() - startTime) / 1000;
+            const speed = file.size / elapsed;
+
+            setUploadProgress({ percent: 70, speed, eta: 0 });
+
+            sendMsg({
+                type: "file",
+                name: file.name,
+                size: file.size,
+                iv_b64: uint8ToBase64(iv),
+                data_b64: uint8ToBase64(ciphertext)
+            });
+
+            setUploadProgress({ percent: 100, speed, eta: 0 });
+
+            log(`🚀 Sent encrypted file "${file.name}"`);
+            setTimeout(() => setUploadProgress(null), 2000);
+        } catch (err) {
+            console.error(err);
+            log("❌ Failed to send file");
+            setUploadProgress(null);
+        }
     }
 
     useEffect(() => {
@@ -354,6 +431,14 @@ export default function App() {
                 {/* File Transfer Panel */}
                 {connected && (
                     <div className="bg-gray-300 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                        {uploadProgress && (
+                            <ProgressBar progress={uploadProgress} label="📤 Sending file" />
+                        )}
+
+                        {downloadProgress && (
+                            <ProgressBar progress={downloadProgress} label="📥 Receiving file" />
+                        )}
+
                         <label
                             className={`block border-2 sm:border-4 border-black p-6 sm:p-8 text-center font-black uppercase ${hasAesKey
                                 ? "bg-white cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-xl sm:text-2xl"

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/share/src/crypto"
 	"github.com/schollz/share/src/relay"
 
@@ -19,6 +20,12 @@ import (
 
 // SendFile sends a file to the specified room via the relay server
 func SendFile(filePath, roomID, serverURL string) {
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		log.Fatalf("Failed to stat file: %v", err)
+	}
+	fileSize := fileInfo.Size()
+
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatalf("Failed to read file: %v", err)
@@ -98,6 +105,22 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 				fmt.Println("🤝 Derived shared AES key (E2EE ready)")
 
+				// Create progress bar for encryption
+				bar := progressbar.NewOptions64(
+					fileSize,
+					progressbar.OptionSetDescription("📦 Encrypting & sending"),
+					progressbar.OptionSetWriter(os.Stderr),
+					progressbar.OptionShowBytes(true),
+					progressbar.OptionSetWidth(10),
+					progressbar.OptionThrottle(65*time.Millisecond),
+					progressbar.OptionShowCount(),
+					progressbar.OptionOnCompletion(func() {
+						fmt.Fprint(os.Stderr, "\n")
+					}),
+					progressbar.OptionSpinnerType(14),
+					progressbar.OptionFullWidth(),
+				)
+
 				iv, ciphertext, err := crypto.EncryptAESGCM(sharedSecret, data)
 				if err != nil {
 					log.Fatalf("Failed to encrypt file: %v", err)
@@ -106,10 +129,12 @@ func SendFile(filePath, roomID, serverURL string) {
 				fileMsg := map[string]interface{}{
 					"type":     "file",
 					"name":     fileName,
+					"size":     fileSize,
 					"iv_b64":   base64.StdEncoding.EncodeToString(iv),
 					"data_b64": base64.StdEncoding.EncodeToString(ciphertext),
 				}
 				conn.WriteJSON(fileMsg)
+				bar.Add64(fileSize)
 				fmt.Printf("🚀 Sent encrypted file '%s' to %s (%d bytes)\n", fileName, peerMnemonic, len(data))
 
 				time.Sleep(500 * time.Millisecond)

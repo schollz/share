@@ -8,7 +8,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/share/src/crypto"
 	"github.com/schollz/share/src/relay"
 
@@ -96,6 +98,22 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 
 			fmt.Printf("📦 Incoming encrypted file: %s\n", msg.Name)
 
+			// Create progress bar for receiving
+			bar := progressbar.NewOptions64(
+				msg.Size,
+				progressbar.OptionSetDescription("📥 Receiving & decrypting"),
+				progressbar.OptionSetWriter(os.Stderr),
+				progressbar.OptionShowBytes(true),
+				progressbar.OptionSetWidth(10),
+				progressbar.OptionThrottle(65*time.Millisecond),
+				progressbar.OptionShowCount(),
+				progressbar.OptionOnCompletion(func() {
+					fmt.Fprint(os.Stderr, "\n")
+				}),
+				progressbar.OptionSpinnerType(14),
+				progressbar.OptionFullWidth(),
+			)
+
 			iv, _ := base64.StdEncoding.DecodeString(msg.IvB64)
 			ciphertext, _ := base64.StdEncoding.DecodeString(msg.DataB64)
 
@@ -103,6 +121,8 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			if err != nil {
 				log.Fatalf("❌ Decryption failed: %v", err)
 			}
+
+			bar.Add64(msg.Size)
 
 			outputPath := filepath.Join(outputDir, msg.Name)
 			err = os.WriteFile(outputPath, plaintext, 0644)
