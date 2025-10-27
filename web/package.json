@@ -1,0 +1,21 @@
+{
+    "name": "secure-drop-client",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "vite --strictPort --port 5173",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4.1.16",
+        "@vitejs/plugin-react": "^4.3.1",
+        "postcss": "^8.5.6",
+        "tailwindcss": "^4.1.16",
+        "vite": "^5.4.8"
+    }
+}
