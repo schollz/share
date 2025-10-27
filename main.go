@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"os"
 
-	"share/src/client"
-	"share/src/relay"
+	"copy-server/src/client"
+	"copy-server/src/relay"
 
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "share",
+	Use:   "copy-server",
 	Short: "Secure E2E encrypted file transfer",
-	Long:  "Share - Zero-knowledge relay for end-to-end encrypted file transfers using ECDH + AES-GCM",
+	Long:  "Copy Server - Zero-knowledge relay for end-to-end encrypted file transfers using ECDH + AES-GCM",
 }
 
 var serveCmd = &cobra.Command{

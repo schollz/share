@@ -2,9 +2,12 @@ package relay
 
 import (
 	"crypto/sha256"
+	"embed"
 	"encoding/json"
 	"fmt"
-	"log"
+	"io"
+	"io/fs"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -138,10 +141,12 @@ func broadcastPeers(room *Room) {
 	}
 }
 
+var logger *slog.Logger
+
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("Upgrade error:", err)
+		logger.Error("Upgrade error", "error", err)
 		return
 	}
 	defer conn.Close()
@@ -151,7 +156,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		Conn: conn,
 	}
 
-	log.Println("New client", client.ID)
+	logger.Info("New client", "clientId", client.ID)
 
 	for {
 		_, raw, err := conn.ReadMessage()
@@ -161,7 +166,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 		var in IncomingMessage
 		if err := json.Unmarshal(raw, &in); err != nil {
-			log.Println("Bad JSON:", err)
+			logger.Warn("Bad JSON", "error", err)
 			continue
 		}
 
@@ -226,7 +231,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	removeClientFromRoom(client)
-	log.Println("Closed connection", client.ID)
+	logger.Info("Closed connection", "clientId", client.ID)
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -234,14 +239,62 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"ok"}`))
 }
 
+// spaHandler wraps http.FileServer to handle SPA routing
+type spaHandler struct {
+	staticFS http.FileSystem
+}
+
+func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Try to serve the requested file
+	path := r.URL.Path
+	if path == "/" {
+		path = "/index.html"
+	}
+
+	f, err := h.staticFS.Open(path)
+	if err == nil {
+		f.Close()
+		http.FileServer(h.staticFS).ServeHTTP(w, r)
+		return
+	}
+
+	// File not found, serve index.html for client-side routing
+	index, err := h.staticFS.Open("/index.html")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer index.Close()
+
+	stat, err := index.Stat()
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	http.ServeContent(w, r, "index.html", stat.ModTime(), index.(io.ReadSeeker))
+}
+
 // Start starts the relay server on the specified port
-func Start(port int) {
+func Start(port int, staticFS embed.FS, log *slog.Logger) {
+	logger = log
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsHandler)
-	mux.HandleFunc("/", healthHandler)
+	mux.HandleFunc("/health", healthHandler)
+
+	// Serve embedded static files with SPA support
+	distFS, err := fs.Sub(staticFS, "web/dist")
+	if err != nil {
+		logger.Error("Failed to access embedded files", "error", err)
+		return
+	}
+	mux.Handle("/", spaHandler{staticFS: http.FS(distFS)})
 
 	handler := cors.AllowAll().Handler(mux)
 	addr := fmt.Sprintf(":%d", port)
-	log.Printf("🔌 SecureDrop relay on ws://localhost%s\n", addr)
-	log.Fatal(http.ListenAndServe(addr, handler))
+	logger.Info("SecureDrop relay starting", "address", fmt.Sprintf("ws://localhost%s", addr))
+	if err := http.ListenAndServe(addr, handler); err != nil {
+		logger.Error("Server failed", "error", err)
+	}
 }
