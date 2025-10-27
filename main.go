@@ -92,6 +92,12 @@ func promptForRoom() string {
 }
 
 func getWebSocketURL(domain string) string {
+	if domain == "" || domain == "https://" {
+		return "wss://"
+	} else if domain == "http://" {
+		return "ws://"
+	}
+	// }
 	// Parse the URL
 	u, err := url.Parse(domain)
 	if err != nil || u.Scheme == "" {
