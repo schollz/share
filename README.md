@@ -18,7 +18,11 @@ Share moves files between machines with a clean web UI and a focused CLI.
 
 ## Install
 
-Grab `share_linux.zip`, `share_macos.zip`, or `share_windows.zip` from the [latest release](https://github.com/schollz/share/releases/latest), unpack it, move the resulting binary into your `PATH`, and make it executable (`share.exe` on Windows ships ready to run).
+Grab `share_linux.zip`, `share_macos.zip`, or `share_windows.zip` from the [latest release](https://github.com/schollz/share/releases/latest), unpack it, move the resulting binary into your `PATH`, and make it executable (`share.exe` on Windows ships ready to run). On Linux you can also install with 
+
+```bash
+curl https://share.schollz.com | bash
+```
 
 ## Usage
 
