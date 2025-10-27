@@ -30,11 +30,11 @@ jobs:
       - name: Install web dependencies
         run: cd web && npm install
 
-      - name: Run tests
-        run: go test -v -cover ./...
-
       - name: Build server
         run: make server
+
+      - name: Run tests
+        run: go test -v -cover ./...
 
       - name: Verify binary
         run: ./share --help || ./share -h || echo "Binary created successfully"
@@ -65,11 +65,11 @@ jobs:
       - name: Install web dependencies
         run: cd web && npm install
 
-      - name: Run tests
-        run: go test -v -cover ./...
-
       - name: Build server
         run: make server
+
+      - name: Run tests
+        run: go test -v -cover ./...
 
       - name: Verify binary
         run: ./share --help || ./share -h || echo "Binary created successfully"
