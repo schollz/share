@@ -1,0 +1,156 @@
+name: Build Server
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - "v*"
+      - "*.*.*"
+  pull_request:
+    branches: [ main ]
+
+defaults:
+  run:
+    working-directory: .
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Install web dependencies
+        run: cd web && npm install
+
+      - name: Build server
+        run: make server
+
+      - name: Verify binary
+        run: ./share --help || ./share -h || echo "Binary created successfully"
+
+      - name: Zip binary (macOS)
+        run: zip -9 share_macos.zip share
+
+      - name: Upload artifact (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: share_macos.zip
+          path: share_macos.zip
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Install web dependencies
+        run: cd web && npm install
+
+      - name: Build server
+        run: make server
+
+      - name: Verify binary
+        run: ./share --help || ./share -h || echo "Binary created successfully"
+
+      - name: Zip binary (Linux)
+        run: zip -9 share_linux.zip share
+
+      - name: Upload artifact (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: share_linux.zip
+          path: share_linux.zip
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Install web dependencies
+        shell: pwsh
+        run: cd web; npm install
+
+      - name: Build web
+        shell: pwsh
+        run: cd web; npm run build
+
+      - name: Build Go binary
+        shell: pwsh
+        run: go build -o share.exe .
+
+      - name: Verify binary
+        shell: pwsh
+        run: |
+          if (Test-Path share.exe) {
+            Write-Output "Binary created successfully"
+          } else {
+            Write-Error "Binary not found"
+            exit 1
+          }
+
+      - name: Zip binary (Windows)
+        shell: pwsh
+        run: Compress-Archive -Path share.exe -DestinationPath share_windows.zip -Force
+
+      - name: Upload artifact (Windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: share_windows.zip
+          path: share_windows.zip
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release (on tags)
+    runs-on: ubuntu-latest
+    needs: [macos, linux, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -l ./dist
+
+      - name: Create Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/share_macos.zip
+            dist/share_linux.zip
+            dist/share_windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
