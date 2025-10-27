@@ -78,7 +78,7 @@ function base64ToUint8(b64) {
 
 export default function App() {
     // Parse room from URL path (e.g., /myroom -> "myroom")
-    const pathRoom = window.location.pathname.slice(1);
+    const pathRoom = window.location.pathname.slice(1).toLowerCase();
     const [roomId, setRoomId] = useState(pathRoom);
     const [connected, setConnected] = useState(false);
     const [peerCount, setPeerCount] = useState(1);
@@ -135,11 +135,12 @@ export default function App() {
     }
 
     const connectToRoom = useCallback(async () => {
-        const room = roomId.trim();
+        const room = roomId.trim().toLowerCase();
         if (!room) {
             alert("Enter a room ID first.");
             return;
         }
+        setRoomId(room);
         await initKeys();
 
         // Dynamically choose ws:// or wss:// based on current page
@@ -279,6 +280,11 @@ export default function App() {
             connectToRoom();
         }
     }, [pathRoom, connected, connectToRoom]);
+
+    // Update page title based on room
+    useEffect(() => {
+        document.title = roomId ? `SHARE · ${roomId.toUpperCase()}` : "SHARE";
+    }, [roomId]);
 
     return (
         <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8 font-mono flex items-center justify-center">
