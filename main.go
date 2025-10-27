@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strings"
 
@@ -91,15 +92,25 @@ func promptForRoom() string {
 }
 
 func getWebSocketURL(domain string) string {
-	// Convert https:// to wss:// or http:// to ws://
-	if len(domain) >= 8 && domain[:8] == "https://" {
-		return "wss://" + domain[8:]
+	// Parse the URL
+	u, err := url.Parse(domain)
+	if err != nil || u.Scheme == "" {
+		// If parsing fails or no scheme, assume https
+		u, _ = url.Parse("https://" + domain)
 	}
-	if len(domain) >= 7 && domain[:7] == "http://" {
-		return "ws://" + domain[7:]
+
+	// Convert http/https schemes to ws/wss
+	switch u.Scheme {
+	case "https":
+		u.Scheme = "wss"
+	case "http":
+		u.Scheme = "ws"
+	default:
+		// For any other scheme or empty, default to wss
+		u.Scheme = "wss"
 	}
-	// Assume https if no protocol specified
-	return "wss://" + domain
+
+	return u.String()
 }
 
 func createLogger(level string) *slog.Logger {
