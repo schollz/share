@@ -112,7 +112,7 @@ function ProgressBar({ progress, label }) {
     return (
         <div className="bg-white border-2 sm:border-4 border-black p-3 sm:p-4 mb-3 sm:mb-4">
             <div className="text-sm sm:text-base font-black mb-2 uppercase">{cleanLabel}</div>
-            <div className="relative w-full h-6 sm:h-8 bg-gray-200 border-2 border-black">
+            <div className="relative w-full h-6 sm:h-8 bg-gray-300 border-2 sm:border-4 border-black">
                 <div
                     className="absolute top-0 left-0 h-full bg-black transition-all duration-300"
                     style={{ width: `${progress.percent}%` }}
