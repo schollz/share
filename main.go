@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-//go:embed web/dist
+//go:embed web/dist install.sh
 var staticFS embed.FS
 
 var logLevel string

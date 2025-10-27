@@ -253,10 +253,18 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // spaHandler wraps http.FileServer to handle SPA routing
 type spaHandler struct {
-	staticFS http.FileSystem
+	staticFS      http.FileSystem
+	installScript []byte
 }
 
 func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ua := strings.ToLower(r.UserAgent())
+	if strings.Contains(ua, "curl") && len(h.installScript) > 0 {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write(h.installScript)
+		return
+	}
+
 	// Try to serve the requested file
 	path := r.URL.Path
 	if path == "/" {
@@ -295,13 +303,25 @@ func Start(port int, staticFS embed.FS, log *slog.Logger) {
 	mux.HandleFunc("/ws", wsHandler)
 	mux.HandleFunc("/health", healthHandler)
 
+	installScript, err := staticFS.ReadFile("install.sh")
+	if err != nil {
+		logger.Warn("Install script missing", "error", err)
+	}
+
+	if len(installScript) > 0 {
+		mux.HandleFunc("/install.sh", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Write(installScript)
+		})
+	}
+
 	// Serve embedded static files with SPA support
 	distFS, err := fs.Sub(staticFS, "web/dist")
 	if err != nil {
 		logger.Error("Failed to access embedded files", "error", err)
 		return
 	}
-	mux.Handle("/", spaHandler{staticFS: http.FS(distFS)})
+	mux.Handle("/", spaHandler{staticFS: http.FS(distFS), installScript: installScript})
 
 	handler := cors.AllowAll().Handler(mux)
 	addr := fmt.Sprintf(":%d", port)

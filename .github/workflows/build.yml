@@ -30,6 +30,9 @@ jobs:
       - name: Install web dependencies
         run: cd web && npm install
 
+      - name: Run tests
+        run: go test -v -cover ./...
+
       - name: Build server
         run: make server
 
@@ -61,6 +64,9 @@ jobs:
 
       - name: Install web dependencies
         run: cd web && npm install
+
+      - name: Run tests
+        run: go test -v -cover ./...
 
       - name: Build server
         run: make server
@@ -99,6 +105,10 @@ jobs:
       - name: Build web
         shell: pwsh
         run: cd web; npm run build
+
+      - name: Run tests
+        shell: pwsh
+        run: go test -v -cover ./...
 
       - name: Build Go binary
         shell: pwsh
