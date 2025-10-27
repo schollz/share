@@ -158,6 +158,7 @@ export default function App() {
     const selfIdRef = useRef(null);
     const myMnemonicRef = useRef(null);
     const clientIdRef = useRef(crypto.randomUUID());
+    const roomInputRef = useRef(null);
 
     // For chunked file reception
     const fileChunksRef = useRef([]);
@@ -510,6 +511,13 @@ export default function App() {
         document.title = roomId ? `SHARE · ${roomId.toUpperCase()}` : "SHARE";
     }, [roomId]);
 
+    // Auto-focus room input on page load if no room in URL
+    useEffect(() => {
+        if (!pathRoom && !connected && roomInputRef.current) {
+            roomInputRef.current.focus();
+        }
+    }, []);
+
     return (
         <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8 font-mono flex items-center justify-center">
             <div className="max-w-4xl w-full">
@@ -547,6 +555,7 @@ export default function App() {
                     {/* <h2 className="text-2xl sm:text-3xl font-black mb-3 sm:mb-4 uppercase">ROOM</h2> */}
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
                         <input
+                            ref={roomInputRef}
                             type="text"
                             placeholder="ENTER ROOM ID"
                             value={roomId}
