@@ -88,14 +88,30 @@ function formatSpeed(bytesPerSecond) {
     return formatBytes(bytesPerSecond) + '/s';
 }
 
+function formatTime(seconds) {
+    if (seconds < 1) return '< 1s';
+    if (seconds < 60) return Math.round(seconds) + 's';
+    if (seconds < 3600) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+    }
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
+
 /* ------------------- React Component ------------------- */
 
 function ProgressBar({ progress, label }) {
     if (!progress) return null;
 
+    // Remove emoji from label
+    const cleanLabel = label.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+
     return (
         <div className="bg-white border-2 sm:border-4 border-black p-3 sm:p-4 mb-3 sm:mb-4">
-            <div className="text-sm sm:text-base font-black mb-2 uppercase">{label}</div>
+            <div className="text-sm sm:text-base font-black mb-2 uppercase">{cleanLabel}</div>
             <div className="relative w-full h-6 sm:h-8 bg-gray-200 border-2 border-black">
                 <div
                     className="absolute top-0 left-0 h-full bg-black transition-all duration-300"
@@ -105,9 +121,14 @@ function ProgressBar({ progress, label }) {
                     {progress.percent}%
                 </div>
             </div>
-            {progress.speed > 0 && (
-                <div className="mt-2 text-xs sm:text-sm font-bold">
-                    Speed: {formatSpeed(progress.speed)}
+            {(progress.speed > 0 || progress.eta > 0) && (
+                <div className="mt-2 text-xs sm:text-sm font-bold flex flex-wrap gap-x-4 gap-y-1">
+                    {progress.speed > 0 && (
+                        <span>Speed: {formatSpeed(progress.speed)}</span>
+                    )}
+                    {progress.eta > 0 && progress.percent < 100 && (
+                        <span>ETA: {formatTime(progress.eta)}</span>
+                    )}
                 </div>
             )}
         </div>
@@ -159,13 +180,13 @@ export default function App() {
         havePeerPubRef.current = false;
         aesKeyRef.current = null;
         setHasAesKey(false);
-        log("🔐 Generated ECDH key pair");
+        log("Generated ECDH key pair");
     }
 
     async function announcePublicKey() {
         const raw = await exportPubKey(myKeyPairRef.current.publicKey);
         sendMsg({ type: "pubkey", pub: uint8ToBase64(raw) });
-        log("📡 Sent my public key");
+        log("Sent my public key");
     }
 
     async function handlePeerPubKey(b64) {
@@ -178,7 +199,7 @@ export default function App() {
         aesKeyRef.current = sharedAes;
         havePeerPubRef.current = true;
         setHasAesKey(true);
-        log("🤝 Derived shared AES key (E2EE ready)");
+        log("Derived shared AES key (E2EE ready)");
     }
 
     const connectToRoom = useCallback(async () => {
@@ -204,7 +225,7 @@ export default function App() {
         ws.onopen = () => {
             setConnected(true);
             setStatus("Connected. Waiting for peer...");
-            log("🌐 WebSocket open");
+            log("WebSocket open");
             sendMsg({ type: "join", roomId: room, clientId: clientIdRef.current });
         };
 
@@ -221,7 +242,7 @@ export default function App() {
                 const mnemonic = msg.mnemonic || msg.selfId;
                 myMnemonicRef.current = mnemonic;
                 setMyMnemonic(mnemonic);
-                log(`✅ Joined room ${msg.roomId} as ${mnemonic}`);
+                log(`Joined room ${msg.roomId} as ${mnemonic}`);
                 await announcePublicKey();
                 return;
             }
@@ -239,7 +260,7 @@ export default function App() {
             if (msg.type === "pubkey") {
                 const peerName = msg.mnemonic || msg.from;
                 setPeerMnemonic(peerName);
-                log(`📥 Received peer public key from ${peerName}`);
+                log(`Received peer public key from ${peerName}`);
                 const hadPeerPub = havePeerPubRef.current;
                 await handlePeerPubKey(msg.pub);
                 if (!hadPeerPub) await announcePublicKey();
@@ -248,7 +269,7 @@ export default function App() {
 
             if (msg.type === "file_start") {
                 if (!aesKeyRef.current) {
-                    log("❌ Can't decrypt yet (no shared key)");
+                    log("Can't decrypt yet (no shared key)");
                     return;
                 }
 
@@ -258,7 +279,7 @@ export default function App() {
                 fileChunksRef.current = [];
                 receivedBytesRef.current = 0;
 
-                log(`📦 Incoming encrypted file: ${msg.name} (${formatBytes(msg.total_size)})`);
+                log(`Incoming encrypted file: ${msg.name} (${formatBytes(msg.total_size)})`);
                 setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: Date.now() });
                 return;
             }
@@ -274,10 +295,13 @@ export default function App() {
                     ? Math.round((receivedBytesRef.current / fileTotalSizeRef.current) * 100)
                     : 0;
 
+                const remainingBytes = fileTotalSizeRef.current - receivedBytesRef.current;
+                const eta = speed > 0 ? remainingBytes / speed : 0;
+
                 setDownloadProgress({
                     percent,
                     speed,
-                    eta: 0,
+                    eta,
                     startTime: downloadProgress?.startTime || Date.now()
                 });
                 return;
@@ -285,13 +309,13 @@ export default function App() {
 
             if (msg.type === "file_end") {
                 if (!aesKeyRef.current || fileChunksRef.current.length === 0) {
-                    log("❌ No file data received");
+                    log("No file data received");
                     setDownloadProgress(null);
                     return;
                 }
 
                 try {
-                    log("🔓 Decrypting file...");
+                    log("Decrypting file...");
 
                     // Reassemble ciphertext from chunks
                     const totalLen = fileChunksRef.current.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -322,11 +346,11 @@ export default function App() {
                     a.click();
                     document.body.removeChild(a);
 
-                    log(`✅ Decrypted and prepared download "${fileNameRef.current}"`);
+                    log(`Decrypted and prepared download "${fileNameRef.current}"`);
                     setTimeout(() => setDownloadProgress(null), 2000);
                 } catch (err) {
                     console.error(err);
-                    log("❌ Decryption failed");
+                    log("Decryption failed");
                     setDownloadProgress(null);
                 }
                 return;
@@ -335,10 +359,10 @@ export default function App() {
             if (msg.type === "file") {
                 // Backward compatibility: handle old-style single-message transfers
                 const { name, size, iv_b64, data_b64 } = msg;
-                log(`📦 Incoming encrypted file: ${name}`);
+                log(`Incoming encrypted file: ${name}`);
 
                 if (!aesKeyRef.current) {
-                    log("❌ Can't decrypt yet (no shared key)");
+                    log("Can't decrypt yet (no shared key)");
                     return;
                 }
 
@@ -371,11 +395,11 @@ export default function App() {
                     a.click();
                     document.body.removeChild(a);
 
-                    log(`✅ Decrypted and prepared download "${name}"`);
+                    log(`Decrypted and prepared download "${name}"`);
                     setTimeout(() => setDownloadProgress(null), 2000);
                 } catch (err) {
                     console.error(err);
-                    log("❌ Decryption failed");
+                    log("Decryption failed");
                     setDownloadProgress(null);
                 }
                 return;
@@ -383,7 +407,7 @@ export default function App() {
         };
 
         ws.onclose = () => {
-            log("🔌 WebSocket closed");
+            log("WebSocket closed");
             setConnected(false);
             setPeerCount(1);
             setStatus("Not connected");
@@ -391,14 +415,14 @@ export default function App() {
 
         ws.onerror = (err) => {
             console.error("WS error", err);
-            log("⚠️ WebSocket error");
+            log("WebSocket error");
         };
     }, [roomId]);
 
     async function handleFileSelect(e) {
         const file = e.target.files?.[0];
         if (!file || !aesKeyRef.current) {
-            log("⚠️ No file or key not ready");
+            log("No file or key not ready");
             return;
         }
         try {
@@ -406,11 +430,11 @@ export default function App() {
             setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime });
 
             const arrBuf = await file.arrayBuffer();
-            log(`🔒 Encrypting "${file.name}" (${formatBytes(arrBuf.byteLength)})`);
+            log(`Encrypting "${file.name}" (${formatBytes(arrBuf.byteLength)})`);
 
             const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, arrBuf);
 
-            log(`📤 Sending file in chunks...`);
+            log(`Sending file in chunks...`);
 
             // Send file_start message
             sendMsg({
@@ -441,7 +465,10 @@ export default function App() {
                 const speed = elapsed > 0 ? sentBytes / elapsed : 0;
                 const percent = Math.round((sentBytes / ciphertext.length) * 100);
 
-                setUploadProgress({ percent, speed, eta: 0, startTime });
+                const remainingBytes = ciphertext.length - sentBytes;
+                const eta = speed > 0 ? remainingBytes / speed : 0;
+
+                setUploadProgress({ percent, speed, eta, startTime });
 
                 // Small delay to allow UI updates
                 await new Promise(resolve => setTimeout(resolve, 10));
@@ -456,11 +483,11 @@ export default function App() {
             const speed = file.size / elapsed;
             setUploadProgress({ percent: 100, speed, eta: 0 });
 
-            log(`🚀 Sent encrypted file "${file.name}"`);
+            log(`Sent encrypted file "${file.name}"`);
             setTimeout(() => setUploadProgress(null), 2000);
         } catch (err) {
             console.error(err);
-            log("❌ Failed to send file");
+            log("Failed to send file");
             setUploadProgress(null);
         }
     }
@@ -554,11 +581,11 @@ export default function App() {
                 {connected && (
                     <div className="bg-gray-300 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         {uploadProgress && (
-                            <ProgressBar progress={uploadProgress} label="📤 Sending file" />
+                            <ProgressBar progress={uploadProgress} label="Sending file" />
                         )}
 
                         {downloadProgress && (
-                            <ProgressBar progress={downloadProgress} label="📥 Receiving file" />
+                            <ProgressBar progress={downloadProgress} label="Receiving file" />
                         )}
 
                         <label
@@ -584,7 +611,7 @@ export default function App() {
                                     download={downloadName}
                                     className="text-lg sm:text-2xl font-black underline hover:no-underline text-black break-all"
                                 >
-                                    📥 {downloadName}
+                                    {downloadName}
                                 </a>
                             </div>
                         )}

@@ -47,7 +47,7 @@ func SendFile(filePath, roomID, serverURL string) {
 	}
 	defer conn.Close()
 
-	fmt.Printf("📡 Connected to %s\n", serverURL)
+	fmt.Printf("Connected to %s\n", serverURL)
 
 	joinMsg := map[string]interface{}{
 		"type":     "join",
@@ -66,7 +66,7 @@ func SendFile(filePath, roomID, serverURL string) {
 			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
 		}
 		conn.WriteJSON(pubKeyMsg)
-		fmt.Println("📡 Sent public key")
+		fmt.Println("Sent public key")
 	}
 
 	done := make(chan bool)
@@ -80,19 +80,19 @@ func SendFile(filePath, roomID, serverURL string) {
 
 			switch msg.Type {
 			case "joined":
-				fmt.Printf("✅ Joined room '%s' as %s\n", roomID, msg.Mnemonic)
+				fmt.Printf("Joined room '%s' as %s\n", roomID, msg.Mnemonic)
 				sendPublicKey()
 
 			case "peers":
 				// When a new peer joins, re-send our public key
 				if msg.Count == 2 {
-					fmt.Println("👥 Peer joined, sending public key...")
+					fmt.Println("Peer joined, sending public key...")
 					sendPublicKey()
 				}
 
 			case "pubkey":
 				peerMnemonic = msg.Mnemonic
-				fmt.Printf("📥 Received peer public key from %s\n", peerMnemonic)
+				fmt.Printf("Received peer public key from %s\n", peerMnemonic)
 				peerPubBytes, _ := base64.StdEncoding.DecodeString(msg.Pub)
 				peerPubKey, err := ecdh.P256().NewPublicKey(peerPubBytes)
 				if err != nil {
@@ -103,7 +103,7 @@ func SendFile(filePath, roomID, serverURL string) {
 				if err != nil {
 					log.Fatalf("Failed to derive shared secret: %v", err)
 				}
-				fmt.Println("🤝 Derived shared AES key (E2EE ready)")
+				fmt.Println("Derived shared AES key (E2EE ready)")
 
 				// Encrypt the entire file first
 				iv, ciphertext, err := crypto.EncryptAESGCM(sharedSecret, data)
@@ -123,7 +123,7 @@ func SendFile(filePath, roomID, serverURL string) {
 				// Create progress bar
 				bar := progressbar.NewOptions64(
 					int64(len(ciphertext)),
-					progressbar.OptionSetDescription("📦 Sending"),
+					progressbar.OptionSetDescription("Sending"),
 					progressbar.OptionSetWriter(os.Stderr),
 					progressbar.OptionShowBytes(true),
 					progressbar.OptionSetWidth(10),
@@ -166,7 +166,7 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 				conn.WriteJSON(fileEndMsg)
 
-				fmt.Printf("🚀 Sent encrypted file '%s' to %s (%d bytes)\n", fileName, peerMnemonic, len(data))
+				fmt.Printf("Sent encrypted file '%s' to %s (%d bytes)\n", fileName, peerMnemonic, len(data))
 
 				time.Sleep(500 * time.Millisecond)
 				done <- true
@@ -175,5 +175,5 @@ func SendFile(filePath, roomID, serverURL string) {
 	}()
 
 	<-done
-	fmt.Println("✨ Transfer complete!")
+	fmt.Println("Transfer complete!")
 }

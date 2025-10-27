@@ -49,7 +49,7 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 	}
 	defer conn.Close()
 
-	fmt.Printf("📡 Connected to %s\n", serverURL)
+	fmt.Printf("Connected to %s\n", serverURL)
 
 	joinMsg := map[string]interface{}{
 		"type":     "join",
@@ -73,7 +73,7 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
 		}
 		conn.WriteJSON(pubKeyMsg)
-		fmt.Println("📡 Sent public key")
+		fmt.Println("Sent public key")
 	}
 
 	for {
@@ -85,19 +85,19 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 
 		switch msg.Type {
 		case "joined":
-			fmt.Printf("✅ Joined room '%s' as %s\n", roomID, msg.Mnemonic)
+			fmt.Printf("Joined room '%s' as %s\n", roomID, msg.Mnemonic)
 			sendPublicKey()
-			fmt.Println("⏳ Waiting for file...")
+			fmt.Println("Waiting for file...")
 
 		case "peers":
 			// When a new peer joins, re-send our public key
 			if msg.Count == 2 {
-				fmt.Println("👥 Peer joined, sending public key...")
+				fmt.Println("Peer joined, sending public key...")
 				sendPublicKey()
 			}
 
 		case "pubkey":
-			fmt.Printf("📥 Received peer public key from %s\n", msg.Mnemonic)
+			fmt.Printf("Received peer public key from %s\n", msg.Mnemonic)
 			peerPubBytes, _ := base64.StdEncoding.DecodeString(msg.Pub)
 			peerPubKey, err := ecdh.P256().NewPublicKey(peerPubBytes)
 			if err != nil {
@@ -108,11 +108,11 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			if err != nil {
 				log.Fatalf("Failed to derive shared secret: %v", err)
 			}
-			fmt.Println("🤝 Derived shared AES key (E2EE ready)")
+			fmt.Println("Derived shared AES key (E2EE ready)")
 
 		case "file_start":
 			if sharedSecret == nil {
-				fmt.Println("❌ Can't decrypt yet (no shared key)")
+				fmt.Println("Can't decrypt yet (no shared key)")
 				continue
 			}
 
@@ -122,12 +122,12 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			fileChunks = make([][]byte, 0)
 			receivedBytes = 0
 
-			fmt.Printf("📦 Incoming encrypted file: %s (%s)\n", fileName, formatBytes(totalSize))
+			fmt.Printf("Incoming encrypted file: %s (%s)\n", fileName, formatBytes(totalSize))
 
 			// Create progress bar for receiving
 			bar = progressbar.NewOptions64(
 				totalSize,
-				progressbar.OptionSetDescription("📥 Receiving"),
+				progressbar.OptionSetDescription("Receiving"),
 				progressbar.OptionSetWriter(os.Stderr),
 				progressbar.OptionShowBytes(true),
 				progressbar.OptionSetWidth(10),
@@ -168,11 +168,11 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 				ciphertext = append(ciphertext, chunk...)
 			}
 
-			fmt.Println("🔓 Decrypting file...")
+			fmt.Println("Decrypting file...")
 
 			plaintext, err := crypto.DecryptAESGCM(sharedSecret, fileIV, ciphertext)
 			if err != nil {
-				log.Fatalf("❌ Decryption failed: %v", err)
+				log.Fatalf("Decryption failed: %v", err)
 			}
 
 			outputPath := filepath.Join(outputDir, fileName)
@@ -181,22 +181,22 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 				log.Fatalf("Failed to write file: %v", err)
 			}
 
-			fmt.Printf("✅ Decrypted and saved file: %s (%d bytes)\n", outputPath, len(plaintext))
-			fmt.Println("✨ Transfer complete!")
+			fmt.Printf("Decrypted and saved file: %s (%d bytes)\n", outputPath, len(plaintext))
+			fmt.Println("Transfer complete!")
 			return
 
 		case "file":
 			// Backward compatibility: handle old-style single-message transfers
 			if sharedSecret == nil {
-				fmt.Println("❌ Can't decrypt yet (no shared key)")
+				fmt.Println("Can't decrypt yet (no shared key)")
 				continue
 			}
 
-			fmt.Printf("📦 Incoming encrypted file: %s\n", msg.Name)
+			fmt.Printf("Incoming encrypted file: %s\n", msg.Name)
 
 			bar := progressbar.NewOptions64(
 				msg.Size,
-				progressbar.OptionSetDescription("📥 Receiving"),
+				progressbar.OptionSetDescription("Receiving"),
 				progressbar.OptionSetWriter(os.Stderr),
 				progressbar.OptionShowBytes(true),
 				progressbar.OptionSetWidth(10),
@@ -215,11 +215,11 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			bar.Add64(msg.Size)
 			bar.Finish()
 
-			fmt.Println("🔓 Decrypting file...")
+			fmt.Println("Decrypting file...")
 
 			plaintext, err := crypto.DecryptAESGCM(sharedSecret, iv, ciphertext)
 			if err != nil {
-				log.Fatalf("❌ Decryption failed: %v", err)
+				log.Fatalf("Decryption failed: %v", err)
 			}
 
 			outputPath := filepath.Join(outputDir, msg.Name)
@@ -228,8 +228,8 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 				log.Fatalf("Failed to write file: %v", err)
 			}
 
-			fmt.Printf("✅ Decrypted and saved file: %s (%d bytes)\n", outputPath, len(plaintext))
-			fmt.Println("✨ Transfer complete!")
+			fmt.Printf("Decrypted and saved file: %s (%d bytes)\n", outputPath, len(plaintext))
+			fmt.Println("Transfer complete!")
 			return
 		}
 	}
