@@ -31,7 +31,12 @@ jobs:
         run: cd web && npm install
 
       - name: Build server
-        run: make server
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          if [[ "$VERSION" == "refs/heads/"* ]]; then
+            VERSION="dev"
+          fi
+          make server LDFLAGS="-X main.Version=$VERSION"
 
       - name: Run tests
         run: go test -v -cover ./...
@@ -66,7 +71,12 @@ jobs:
         run: cd web && npm install
 
       - name: Build server
-        run: make server
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          if [[ "$VERSION" == "refs/heads/"* ]]; then
+            VERSION="dev"
+          fi
+          make server LDFLAGS="-X main.Version=$VERSION"
 
       - name: Run tests
         run: go test -v -cover ./...
@@ -112,7 +122,12 @@ jobs:
 
       - name: Build Go binary
         shell: pwsh
-        run: go build -o share.exe .
+        run: |
+          $VERSION = $env:GITHUB_REF -replace '^refs/tags/', ''
+          if ($VERSION -like 'refs/heads/*') {
+            $VERSION = 'dev'
+          }
+          go build -ldflags "-X main.Version=$VERSION" -o share.exe .
 
       - name: Verify binary
         shell: pwsh

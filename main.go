@@ -17,13 +17,17 @@ import (
 //go:embed web/dist install.sh
 var staticFS embed.FS
 
-var logLevel string
-var domain string
+var (
+	Version  = "dev"
+	logLevel string
+	domain   string
+)
 
 var rootCmd = &cobra.Command{
-	Use:   "share",
-	Short: "Secure E2E encrypted file transfer",
-	Long:  "Copy Server - Zero-knowledge relay for end-to-end encrypted file transfers using ECDH + AES-GCM",
+	Use:     "share",
+	Short:   "Secure E2E encrypted file transfer",
+	Long:    "Zero-knowledge relay for end-to-end encrypted file transfers using ECDH + AES-GCM",
+	Version: Version,
 }
 
 var serveCmd = &cobra.Command{
