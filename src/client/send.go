@@ -82,8 +82,8 @@ func SendFile(filePath, roomID, serverURL string) {
 				// Remove /ws path if present
 				parsedURL, _ := url.Parse(webURL)
 				parsedURL.Path = ""
-				fmt.Printf("Sending file '%s' (%d bytes).\n",
-					fileName, fileSize)
+				fmt.Printf("Sending file '%s' (%s).\n",
+					fileName, formatBytes(fileSize))
 				fmt.Printf("\nReceive file online at\n\n\t%s/%s\n\nor receive via CLI with\n\n\tshare receive %s\n\n",
 					parsedURL.String(), roomID, roomID)
 				sendPublicKey()
