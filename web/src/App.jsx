@@ -95,6 +95,7 @@ export default function App() {
 
     const wsRef = useRef(null);
     const selfIdRef = useRef(null);
+    const myMnemonicRef = useRef(null);
     const clientIdRef = useRef(crypto.randomUUID());
 
     function log(msg) {
@@ -166,6 +167,7 @@ export default function App() {
             if (msg.type === "joined") {
                 selfIdRef.current = msg.selfId;
                 const mnemonic = msg.mnemonic || msg.selfId;
+                myMnemonicRef.current = mnemonic;
                 setMyMnemonic(mnemonic);
                 log(`✅ Joined room ${msg.roomId} as ${mnemonic}`);
                 await announcePublicKey();
@@ -177,7 +179,7 @@ export default function App() {
                 setStatus(
                     msg.count === 2
                         ? "Peer connected. Secure channel ready."
-                        : "Waiting for second peer..."
+                        : `Connected as ${myMnemonicRef.current || "waiting..."}`
                 );
                 return;
             }
@@ -280,7 +282,7 @@ export default function App() {
                 {/* Header */}
                 <div className="bg-black text-white border-8 border-black p-8 mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                     <h1 className="text-6xl font-black mb-4 uppercase tracking-tight">
-                        SECURE DROP
+                        SHARE
                     </h1>
                     <p className="text-xl font-bold leading-tight">
                         E2EE FILE TRANSFER // ECDH + AES-GCM // ZERO-KNOWLEDGE RELAY
@@ -295,68 +297,69 @@ export default function App() {
                 {/* Connection Panel */}
                 <div className="bg-gray-200 border-8 border-black p-6 mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                     <h2 className="text-3xl font-black mb-4 uppercase">ROOM</h2>
-                    <div className="flex gap-4 mb-4">
+                    <div className="flex flex-col sm:flex-row gap-4 mb-4">
                         <input
                             type="text"
                             placeholder="ENTER ROOM ID"
                             value={roomId}
                             disabled={connected}
                             onChange={(e) => setRoomId(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && !connected && connectToRoom()}
                             className="flex-1 border-4 border-black p-4 text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 focus:ring-black"
                         />
                         <button
                             onClick={connectToRoom}
                             disabled={connected}
-                            className={`border-4 border-black px-8 py-4 text-xl font-black uppercase transition-all ${
-                                connected
-                                    ? "bg-gray-400 cursor-not-allowed"
-                                    : "bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
-                            } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`}
+                            className={`border-4 border-black px-8 py-4 text-xl font-black uppercase transition-all whitespace-nowrap ${connected
+                                ? "bg-gray-400 cursor-not-allowed"
+                                : "bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                                } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`}
                         >
                             {connected ? "CONNECTED" : "CONNECT"}
                         </button>
                     </div>
-                    <div className="bg-black text-white border-4 border-black p-3 font-bold text-lg">
+                    <div className="bg-black text-white border-4 border-black p-3 font-bold text-lg break-words">
                         {peerMnemonic ? (
                             <>PEER: {peerMnemonic.toUpperCase()} // CONNECTED</>
                         ) : (
-                            <>STATUS: {status.toUpperCase()} // PEERS: {peerCount}/2</>
+                            <>STATUS: {status.toUpperCase()}</>
                         )}
                     </div>
                 </div>
 
                 {/* File Transfer Panel */}
-                <div className="bg-gray-300 border-8 border-black p-6 mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                    <h2 className="text-3xl font-black mb-4 uppercase">TRANSFER</h2>
-                    <label
-                        className={`block border-4 border-black p-8 text-center text-2xl font-black uppercase ${
-                            hasAesKey
+                {connected && (
+                    <div className="bg-gray-300 border-8 border-black p-6 mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                        {/* <h2 className="text-3xl font-black mb-4 uppercase">TRANSFER</h2> */}
+                        <label
+                            className={`block border-4 border-black p-8 text-center text-2xl font-black uppercase ${hasAesKey
                                 ? "bg-white cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                                 : "bg-gray-400 cursor-not-allowed"
-                        }`}
-                    >
-                        {hasAesKey ? "📁 CLICK TO SEND FILE" : "⏳ WAITING FOR KEY..."}
-                        <input
-                            type="file"
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            disabled={!hasAesKey}
-                        />
-                    </label>
+                                }`}
+                        >
+                            {hasAesKey ? "SHARE" : "WAITING FOR PEER..."}
+                            <input
+                                type="file"
+                                className="hidden"
+                                onChange={handleFileSelect}
+                                disabled={!hasAesKey}
+                            />
+                        </label>
 
-                    {downloadUrl && (
-                        <div className="mt-4 bg-white border-4 border-black p-4">
-                            <div className="text-xl font-black mb-2">FILE READY:</div>
-                            <a
-                                href={downloadUrl}
-                                download={downloadName}
-                                className="text-2xl font-black underline hover:no-underline text-black"
-                            >
-                                📥 {downloadName}
-                            </a>
-                        </div>
-                    )}
-                </div>
+                        {downloadUrl && (
+                            <div className="mt-4 bg-white border-4 border-black p-4">
+                                <div className="text-xl font-black mb-2">FILE READY:</div>
+                                <a
+                                    href={downloadUrl}
+                                    download={downloadName}
+                                    className="text-2xl font-black underline hover:no-underline text-black"
+                                >
+                                    📥 {downloadName}
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                )}
 
             </div>
         </div>

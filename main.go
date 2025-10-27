@@ -1,17 +1,25 @@
 package main
 
 import (
+	"embed"
 	"fmt"
+	"log/slog"
 	"os"
 
-	"copy-server/src/client"
-	"copy-server/src/relay"
+	"github.com/schollz/share/src/client"
+	"github.com/schollz/share/src/relay"
 
 	"github.com/spf13/cobra"
 )
 
+//go:embed web/dist
+var staticFS embed.FS
+
+var logLevel string
+var domain string
+
 var rootCmd = &cobra.Command{
-	Use:   "copy-server",
+	Use:   "share",
 	Short: "Secure E2E encrypted file transfer",
 	Long:  "Copy Server - Zero-knowledge relay for end-to-end encrypted file transfers using ECDH + AES-GCM",
 }
@@ -22,7 +30,8 @@ var serveCmd = &cobra.Command{
 	Long:  "Start the WebSocket relay server for E2E encrypted file transfers",
 	Run: func(cmd *cobra.Command, args []string) {
 		port, _ := cmd.Flags().GetInt("port")
-		relay.Start(port)
+		logger := createLogger(logLevel)
+		relay.Start(port, staticFS, logger)
 	},
 }
 
@@ -35,6 +44,9 @@ var sendCmd = &cobra.Command{
 		filePath := args[0]
 		roomID := args[1]
 		server, _ := cmd.Flags().GetString("server")
+		if server == "" {
+			server = getWebSocketURL(domain)
+		}
 		client.SendFile(filePath, roomID, server)
 	},
 }
@@ -47,15 +59,51 @@ var receiveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		roomID := args[0]
 		server, _ := cmd.Flags().GetString("server")
+		if server == "" {
+			server = getWebSocketURL(domain)
+		}
 		output, _ := cmd.Flags().GetString("output")
 		client.ReceiveFile(roomID, server, output)
 	},
 }
 
+func getWebSocketURL(domain string) string {
+	// Convert https:// to wss:// or http:// to ws://
+	if len(domain) >= 8 && domain[:8] == "https://" {
+		return "wss://" + domain[8:]
+	}
+	if len(domain) >= 7 && domain[:7] == "http://" {
+		return "ws://" + domain[7:]
+	}
+	// Assume https if no protocol specified
+	return "wss://" + domain
+}
+
+func createLogger(level string) *slog.Logger {
+	var logLevel slog.Level
+	switch level {
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "info":
+		logLevel = slog.LevelInfo
+	case "warn":
+		logLevel = slog.LevelWarn
+	case "error":
+		logLevel = slog.LevelError
+	default:
+		logLevel = slog.LevelInfo
+	}
+	opts := &slog.HandlerOptions{Level: logLevel}
+	return slog.New(slog.NewTextHandler(os.Stdout, opts))
+}
+
 func init() {
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVar(&domain, "domain", "https://share.schollz.com", "Domain name for the server")
+
 	serveCmd.Flags().IntP("port", "p", 3001, "Port to listen on")
-	sendCmd.Flags().StringP("server", "s", "ws://localhost:3001", "Server URL")
-	receiveCmd.Flags().StringP("server", "s", "ws://localhost:3001", "Server URL")
+	sendCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
+	receiveCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("output", "o", ".", "Output directory")
 
 	rootCmd.AddCommand(serveCmd)

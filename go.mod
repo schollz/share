@@ -1,4 +1,4 @@
-module share
+module github.com/schollz/share
 
 go 1.25
 

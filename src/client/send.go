@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"share/src/crypto"
-	"share/src/relay"
+	"github.com/schollz/share/src/crypto"
+	"github.com/schollz/share/src/relay"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
