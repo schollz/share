@@ -440,7 +440,7 @@ export default function App() {
             sendMsg({
                 type: "file_start",
                 name: file.name,
-                total_size: file.size,
+                total_size: ciphertext.length,
                 iv_b64: uint8ToBase64(iv)
             });
 
