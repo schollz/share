@@ -47,8 +47,6 @@ func SendFile(filePath, roomID, serverURL string) {
 	}
 	defer conn.Close()
 
-	fmt.Printf("Connected to %s\n", serverURL)
-
 	joinMsg := map[string]interface{}{
 		"type":     "join",
 		"roomId":   roomID,
@@ -66,7 +64,6 @@ func SendFile(filePath, roomID, serverURL string) {
 			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
 		}
 		conn.WriteJSON(pubKeyMsg)
-		fmt.Println("Sent public key")
 	}
 
 	done := make(chan bool)
@@ -80,19 +77,30 @@ func SendFile(filePath, roomID, serverURL string) {
 
 			switch msg.Type {
 			case "joined":
-				fmt.Printf("Joined room '%s' as %s\n", roomID, msg.Mnemonic)
+				// Convert WebSocket URL to HTTP URL for display
+				webURL := serverURL
+				if len(webURL) >= 6 && webURL[:6] == "wss://" {
+					webURL = "https://" + webURL[6:]
+				} else if len(webURL) >= 5 && webURL[:5] == "ws://" {
+					webURL = "http://" + webURL[5:]
+				}
+				// Remove /ws path if present
+				parsedURL, _ := url.Parse(webURL)
+				parsedURL.Path = ""
+				fmt.Printf("Sending file '%s' (%d bytes).\n",
+					fileName, fileSize)
+				fmt.Printf("\nReceive file online at\n\n\t%s/%s\n\nor receive via CLI with\n\n\tshare receive %s\n\n",
+					parsedURL.String(), roomID, roomID)
 				sendPublicKey()
 
 			case "peers":
 				// When a new peer joins, re-send our public key
 				if msg.Count == 2 {
-					fmt.Println("Peer joined, sending public key...")
 					sendPublicKey()
 				}
 
 			case "pubkey":
 				peerMnemonic = msg.Mnemonic
-				fmt.Printf("Received peer public key from %s\n", peerMnemonic)
 				peerPubBytes, _ := base64.StdEncoding.DecodeString(msg.Pub)
 				peerPubKey, err := ecdh.P256().NewPublicKey(peerPubBytes)
 				if err != nil {
@@ -103,7 +111,6 @@ func SendFile(filePath, roomID, serverURL string) {
 				if err != nil {
 					log.Fatalf("Failed to derive shared secret: %v", err)
 				}
-				fmt.Println("Derived shared AES key (E2EE ready)")
 
 				// Encrypt the entire file first
 				iv, ciphertext, err := crypto.EncryptAESGCM(sharedSecret, data)
