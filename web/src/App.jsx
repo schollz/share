@@ -715,8 +715,12 @@ export default function App() {
                         <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
                             <IconBadge mnemonic={myMnemonic} label="You" className="shrink-0" />
                             <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
-                            <a href={`/${roomId}`} className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase no-underline cursor-pointer hover:bg-white">
-                                {window.location.host}/{roomId}
+                            <a
+                                href={`/${roomId}`}
+                                className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-flex items-center justify-center border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase no-underline cursor-pointer hover:bg-white"
+                            >
+                                {roomId ? roomId.toUpperCase() : "ROOM"}
+                                <span className="sr-only">Link to {window.location.host}/{roomId}</span>
                             </a>
                             {peerMnemonic && (
                                 <>
