@@ -48,6 +48,15 @@ share send <file>
 share receive
 ```
 
+### Run your own relay server
+
+You can run your own relay server if you want to self-host.
+
+```bash
+share server --port 8080
+```
+
+
 ## About
 
 This project is created and maintained by [Zack](https://schollz.com). If you find it useful, please consider sponsoring me on [GitHub Sponsors](https://github.com/sponsors/schollz).
