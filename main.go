@@ -39,8 +39,10 @@ var serveCmd = &cobra.Command{
 	Long:  "Start the WebSocket relay server for E2E encrypted file transfers",
 	Run: func(cmd *cobra.Command, args []string) {
 		port, _ := cmd.Flags().GetInt("port")
+		maxRooms, _ := cmd.Flags().GetInt("max-rooms")
+		maxRoomsPerIP, _ := cmd.Flags().GetInt("max-rooms-per-ip")
 		logger := createLogger(logLevel)
-		relay.Start(port, staticFS, logger)
+		relay.Start(port, maxRooms, maxRoomsPerIP, staticFS, logger)
 	},
 }
 
@@ -167,6 +169,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&domain, "domain", "https://share.schollz.com", "Domain name for the server")
 
 	serveCmd.Flags().IntP("port", "p", 3001, "Port to listen on")
+	serveCmd.Flags().Int("max-rooms", 10, "Maximum number of concurrent rooms allowed on the server")
+	serveCmd.Flags().Int("max-rooms-per-ip", 2, "Maximum number of rooms per IP address")
 	sendCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("output", "o", ".", "Output directory")

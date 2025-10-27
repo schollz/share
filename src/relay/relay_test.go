@@ -64,6 +64,10 @@ func TestGenerateMnemonicUniqueness(t *testing.T) {
 }
 
 func TestGetOrCreateRoom(t *testing.T) {
+	// Initialize logger
+	logger = getTestLogger()
+	maxRooms = 0 // No limit for this test
+
 	// Clear rooms map
 	roomMux.Lock()
 	rooms = make(map[string]*Room)
@@ -429,4 +433,128 @@ func TestWebSocketMultiplePeers(t *testing.T) {
 	if peersMsg1.Count != 2 {
 		t.Fatalf("Expected 2 peers, got %d", peersMsg1.Count)
 	}
+}
+
+func TestRoomLimit(t *testing.T) {
+	// Set max rooms to 3 for this test
+	maxRooms = 3
+
+	// Clear rooms before test
+	roomMux.Lock()
+	rooms = make(map[string]*Room)
+	roomMux.Unlock()
+
+	server := setupTestServer(t)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
+
+	// Helper function to connect and join a room
+	connectAndJoin := func(roomID string) (*websocket.Conn, error) {
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		// Send join message
+		joinMsg := IncomingMessage{
+			Type:     "join",
+			RoomID:   roomID,
+			ClientID: "test-client-" + roomID,
+		}
+		if err := conn.WriteJSON(joinMsg); err != nil {
+			conn.Close()
+			return nil, err
+		}
+
+		// Read response
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		var resp OutgoingMessage
+		if err := conn.ReadJSON(&resp); err != nil {
+			conn.Close()
+			return nil, err
+		}
+
+		// Check if it's an error
+		if resp.Type == "error" {
+			conn.Close()
+			return nil, &RoomLimitError{Message: resp.Error}
+		}
+
+		return conn, nil
+	}
+
+	// Connect to 3 different rooms (should all succeed)
+	conns := make([]*websocket.Conn, 0)
+	for i := 1; i <= 3; i++ {
+		roomID := "limit-test-room-" + string(rune('0'+i))
+		conn, err := connectAndJoin(roomID)
+		if err != nil {
+			t.Fatalf("Failed to join room %d (should succeed): %v", i, err)
+		}
+		conns = append(conns, conn)
+		t.Logf("Successfully joined room %d", i)
+	}
+
+	// Give a moment for rooms to be created
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify we have exactly 3 rooms
+	roomMux.Lock()
+	roomCount := len(rooms)
+	roomMux.Unlock()
+	if roomCount != 3 {
+		t.Errorf("Expected 3 rooms, got %d", roomCount)
+	}
+
+	// Try to connect to a 4th room (should fail)
+	t.Log("Attempting to join 4th room (should fail)...")
+	conn4, err := connectAndJoin("limit-test-room-4")
+	if err == nil {
+		conn4.Close()
+		t.Fatal("Expected 4th room join to fail, but it succeeded")
+	}
+
+	// Check that the error is the expected one
+	if !strings.Contains(err.Error(), "Maximum rooms") {
+		t.Errorf("Expected 'Maximum rooms' error, got: %v", err)
+	}
+	t.Logf("4th room correctly rejected: %v", err)
+
+	// Close one connection
+	conns[0].Close()
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify room was cleaned up
+	roomMux.Lock()
+	roomCount = len(rooms)
+	roomMux.Unlock()
+	t.Logf("After closing one connection, have %d rooms", roomCount)
+
+	// Now try to join a new room (should succeed since we're under the limit)
+	t.Log("Attempting to join new room after one was freed...")
+	conn5, err := connectAndJoin("limit-test-room-5")
+	if err != nil {
+		t.Errorf("Expected to join new room after freeing one, but failed: %v", err)
+	} else {
+		t.Log("Successfully joined new room after one was freed")
+		conn5.Close()
+	}
+
+	// Clean up remaining connections
+	for _, conn := range conns[1:] {
+		conn.Close()
+	}
+
+	// Reset maxRooms after test
+	maxRooms = 0
+}
+
+// Custom error type to distinguish room limit errors
+type RoomLimitError struct {
+	Message string
+}
+
+func (e *RoomLimitError) Error() string {
+	return e.Message
 }

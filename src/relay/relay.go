@@ -22,6 +22,7 @@ type Client struct {
 	Mnemonic string
 	Conn     *websocket.Conn
 	RoomID   string
+	IP       string
 }
 
 type Room struct {
@@ -60,14 +61,20 @@ type OutgoingMessage struct {
 	SelfID    string   `json:"selfId,omitempty"`
 	Peers     []string `json:"peers,omitempty"`
 	Count     int      `json:"count,omitempty"`
+	Error     string   `json:"error,omitempty"`
 }
 
 var (
 	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
-	rooms   = make(map[string]*Room)
-	roomMux sync.Mutex
+	rooms         = make(map[string]*Room)
+	roomMux       sync.Mutex
+	maxRooms      int
+	maxRoomsPerIP int
+	// Track which rooms each IP is in
+	ipRooms   = make(map[string]map[string]bool) // IP -> set of room IDs
+	ipRoomMux sync.Mutex
 )
 
 // GenerateMnemonic generates a 2-word BIP39 mnemonic from a client ID
@@ -94,11 +101,19 @@ func getOrCreateRoom(roomID string) *Room {
 	if rm, ok := rooms[roomID]; ok {
 		return rm
 	}
+
+	// Enforce room limit
+	if maxRooms > 0 && len(rooms) >= maxRooms {
+		logger.Warn("Room limit reached", "limit", maxRooms, "current", len(rooms))
+		return nil
+	}
+
 	rm := &Room{
 		ID:      roomID,
 		Clients: make(map[string]*Client),
 	}
 	rooms[roomID] = rm
+	logger.Info("Room created", "room", roomID, "total_rooms", len(rooms))
 	return rm
 }
 
@@ -159,12 +174,30 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	// Extract IP address, checking for proxy headers
+	clientIP := r.RemoteAddr
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		// Take first IP in the list
+		if idx := strings.Index(forwarded, ","); idx > 0 {
+			clientIP = strings.TrimSpace(forwarded[:idx])
+		} else {
+			clientIP = strings.TrimSpace(forwarded)
+		}
+	} else if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+		clientIP = realIP
+	}
+	// Strip port if present
+	if idx := strings.LastIndex(clientIP, ":"); idx > 0 {
+		clientIP = clientIP[:idx]
+	}
+
 	client := &Client{
 		ID:   fmt.Sprintf("peer-%p", conn),
 		Conn: conn,
+		IP:   clientIP,
 	}
 
-	logger.Info("New client", "clientId", client.ID)
+	logger.Info("New client", "clientId", client.ID, "ip", clientIP)
 
 	for {
 		_, raw, err := conn.ReadMessage()
@@ -186,6 +219,18 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			client.Mnemonic = GenerateMnemonic(client.ID)
 
 			room := getOrCreateRoom(in.RoomID)
+
+			// Check if room creation was blocked due to limit
+			if room == nil {
+				resp := OutgoingMessage{
+					Type:  "error",
+					Error: "Maximum rooms reached, try again later",
+				}
+				respBytes, _ := json.Marshal(resp)
+				conn.WriteMessage(websocket.TextMessage, respBytes)
+				conn.Close()
+				return
+			}
 
 			room.Mutex.Lock()
 			room.Clients[client.ID] = client
@@ -296,8 +341,10 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Start starts the relay server on the specified port
-func Start(port int, staticFS embed.FS, log *slog.Logger) {
+func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.FS, log *slog.Logger) {
 	logger = log
+	maxRooms = maxRoomsLimit
+	maxRoomsPerIP = maxRoomsPerIPLimit
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsHandler)
