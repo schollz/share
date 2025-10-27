@@ -52,6 +52,16 @@ func SendFile(filePath, roomID, serverURL string) {
 	var sharedSecret []byte
 	var peerMnemonic string
 
+	sendPublicKey := func() {
+		pubKeyBytes := privKey.PublicKey().Bytes()
+		pubKeyMsg := map[string]interface{}{
+			"type": "pubkey",
+			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
+		}
+		conn.WriteJSON(pubKeyMsg)
+		fmt.Println("📡 Sent public key")
+	}
+
 	done := make(chan bool)
 	go func() {
 		for {
@@ -64,13 +74,14 @@ func SendFile(filePath, roomID, serverURL string) {
 			switch msg.Type {
 			case "joined":
 				fmt.Printf("✅ Joined room '%s' as %s\n", roomID, msg.Mnemonic)
-				pubKeyBytes := privKey.PublicKey().Bytes()
-				pubKeyMsg := map[string]interface{}{
-					"type": "pubkey",
-					"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
+				sendPublicKey()
+
+			case "peers":
+				// When a new peer joins, re-send our public key
+				if msg.Count == 2 {
+					fmt.Println("👥 Peer joined, sending public key...")
+					sendPublicKey()
 				}
-				conn.WriteJSON(pubKeyMsg)
-				fmt.Println("📡 Sent public key")
 
 			case "pubkey":
 				peerMnemonic = msg.Mnemonic

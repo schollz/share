@@ -44,6 +44,16 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 
 	var sharedSecret []byte
 
+	sendPublicKey := func() {
+		pubKeyBytes := privKey.PublicKey().Bytes()
+		pubKeyMsg := map[string]interface{}{
+			"type": "pubkey",
+			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
+		}
+		conn.WriteJSON(pubKeyMsg)
+		fmt.Println("📡 Sent public key")
+	}
+
 	for {
 		var msg relay.OutgoingMessage
 		err := conn.ReadJSON(&msg)
@@ -54,14 +64,15 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 		switch msg.Type {
 		case "joined":
 			fmt.Printf("✅ Joined room '%s' as %s\n", roomID, msg.Mnemonic)
-			pubKeyBytes := privKey.PublicKey().Bytes()
-			pubKeyMsg := map[string]interface{}{
-				"type": "pubkey",
-				"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
-			}
-			conn.WriteJSON(pubKeyMsg)
-			fmt.Println("📡 Sent public key")
+			sendPublicKey()
 			fmt.Println("⏳ Waiting for file...")
+
+		case "peers":
+			// When a new peer joins, re-send our public key
+			if msg.Count == 2 {
+				fmt.Println("👥 Peer joined, sending public key...")
+				sendPublicKey()
+			}
 
 		case "pubkey":
 			fmt.Printf("📥 Received peer public key from %s\n", msg.Mnemonic)
