@@ -145,8 +145,12 @@ export default function App() {
         // Dynamically choose ws:// or wss:// based on current page
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const host = window.location.hostname;
-        const port = 3001; // adjust if needed
-        const ws = new WebSocket(`${protocol}//${host}:${port}/ws`);
+        // Only add port if running on localhost
+        const isLocalhost = host === "localhost" || host === "127.0.0.1";
+        const wsUrl = isLocalhost
+            ? `${protocol}//${host}:3001/ws`
+            : `${protocol}//${host}/ws`;
+        const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
