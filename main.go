@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"embed"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/schollz/share/src/client"
 	"github.com/schollz/share/src/relay"
@@ -36,13 +38,18 @@ var serveCmd = &cobra.Command{
 }
 
 var sendCmd = &cobra.Command{
-	Use:   "send <file> <room>",
+	Use:   "send <file> [room]",
 	Short: "Send a file to a room",
 	Long:  "Send a file through E2E encryption to a specified room",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		filePath := args[0]
-		roomID := args[1]
+		var roomID string
+		if len(args) >= 2 {
+			roomID = args[1]
+		} else {
+			roomID = promptForRoom()
+		}
 		server, _ := cmd.Flags().GetString("server")
 		if server == "" {
 			server = getWebSocketURL(domain)
@@ -52,12 +59,17 @@ var sendCmd = &cobra.Command{
 }
 
 var receiveCmd = &cobra.Command{
-	Use:   "receive <room>",
+	Use:   "receive [room]",
 	Short: "Receive a file from a room",
 	Long:  "Receive a file through E2E encryption from a specified room",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(0, 1),
 	Run: func(cmd *cobra.Command, args []string) {
-		roomID := args[0]
+		var roomID string
+		if len(args) >= 1 {
+			roomID = args[0]
+		} else {
+			roomID = promptForRoom()
+		}
 		server, _ := cmd.Flags().GetString("server")
 		if server == "" {
 			server = getWebSocketURL(domain)
@@ -65,6 +77,13 @@ var receiveCmd = &cobra.Command{
 		output, _ := cmd.Flags().GetString("output")
 		client.ReceiveFile(roomID, server, output)
 	},
+}
+
+func promptForRoom() string {
+	fmt.Print("Enter room name: ")
+	reader := bufio.NewReader(os.Stdin)
+	roomID, _ := reader.ReadString('\n')
+	return strings.TrimSpace(roomID)
 }
 
 func getWebSocketURL(domain string) string {
