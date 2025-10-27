@@ -103,6 +103,59 @@ function formatTime(seconds) {
 
 /* ------------------- React Component ------------------- */
 
+const ICON_CLASSES = [
+    "fa-cat",
+    "fa-dog",
+    "fa-crow",
+    "fa-dragon",
+    "fa-frog",
+    "fa-hippo",
+    "fa-fish",
+    "fa-feather",
+    "fa-dove",
+    "fa-bug",
+    "fa-spider",
+    "fa-horse",
+    "fa-leaf",
+    "fa-tree",
+    "fa-sun",
+    "fa-moon",
+    "fa-paper-plane",
+    "fa-key",
+];
+
+function mnemonicToIcon(mnemonic) {
+    if (!mnemonic) {
+        return "fa-circle-question";
+    }
+    let hash = 0;
+    for (let i = 0; i < mnemonic.length; i++) {
+        hash = (hash * 31 + mnemonic.charCodeAt(i)) >>> 0;
+    }
+    return ICON_CLASSES[hash % ICON_CLASSES.length];
+}
+
+function IconBadge({ mnemonic, label, className = "" }) {
+    if (!mnemonic) {
+        return null;
+    }
+    const iconClass = mnemonicToIcon(mnemonic);
+    return (
+        <div className={`relative group ${className}`}>
+            <div
+                tabIndex={0}
+                className="bg-white text-black px-3 py-2 sm:px-4 sm:py-3 inline-flex items-center justify-center border-2 sm:border-4 border-black font-black focus:outline-hidden"
+                aria-label={`${label}: ${mnemonic}`}
+            >
+                <i className={`fas ${iconClass} text-xl sm:text-2xl md:text-3xl`} aria-hidden="true"></i>
+            </div>
+            <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 bg-black text-white border-2 border-white px-2 py-1 text-xs font-black uppercase whitespace-nowrap shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                {mnemonic.toUpperCase()}
+            </div>
+        </div>
+    );
+}
+
 function ProgressBar({ progress, label }) {
     if (!progress) return null;
 
@@ -168,6 +221,9 @@ export default function App() {
     const fileIVRef = useRef(null);
     const fileTotalSizeRef = useRef(0);
     const receivedBytesRef = useRef(0);
+
+    const myIconClass = mnemonicToIcon(myMnemonic);
+    const peerIconClass = mnemonicToIcon(peerMnemonic);
 
     function log(msg) {
         console.log(msg);
@@ -561,9 +617,7 @@ export default function App() {
                     </p>
                     {myMnemonic && (
                         <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
-                            <div className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase">
-                                {myMnemonic}
-                            </div>
+                            <IconBadge mnemonic={myMnemonic} label="You" className="shrink-0" />
                             <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
                             <a href={`/${roomId}`} className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase no-underline cursor-pointer hover:bg-white">
                                 {window.location.host}/{roomId}
@@ -571,9 +625,7 @@ export default function App() {
                             {peerMnemonic && (
                                 <>
                                     <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
-                                    <div className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-block border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase">
-                                        {peerMnemonic}
-                                    </div>
+                                    <IconBadge mnemonic={peerMnemonic} label="Peer" className="shrink-0" />
                                 </>
                             )}
                         </div>
@@ -606,8 +658,28 @@ export default function App() {
                         </button>
                     </div>
                     <div className="bg-black text-white border-2 sm:border-4 border-black p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words">
-                        {peerMnemonic ? (
-                            <>PEER: {peerMnemonic.toUpperCase()}</>
+                        {connected && myMnemonic ? (
+                            peerMnemonic ? (
+                                <>
+                                    CONNECTED AS {myMnemonic.toUpperCase()} (
+                                    <span className="inline-flex items-center ml-1" title={`Your icon for ${myMnemonic}`}>
+                                        <i className={`fas ${myIconClass}`} aria-hidden="true"></i>
+                                    </span>
+                                    ) TO {peerMnemonic.toUpperCase()} (
+                                    <span className="inline-flex items-center ml-1" title={`Peer icon for ${peerMnemonic}`}>
+                                        <i className={`fas ${peerIconClass}`} aria-hidden="true"></i>
+                                    </span>
+                                    )
+                                </>
+                            ) : (
+                                <>
+                                    CONNECTED AS {myMnemonic.toUpperCase()} (
+                                    <span className="inline-flex items-center ml-1" title={`Your icon for ${myMnemonic}`}>
+                                        <i className={`fas ${myIconClass}`} aria-hidden="true"></i>
+                                    </span>
+                                    )
+                                </>
+                            )
                         ) : (
                             <>STATUS: {status.toUpperCase()}</>
                         )}
