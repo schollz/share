@@ -72,8 +72,8 @@ var (
 	roomMux       sync.Mutex
 	maxRooms      int
 	maxRoomsPerIP int
-	// Track which rooms each IP is in
-	ipRooms   = make(map[string]map[string]bool) // IP -> set of room IDs
+	// Track room membership counts per IP so we can enforce per-IP limits
+	ipRooms   = make(map[string]map[string]int) // IP -> roomID -> connection count
 	ipRoomMux sync.Mutex
 )
 
@@ -92,6 +92,59 @@ func GenerateMnemonic(clientID string) string {
 		return words[0] + "-" + words[1]
 	}
 	return mnemonic
+}
+
+func reserveIPRoom(ip, roomID string) bool {
+	if maxRoomsPerIP <= 0 {
+		return true
+	}
+
+	ipRoomMux.Lock()
+	defer ipRoomMux.Unlock()
+
+	roomsForIP, ok := ipRooms[ip]
+	if !ok {
+		roomsForIP = make(map[string]int)
+		ipRooms[ip] = roomsForIP
+	}
+
+	if roomsForIP[roomID] > 0 {
+		roomsForIP[roomID]++
+		return true
+	}
+
+	if len(roomsForIP) >= maxRoomsPerIP {
+		return false
+	}
+
+	roomsForIP[roomID] = 1
+	return true
+}
+
+func releaseIPRoom(ip, roomID string) {
+	if maxRoomsPerIP <= 0 {
+		return
+	}
+
+	ipRoomMux.Lock()
+	defer ipRoomMux.Unlock()
+
+	roomsForIP, ok := ipRooms[ip]
+	if !ok {
+		return
+	}
+
+	count := roomsForIP[roomID]
+	switch {
+	case count <= 1:
+		delete(roomsForIP, roomID)
+	default:
+		roomsForIP[roomID] = count - 1
+	}
+
+	if len(roomsForIP) == 0 {
+		delete(ipRooms, ip)
+	}
 }
 
 func getOrCreateRoom(roomID string) *Room {
@@ -118,13 +171,17 @@ func getOrCreateRoom(roomID string) *Room {
 }
 
 func removeClientFromRoom(c *Client) {
-	if c.RoomID == "" {
+	roomID := c.RoomID
+	if roomID == "" {
 		return
 	}
+
 	roomMux.Lock()
-	room, ok := rooms[c.RoomID]
+	room, ok := rooms[roomID]
 	roomMux.Unlock()
 	if !ok {
+		releaseIPRoom(c.IP, roomID)
+		c.RoomID = ""
 		return
 	}
 
@@ -132,6 +189,9 @@ func removeClientFromRoom(c *Client) {
 	delete(room.Clients, c.ID)
 	empty := len(room.Clients) == 0
 	room.Mutex.Unlock()
+
+	releaseIPRoom(c.IP, roomID)
+	c.RoomID = ""
 
 	broadcastPeers(room)
 
@@ -218,10 +278,39 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			client.Mnemonic = GenerateMnemonic(client.ID)
 
+			if client.RoomID == in.RoomID {
+				resp := OutgoingMessage{
+					Type:     "joined",
+					SelfID:   client.ID,
+					Mnemonic: client.Mnemonic,
+					RoomID:   in.RoomID,
+				}
+				respBytes, _ := json.Marshal(resp)
+				conn.WriteMessage(websocket.TextMessage, respBytes)
+				continue
+			}
+
+			if client.RoomID != "" && client.RoomID != in.RoomID {
+				removeClientFromRoom(client)
+			}
+
+			if !reserveIPRoom(client.IP, in.RoomID) {
+				logger.Warn("Per-IP room limit reached", "ip", client.IP, "limit", maxRoomsPerIP)
+				resp := OutgoingMessage{
+					Type:  "error",
+					Error: "Maximum rooms per IP reached, try again later",
+				}
+				respBytes, _ := json.Marshal(resp)
+				conn.WriteMessage(websocket.TextMessage, respBytes)
+				conn.Close()
+				return
+			}
+
 			room := getOrCreateRoom(in.RoomID)
 
 			// Check if room creation was blocked due to limit
 			if room == nil {
+				releaseIPRoom(client.IP, in.RoomID)
 				resp := OutgoingMessage{
 					Type:  "error",
 					Error: "Maximum rooms reached, try again later",

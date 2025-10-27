@@ -2,6 +2,8 @@ package relay
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -548,6 +550,94 @@ func TestRoomLimit(t *testing.T) {
 
 	// Reset maxRooms after test
 	maxRooms = 0
+}
+
+func TestRoomPerIPLimit(t *testing.T) {
+	maxRooms = 0
+	maxRoomsPerIP = 2
+
+	roomMux.Lock()
+	rooms = make(map[string]*Room)
+	roomMux.Unlock()
+
+	ipRoomMux.Lock()
+	ipRooms = make(map[string]map[string]int)
+	ipRoomMux.Unlock()
+
+	server := setupTestServer(t)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
+
+	connectAndJoin := func(roomID string) (*websocket.Conn, error) {
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		joinMsg := IncomingMessage{
+			Type:     "join",
+			RoomID:   roomID,
+			ClientID: "test-client-" + roomID,
+		}
+		if err := conn.WriteJSON(joinMsg); err != nil {
+			conn.Close()
+			return nil, err
+		}
+
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		var resp OutgoingMessage
+		if err := conn.ReadJSON(&resp); err != nil {
+			conn.Close()
+			return nil, err
+		}
+
+		if resp.Type == "error" {
+			conn.Close()
+			return nil, errors.New(resp.Error)
+		}
+
+		return conn, nil
+	}
+
+	conns := make([]*websocket.Conn, 0, maxRoomsPerIP)
+	for i := 1; i <= maxRoomsPerIP; i++ {
+		roomID := fmt.Sprintf("per-ip-room-%d", i)
+		conn, err := connectAndJoin(roomID)
+		if err != nil {
+			t.Fatalf("Expected to join room %d (should succeed): %v", i, err)
+		}
+		conns = append(conns, conn)
+	}
+
+	if conn, err := connectAndJoin("per-ip-room-over-limit"); err == nil {
+		conn.Close()
+		t.Fatal("Expected join to be rejected after reaching per-IP limit")
+	} else if !strings.Contains(err.Error(), "Maximum rooms per IP") {
+		t.Fatalf("Expected maximum rooms per IP error, got: %v", err)
+	}
+
+	conns[0].Close()
+	time.Sleep(200 * time.Millisecond)
+
+	if conn, err := connectAndJoin("per-ip-room-new"); err != nil {
+		t.Fatalf("Expected to join new room after closing one, but failed: %v", err)
+	} else {
+		conn.Close()
+	}
+
+	for _, conn := range conns[1:] {
+		conn.Close()
+	}
+
+	roomMux.Lock()
+	rooms = make(map[string]*Room)
+	roomMux.Unlock()
+
+	maxRoomsPerIP = 0
+	ipRoomMux.Lock()
+	ipRooms = make(map[string]map[string]int)
+	ipRoomMux.Unlock()
 }
 
 // Custom error type to distinguish room limit errors
