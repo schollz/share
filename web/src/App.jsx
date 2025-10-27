@@ -149,6 +149,7 @@ export default function App() {
     const [hasAesKey, setHasAesKey] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(null);
     const [downloadProgress, setDownloadProgress] = useState(null);
+    const [showErrorModal, setShowErrorModal] = useState(false);
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -206,7 +207,6 @@ export default function App() {
     const connectToRoom = useCallback(async () => {
         const room = roomId.trim().toLowerCase();
         if (!room) {
-            alert("Enter a room ID first.");
             return;
         }
         setRoomId(room);
@@ -235,6 +235,13 @@ export default function App() {
             try {
                 msg = JSON.parse(event.data);
             } catch {
+                return;
+            }
+
+            if (msg.type === "error") {
+                setShowErrorModal(true);
+                setConnected(false);
+                ws.close();
                 return;
             }
 
@@ -640,6 +647,25 @@ export default function App() {
                 )}
 
             </div>
+
+            {/* Error Modal */}
+            {showErrorModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md w-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                        <h2 className="text-2xl sm:text-4xl font-black mb-4 uppercase text-center">MAXIMUM ROOMS</h2>
+                        <p className="text-lg sm:text-xl font-bold mb-6 text-center">TRY AGAIN LATER</p>
+                        <button
+                            onClick={() => {
+                                setShowErrorModal(false);
+                                setRoomId('');
+                            }}
+                            className="w-full border-2 sm:border-4 border-black bg-black text-white px-6 py-3 sm:py-4 text-lg sm:text-xl font-black uppercase hover:bg-gray-900 transition-colors"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

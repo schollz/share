@@ -80,6 +80,12 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 		}
 
 		switch msg.Type {
+		case "error":
+			if msg.Error != "" {
+				log.Fatalf("Server error: %s", msg.Error)
+			}
+			return
+
 		case "joined":
 			sendPublicKey()
 

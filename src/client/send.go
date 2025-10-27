@@ -4,6 +4,7 @@ import (
 	"crypto/ecdh"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -71,6 +72,12 @@ func SendFile(filePath, roomID, serverURL string) {
 			}
 
 			switch msg.Type {
+			case "error":
+				if msg.Error != "" {
+					log.Fatalf("Server error: %s", msg.Error)
+				}
+				return
+
 			case "joined":
 				// Convert WebSocket URL to HTTP URL for display
 				webURL := serverURL
@@ -169,8 +176,11 @@ func SendFile(filePath, roomID, serverURL string) {
 						time.Sleep(10 * time.Millisecond)
 					}
 
-					if err == os.ErrClosed || err != nil {
+					if err == io.EOF {
 						break
+					}
+					if err != nil {
+						log.Fatalf("Failed to read file: %v", err)
 					}
 				}
 

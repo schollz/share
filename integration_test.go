@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -43,12 +46,21 @@ func TestIntegrationFileTransfer(t *testing.T) {
 	}
 
 	// Start the relay server in a goroutine
-	port := 13001 // Use a non-standard port for testing
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		// Skip integration testing if the sandbox disallows opening sockets
+		if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+			t.Skipf("Skipping integration test due to network restrictions: %v", err)
+		}
+		t.Fatalf("Failed to reserve test port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Start the actual relay server in background
 	go func() {
-		relay.Start(port, staticFS, logger)
+		relay.Start(port, 0, 0, staticFS, logger) // 0 limits disable room caps for integration tests
 	}()
 
 	// Give the server time to start
