@@ -53,7 +53,7 @@ share receive
 You can run your own relay server if you want to self-host.
 
 ```bash
-share server --port 8080
+share serve --port 8080
 ```
 
 
