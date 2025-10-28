@@ -10,6 +10,7 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/tyler-smith/go-bip39 v1.1.0
 	google.golang.org/protobuf v1.36.10
+	rsc.io/qr v0.2.0
 )
 
 require (

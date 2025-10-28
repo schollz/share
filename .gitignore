@@ -143,3 +143,4 @@ vite.config.ts.timestamp-*
 share
 node_modules
 tmp/*
+web/dist/*
