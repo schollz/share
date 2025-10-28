@@ -64,9 +64,9 @@ func TestFormatBytesEdgeCases(t *testing.T) {
 	tests := []struct {
 		bytes int64
 	}{
-		{1023},  // Just below 1 KB
-		{1024},  // Exactly 1 KB
-		{1025},  // Just above 1 KB
+		{1023},    // Just below 1 KB
+		{1024},    // Exactly 1 KB
+		{1025},    // Just above 1 KB
 		{1048575}, // Just below 1 MB
 		{1048576}, // Exactly 1 MB
 	}

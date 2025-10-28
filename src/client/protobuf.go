@@ -10,7 +10,7 @@ import (
 func sendProtobufMessage(conn *websocket.Conn, msg map[string]interface{}) error {
 	// Convert map to protobuf message
 	pbMsg := &relay.PBIncomingMessage{}
-	
+
 	if v, ok := msg["type"].(string); ok {
 		pbMsg.Type = v
 	}
@@ -44,12 +44,12 @@ func sendProtobufMessage(conn *websocket.Conn, msg map[string]interface{}) error
 	if v, ok := msg["total_size"].(int64); ok {
 		pbMsg.TotalSize = v
 	}
-	
+
 	data, err := proto.Marshal(pbMsg)
 	if err != nil {
 		return err
 	}
-	
+
 	return conn.WriteMessage(websocket.BinaryMessage, data)
 }
 
@@ -59,14 +59,14 @@ func receiveProtobufMessage(conn *websocket.Conn) (*relay.OutgoingMessage, error
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if msgType == websocket.BinaryMessage {
 		// Protobuf message
 		pbMsg := &relay.PBOutgoingMessage{}
 		if err := proto.Unmarshal(raw, pbMsg); err != nil {
 			return nil, err
 		}
-		
+
 		// Convert to OutgoingMessage
 		return &relay.OutgoingMessage{
 			Type:      pbMsg.Type,
@@ -87,7 +87,7 @@ func receiveProtobufMessage(conn *websocket.Conn) (*relay.OutgoingMessage, error
 			Error:     pbMsg.Error,
 		}, nil
 	}
-	
+
 	// JSON message
 	var msg relay.OutgoingMessage
 	if err := conn.ReadJSON(&msg); err != nil {
