@@ -460,7 +460,7 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 
 	handler := cors.AllowAll().Handler(mux)
 	addr := fmt.Sprintf(":%d", port)
-	logger.Info("SecureDrop relay starting", "address", fmt.Sprintf("ws://localhost%s", addr))
+	logger.Info("share relay starting", "address", fmt.Sprintf("ws://localhost%s", addr))
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		logger.Error("Server failed", "error", err)
 	}

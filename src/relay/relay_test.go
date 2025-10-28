@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,7 +12,35 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
 )
+
+// Test helper: send protobuf message
+func sendProtobufTest(conn *websocket.Conn, msg *IncomingMessage) error {
+	pb := incomingToPB(msg)
+	data, err := proto.Marshal(pb)
+	if err != nil {
+		return err
+	}
+	return conn.WriteMessage(websocket.BinaryMessage, data)
+}
+
+// Test helper: receive protobuf message
+func receiveProtobufTest(conn *websocket.Conn) (*OutgoingMessage, error) {
+	msgType, raw, err := conn.ReadMessage()
+	if err != nil {
+		return nil, err
+	}
+	if msgType != websocket.BinaryMessage {
+		return nil, fmt.Errorf("expected binary message, got type %d", msgType)
+	}
+
+	pb := &PBOutgoingMessage{}
+	if err := proto.Unmarshal(raw, pb); err != nil {
+		return nil, err
+	}
+	return pbToOutgoing(pb), nil
+}
 
 func TestGenerateMnemonic(t *testing.T) {
 	tests := []struct {
@@ -246,7 +273,7 @@ func TestHealthHandler(t *testing.T) {
 }
 
 func TestMessageSerialization(t *testing.T) {
-	// Test IncomingMessage
+	// Test IncomingMessage protobuf serialization
 	inMsg := IncomingMessage{
 		Type:     "join",
 		RoomID:   "room-123",
@@ -254,22 +281,24 @@ func TestMessageSerialization(t *testing.T) {
 		Pub:      "base64pubkey",
 	}
 
-	data, err := json.Marshal(inMsg)
+	pb := incomingToPB(&inMsg)
+	data, err := proto.Marshal(pb)
 	if err != nil {
 		t.Fatalf("Failed to marshal IncomingMessage: %v", err)
 	}
 
-	var decoded IncomingMessage
-	err = json.Unmarshal(data, &decoded)
+	decodedPB := &PBIncomingMessage{}
+	err = proto.Unmarshal(data, decodedPB)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal IncomingMessage: %v", err)
 	}
 
+	decoded := pbToIncoming(decodedPB)
 	if decoded.Type != inMsg.Type || decoded.RoomID != inMsg.RoomID {
 		t.Fatal("IncomingMessage fields don't match after serialization")
 	}
 
-	// Test OutgoingMessage
+	// Test OutgoingMessage protobuf serialization
 	outMsg := OutgoingMessage{
 		Type:     "joined",
 		SelfID:   "client-789",
@@ -279,17 +308,19 @@ func TestMessageSerialization(t *testing.T) {
 		Count:    2,
 	}
 
-	data, err = json.Marshal(outMsg)
+	pbOut := outgoingToPB(&outMsg)
+	data, err = proto.Marshal(pbOut)
 	if err != nil {
 		t.Fatalf("Failed to marshal OutgoingMessage: %v", err)
 	}
 
-	var decodedOut OutgoingMessage
-	err = json.Unmarshal(data, &decodedOut)
+	decodedOutPB := &PBOutgoingMessage{}
+	err = proto.Unmarshal(data, decodedOutPB)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal OutgoingMessage: %v", err)
 	}
 
+	decodedOut := pbToOutgoing(decodedOutPB)
 	if decodedOut.Type != outMsg.Type || decodedOut.Count != outMsg.Count {
 		t.Fatal("OutgoingMessage fields don't match after serialization")
 	}
@@ -330,22 +361,21 @@ func TestWebSocketConnection(t *testing.T) {
 	}
 	defer ws.Close()
 
-	// Send join message
-	joinMsg := IncomingMessage{
+	// Send join message using protobuf
+	joinMsg := &IncomingMessage{
 		Type:     "join",
 		RoomID:   "test-room",
 		ClientID: "test-client",
 	}
 
-	err = ws.WriteJSON(joinMsg)
+	err = sendProtobufTest(ws, joinMsg)
 	if err != nil {
 		t.Fatalf("Failed to send join message: %v", err)
 	}
 
 	// Read response with timeout
 	ws.SetReadDeadline(time.Now().Add(2 * time.Second))
-	var response OutgoingMessage
-	err = ws.ReadJSON(&response)
+	response, err := receiveProtobufTest(ws)
 	if err != nil {
 		t.Fatalf("Failed to read response: %v", err)
 	}
@@ -384,21 +414,26 @@ func TestWebSocketMultiplePeers(t *testing.T) {
 	defer ws1.Close()
 
 	// First client joins
-	joinMsg1 := IncomingMessage{
+	joinMsg1 := &IncomingMessage{
 		Type:     "join",
 		RoomID:   "multi-peer-room",
 		ClientID: "client-1",
 	}
-	ws1.WriteJSON(joinMsg1)
+	sendProtobufTest(ws1, joinMsg1)
 
 	// Read joined response
-	var resp1 OutgoingMessage
 	ws1.SetReadDeadline(time.Now().Add(2 * time.Second))
-	ws1.ReadJSON(&resp1)
+	_, err = receiveProtobufTest(ws1)
+	if err != nil {
+		t.Fatalf("Failed to read joined response: %v", err)
+	}
 
 	// Read peers message
 	ws1.SetReadDeadline(time.Now().Add(2 * time.Second))
-	ws1.ReadJSON(&resp1)
+	_, err = receiveProtobufTest(ws1)
+	if err != nil {
+		t.Fatalf("Failed to read initial peers message: %v", err)
+	}
 
 	// Connect second client
 	ws2, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
@@ -408,23 +443,24 @@ func TestWebSocketMultiplePeers(t *testing.T) {
 	defer ws2.Close()
 
 	// Second client joins
-	joinMsg2 := IncomingMessage{
+	joinMsg2 := &IncomingMessage{
 		Type:     "join",
 		RoomID:   "multi-peer-room",
 		ClientID: "client-2",
 	}
-	ws2.WriteJSON(joinMsg2)
+	sendProtobufTest(ws2, joinMsg2)
 
 	// Read joined response for client 2
-	var resp2 OutgoingMessage
 	ws2.SetReadDeadline(time.Now().Add(2 * time.Second))
-	ws2.ReadJSON(&resp2)
+	_, err = receiveProtobufTest(ws2)
+	if err != nil {
+		t.Fatalf("Failed to read joined response for client 2: %v", err)
+	}
 
 	// Both clients should receive peers update
 	// Client 1 receives peers update
-	var peersMsg1 OutgoingMessage
 	ws1.SetReadDeadline(time.Now().Add(2 * time.Second))
-	err = ws1.ReadJSON(&peersMsg1)
+	peersMsg1, err := receiveProtobufTest(ws1)
 	if err != nil {
 		t.Fatalf("Failed to read peers message: %v", err)
 	}
@@ -458,21 +494,21 @@ func TestRoomLimit(t *testing.T) {
 			return nil, err
 		}
 
-		// Send join message
-		joinMsg := IncomingMessage{
+		// Send join message using protobuf
+		joinMsg := &IncomingMessage{
 			Type:     "join",
 			RoomID:   roomID,
 			ClientID: "test-client-" + roomID,
 		}
-		if err := conn.WriteJSON(joinMsg); err != nil {
+		if err := sendProtobufTest(conn, joinMsg); err != nil {
 			conn.Close()
 			return nil, err
 		}
 
 		// Read response
 		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		var resp OutgoingMessage
-		if err := conn.ReadJSON(&resp); err != nil {
+		resp, err := receiveProtobufTest(conn)
+		if err != nil {
 			conn.Close()
 			return nil, err
 		}
@@ -575,19 +611,19 @@ func TestRoomPerIPLimit(t *testing.T) {
 			return nil, err
 		}
 
-		joinMsg := IncomingMessage{
+		joinMsg := &IncomingMessage{
 			Type:     "join",
 			RoomID:   roomID,
 			ClientID: "test-client-" + roomID,
 		}
-		if err := conn.WriteJSON(joinMsg); err != nil {
+		if err := sendProtobufTest(conn, joinMsg); err != nil {
 			conn.Close()
 			return nil, err
 		}
 
 		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		var resp OutgoingMessage
-		if err := conn.ReadJSON(&resp); err != nil {
+		resp, err := receiveProtobufTest(conn)
+		if err != nil {
 			conn.Close()
 			return nil, err
 		}
