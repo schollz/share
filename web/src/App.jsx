@@ -78,6 +78,8 @@ function base64ToUint8(b64) {
 /* ------------------- Protobuf Message Handling ------------------- */
 
 // Protobuf schema definition
+// NOTE: This schema is duplicated from src/relay/messages.proto for the web client.
+// Keep in sync with the proto file or consider using a build step to import it.
 const protoSchema = `
 syntax = "proto3";
 
@@ -119,8 +121,7 @@ message PBOutgoingMessage {
 
 let pbIncomingMessage, pbOutgoingMessage;
 
-// Load protobuf schema
-protobuf.parse(protoSchema).root.lookupType("relay.PBIncomingMessage");
+// Load protobuf schema once
 const root = protobuf.parse(protoSchema).root;
 pbIncomingMessage = root.lookupType("relay.PBIncomingMessage");
 pbOutgoingMessage = root.lookupType("relay.PBOutgoingMessage");
