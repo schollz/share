@@ -65,13 +65,17 @@ func (cm *ConnectionManager) AddConnection(conn *websocket.Conn, connType Connec
 
 	cm.Connections = append(cm.Connections, rc)
 
+	log.Printf("[CONNECTION MANAGER] Added %s connection: %s (total connections: %d)", connType, url, len(cm.Connections))
+
 	// If this is a local connection, prefer it immediately
 	if connType == ConnectionTypeLocal {
 		cm.PreferredConn = rc
-		log.Printf("Using local relay connection: %s", url)
+		log.Printf("[CONNECTION MANAGER] ✓ Set preferred connection to LOCAL: %s", url)
 	} else if cm.PreferredConn == nil {
 		cm.PreferredConn = rc
-		log.Printf("Using internet relay connection: %s", url)
+		log.Printf("[CONNECTION MANAGER] Set preferred connection to INTERNET: %s", url)
+	} else {
+		log.Printf("[CONNECTION MANAGER] Keeping preferred connection as %s (not overriding)", cm.PreferredConn.Type)
 	}
 
 	// Start listening to this connection
@@ -112,6 +116,7 @@ func (cm *ConnectionManager) SendMessage(msg map[string]interface{}) error {
 	cm.mutex.RUnlock()
 
 	if preferred == nil {
+		log.Printf("[CONNECTION MANAGER] ERROR: No active connection available")
 		return fmt.Errorf("no active connection available")
 	}
 
@@ -119,8 +124,15 @@ func (cm *ConnectionManager) SendMessage(msg map[string]interface{}) error {
 	defer preferred.mutex.Unlock()
 
 	if !preferred.IsActive {
+		log.Printf("[CONNECTION MANAGER] ERROR: Preferred connection is not active")
 		return fmt.Errorf("preferred connection is not active")
 	}
+
+	msgType := ""
+	if t, ok := msg["type"].(string); ok {
+		msgType = t
+	}
+	log.Printf("[CONNECTION MANAGER] Sending message '%s' via %s connection: %s", msgType, preferred.Type, preferred.URL)
 
 	return sendProtobufMessage(preferred.Conn, msg)
 }
