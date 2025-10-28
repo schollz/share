@@ -84,7 +84,8 @@ var receiveCmd = &cobra.Command{
 			server = getWebSocketURL(domain)
 		}
 		output, _ := cmd.Flags().GetString("output")
-		client.ReceiveFile(roomID, server, output)
+		force, _ := cmd.Flags().GetBool("force")
+		client.ReceiveFile(roomID, server, output, force)
 	},
 }
 
@@ -174,6 +175,7 @@ func init() {
 	sendCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("output", "o", ".", "Output directory")
+	receiveCmd.Flags().BoolP("force", "f", false, "Force overwrite existing files without prompting")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(sendCmd)

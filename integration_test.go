@@ -77,7 +77,7 @@ func TestIntegrationFileTransfer(t *testing.T) {
 				receiveDone <- fmt.Errorf("receiver panic: %v", r)
 			}
 		}()
-		client.ReceiveFile(roomID, serverURL, receiveDir)
+		client.ReceiveFile(roomID, serverURL, receiveDir, true) // Force overwrite in test
 		receiveDone <- nil
 	}()
 
