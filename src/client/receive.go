@@ -58,6 +58,12 @@ func checkFileOverwrite(outputPath string, forceOverwrite bool) bool {
 		}
 	}
 	return true
+// sanitizeFileName cleans a filename to prevent path traversal attacks
+// by extracting only the base filename and removing any directory components
+func sanitizeFileName(fileName string) string {
+	// Use filepath.Base to extract only the filename, removing any directory components
+	// This prevents path traversal attacks like "../../../etc/passwd"
+	return filepath.Base(fileName)
 }
 
 // ReceiveFile receives a file from the specified room via the relay server
@@ -139,7 +145,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				continue
 			}
 
-			fileName = msg.Name
+			fileName = sanitizeFileName(msg.Name)
 			totalSize = msg.TotalSize
 			receivedBytes = 0
 
@@ -239,12 +245,13 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				log.Fatalf("Decryption failed: %v", err)
 			}
 
-			outputPath := filepath.Join(outputDir, msg.Name)
 			
+			outputPath := filepath.Join(outputDir, sanitizeFileName(msg.Name))
 			// Check if file exists and prompt for overwrite if needed
 			if !checkFileOverwrite(outputPath, forceOverwrite) {
 				return
 			}
+			
 			
 			err = os.WriteFile(outputPath, plaintext, 0644)
 			if err != nil {

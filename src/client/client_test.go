@@ -2,6 +2,36 @@ package client
 
 import "testing"
 
+func TestSanitizeFileName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"simple filename", "test.txt", "test.txt"},
+		{"path traversal with ..", "../../../etc/passwd", "passwd"},
+		{"path traversal with multiple ..", "../../file.txt", "file.txt"},
+		{"unix path", "/etc/passwd", "passwd"},
+		{"relative path", "dir/subdir/file.txt", "file.txt"},
+		{"hidden file", ".hidden", ".hidden"},
+		{"empty string", "", "."},
+		{"current dir", ".", "."},
+		{"complex path traversal", "../../../tmp/../etc/passwd", "passwd"},
+		{"filename with spaces", "my file.txt", "my file.txt"},
+		{"path with spaces", "path/to/my file.txt", "my file.txt"},
+		{"dot dot", "..", ".."},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeFileName(tt.input)
+			if result != tt.expected {
+				t.Errorf("sanitizeFileName(%q) = %q; expected %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestFormatBytes(t *testing.T) {
 	tests := []struct {
 		name     string
