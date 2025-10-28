@@ -128,39 +128,65 @@ pbOutgoingMessage = root.lookupType("relay.PBOutgoingMessage");
 
 // Encode message to protobuf
 function encodeProtobuf(obj) {
-    const message = pbIncomingMessage.create({
-        type: obj.type,
-        room_id: obj.roomId,
-        client_id: obj.clientId,
-        pub: obj.pub,
-        name: obj.name,
-        size: obj.size,
-        iv_b64: obj.iv_b64,
-        data_b64: obj.data_b64,
-        chunk_data: obj.chunk_data,
-        chunk_num: obj.chunk_num,
-        total_size: obj.total_size
-    });
+    // Create message using protobufjs - use camelCase field names
+    const pbMessage = {
+        type: obj.type || ""
+    };
+
+    // protobufjs expects camelCase field names that map to snake_case in proto
+    if (obj.roomId !== undefined && obj.roomId !== null && obj.roomId !== "") {
+        pbMessage.roomId = obj.roomId;
+    }
+    if (obj.clientId !== undefined && obj.clientId !== null && obj.clientId !== "") {
+        pbMessage.clientId = obj.clientId;
+    }
+    if (obj.pub !== undefined && obj.pub !== null && obj.pub !== "") {
+        pbMessage.pub = obj.pub;
+    }
+    if (obj.name !== undefined && obj.name !== null && obj.name !== "") {
+        pbMessage.name = obj.name;
+    }
+    if (obj.size !== undefined && obj.size !== null) {
+        pbMessage.size = obj.size;
+    }
+    if (obj.iv_b64 !== undefined && obj.iv_b64 !== null && obj.iv_b64 !== "") {
+        pbMessage.ivB64 = obj.iv_b64;
+    }
+    if (obj.data_b64 !== undefined && obj.data_b64 !== null && obj.data_b64 !== "") {
+        pbMessage.dataB64 = obj.data_b64;
+    }
+    if (obj.chunk_data !== undefined && obj.chunk_data !== null && obj.chunk_data !== "") {
+        pbMessage.chunkData = obj.chunk_data;
+    }
+    if (obj.chunk_num !== undefined && obj.chunk_num !== null) {
+        pbMessage.chunkNum = obj.chunk_num;
+    }
+    if (obj.total_size !== undefined && obj.total_size !== null) {
+        pbMessage.totalSize = obj.total_size;
+    }
+
+    const message = pbIncomingMessage.create(pbMessage);
     return pbIncomingMessage.encode(message).finish();
 }
 
 // Decode protobuf message
 function decodeProtobuf(buffer) {
     const message = pbOutgoingMessage.decode(buffer);
+    // protobufjs provides camelCase properties for snake_case proto fields
     return {
         type: message.type,
         from: message.from,
         mnemonic: message.mnemonic,
-        roomId: message.room_id,
+        roomId: message.roomId,
         pub: message.pub,
         name: message.name,
         size: message.size ? Number(message.size) : 0,
-        iv_b64: message.iv_b64,
-        data_b64: message.data_b64,
-        chunk_data: message.chunk_data,
-        chunk_num: message.chunk_num,
-        total_size: message.total_size ? Number(message.total_size) : 0,
-        selfId: message.self_id,
+        iv_b64: message.ivB64,
+        data_b64: message.dataB64,
+        chunk_data: message.chunkData,
+        chunk_num: message.chunkNum,
+        total_size: message.totalSize ? Number(message.totalSize) : 0,
+        selfId: message.selfId,
         peers: message.peers || [],
         count: message.count,
         error: message.error

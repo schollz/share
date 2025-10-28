@@ -3,7 +3,6 @@ package relay
 import (
 	"crypto/sha256"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -259,29 +258,20 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("New client", "clientId", client.ID, "ip", clientIP)
 
+	// All clients use protobuf
+	client.UseProtobuf = true
+
 	for {
 		_, raw, err := conn.ReadMessage()
 		if err != nil {
 			break
 		}
 
-		var in IncomingMessage
-
-		// Auto-detect message format
-		if isProtobufMessage(raw) {
-			decoded, err := decodeProtobuf(raw)
-			if err != nil {
-				logger.Warn("Bad protobuf", "error", err)
-				continue
-			}
-			in = *decoded
-			client.UseProtobuf = true
-		} else {
-			// Try JSON
-			if err := json.Unmarshal(raw, &in); err != nil {
-				logger.Warn("Bad message format", "error", err)
-				continue
-			}
+		// Decode protobuf message
+		in, err := decodeProtobuf(raw)
+		if err != nil {
+			logger.Warn("Bad protobuf message", "error", err, "clientId", client.ID)
+			continue
 		}
 
 		switch in.Type {
@@ -336,6 +326,8 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			room.Mutex.Unlock()
 
 			client.RoomID = in.RoomID
+
+			logger.Info("Client joined room", "clientId", client.ID, "room", in.RoomID)
 
 			resp := OutgoingMessage{
 				Type:     "joined",
