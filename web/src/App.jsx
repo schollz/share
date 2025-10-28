@@ -693,15 +693,15 @@ export default function App() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8 font-mono flex items-center justify-center">
-            <div className="max-w-4xl w-full">
+        <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8 font-mono flex flex-col items-center justify-center">
+            <div className="max-w-4xl w-full flex-grow flex flex-col justify-center">
                 {/* Header */}
                 <div className="bg-black text-white border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)', boxShadow: '4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black' }}>
                     <h1 className="text-3xl sm:text-5xl md:text-6xl font-black mb-2 sm:mb-4 uppercase tracking-tight">
-                        <a href="/" className="text-white no-underline cursor-pointer hover:text-white">SHARE</a>
+                        <a href="/" className="text-white no-underline cursor-pointer hover:text-white hover:underline">SHARE</a>
                     </h1>
                     <p className="flex items-center gap-2 text-sm sm:text-lg md:text-xl font-bold leading-tight">
-                        <a href="https://github.com/schollz/share" target="_blank" rel="noopener noreferrer" className="text-white no-underline cursor-pointer hover:text-white">E2EE FILE TRANSFER</a>
+                        <a href="https://github.com/schollz/share" target="_blank" rel="noopener noreferrer" className="text-white no-underline cursor-pointer hover:text-white hover:underline">E2EE FILE TRANSFER</a>
                         <button
                             type="button"
                             onClick={() => setShowAboutModal(true)}
@@ -860,7 +860,7 @@ export default function App() {
                     >
                         <h2 className="text-2xl sm:text-3xl font-black uppercase mb-3 text-center">WHAT IS SHARE?</h2>
                         <p className="text-sm sm:text-base font-bold mb-3 text-center">
-                            Share links two peers to stream files with end-to-end encryption via a neutral relay.
+                            Share allows two computers to share files with end-to-end encryption via a zero-knowledge relay. 
                         </p>
                         <p className="text-sm sm:text-base font-bold mb-4 text-center">
                             Use the CLI to swap files between web or terminals:
@@ -877,6 +877,21 @@ export default function App() {
                     </div>
                 </div>
             )}
+
+        {/* Footer */}
+        <div className="w-full max-w-4xl mt-8 pb-4 text-center">
+            <p className="text-sm font-bold">
+                <a
+                    href="https://github.com/schollz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-black hover:underline"
+                >
+                    Zack
+                </a>
+                {' '}(C) 2025
+            </p>
         </div>
+    </div>
     );
 }
