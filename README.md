@@ -15,7 +15,7 @@
   </a>
 </p>
 
-Share moves files between machines with a clean web UI and a focused CLI.
+Share files between machines through the web, through a CLI, or both.
 
 
 ## Usage
