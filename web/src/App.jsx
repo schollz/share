@@ -410,6 +410,7 @@ export default function App() {
     const fileIVRef = useRef(null);
     const fileTotalSizeRef = useRef(0);
     const receivedBytesRef = useRef(0);
+    const downloadStartTimeRef = useRef(null);
 
     const myIconClass = mnemonicToIcon(myMnemonic);
     const peerIconClass = mnemonicToIcon(peerMnemonic);
@@ -545,9 +546,10 @@ export default function App() {
                 fileTotalSizeRef.current = msg.total_size;
                 fileChunksRef.current = [];
                 receivedBytesRef.current = 0;
+                downloadStartTimeRef.current = Date.now();
 
                 log(`Incoming encrypted file: ${msg.name} (${formatBytes(msg.total_size)})`);
-                setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: Date.now(), fileName: msg.name });
+                setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: downloadStartTimeRef.current, fileName: msg.name });
                 return;
             }
 
@@ -563,7 +565,7 @@ export default function App() {
                     fileChunksRef.current.push(plainChunk);
                     receivedBytesRef.current += plainChunk.length;
 
-                    const elapsed = (Date.now() - (downloadProgress?.startTime || Date.now())) / 1000;
+                    const elapsed = (Date.now() - downloadStartTimeRef.current) / 1000;
                     const speed = elapsed > 0 ? receivedBytesRef.current / elapsed : 0;
                     const percent = fileTotalSizeRef.current > 0
                         ? Math.round((receivedBytesRef.current / fileTotalSizeRef.current) * 100)
@@ -576,7 +578,7 @@ export default function App() {
                         percent,
                         speed,
                         eta,
-                        startTime: downloadProgress?.startTime || Date.now(),
+                        startTime: downloadStartTimeRef.current,
                         fileName: fileNameRef.current
                     });
                 } catch (err) {
@@ -603,7 +605,7 @@ export default function App() {
                         offset += chunk.length;
                     }
 
-                    const elapsed = (Date.now() - (downloadProgress?.startTime || Date.now())) / 1000;
+                    const elapsed = (Date.now() - downloadStartTimeRef.current) / 1000;
                     const speed = elapsed > 0 ? totalLen / elapsed : 0;
 
                     setDownloadProgress({ percent: 100, speed, eta: 0, fileName: fileNameRef.current });
