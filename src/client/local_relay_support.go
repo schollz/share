@@ -1,13 +1,22 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/schollz/share/src/discovery"
+)
+
+const (
+	// Connection timeouts
+	peerDiscoveryTimeout  = 2 * time.Second
+	internetConnTimeout   = 5 * time.Second
+	localPeerConnTimeout  = 2 * time.Second
+	localDiscoveryWait    = 1 * time.Second
+	localFallbackWait     = 3 * time.Second
+	overallConnectTimeout = 6 * time.Second
 )
 
 // SetupConnections sets up both local and internet relay connections
@@ -31,11 +40,8 @@ func SetupConnections(roomID, serverURL string, enableLocal bool) (*ConnectionMa
 	// Start peer discovery in background
 	if localRelay != nil && enableLocal {
 		go func() {
-			_, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-
 			// Try to discover peers
-			peers, err := discovery.DiscoverPeers(roomID, 2*time.Second)
+			peers, err := discovery.DiscoverPeers(roomID, peerDiscoveryTimeout)
 			if err != nil {
 				log.Printf("Peer discovery: no local peers found")
 				return
@@ -44,7 +50,7 @@ func SetupConnections(roomID, serverURL string, enableLocal bool) (*ConnectionMa
 			if len(peers) > 0 {
 				// Found local peers, try to connect to their relay
 				for _, peer := range peers {
-					conn, err := ConnectWithTimeout(peer.RelayURL, 2*time.Second)
+					conn, err := ConnectWithTimeout(peer.RelayURL, localPeerConnTimeout)
 					if err != nil {
 						log.Printf("Failed to connect to peer relay %s: %v", peer.RelayURL, err)
 						continue
@@ -71,7 +77,7 @@ func SetupConnections(roomID, serverURL string, enableLocal bool) (*ConnectionMa
 	internetErrChan := make(chan error, 1)
 
 	go func() {
-		conn, err := ConnectWithTimeout(serverURL, 5*time.Second)
+		conn, err := ConnectWithTimeout(serverURL, internetConnTimeout)
 		if err != nil {
 			internetErrChan <- err
 		} else {
@@ -84,12 +90,13 @@ func SetupConnections(roomID, serverURL string, enableLocal bool) (*ConnectionMa
 	case conn := <-internetConnChan:
 		cm.AddConnection(conn, ConnectionTypeInternet, serverURL)
 		// Give local discovery a bit more time if enabled
+		// This allows preferring local connection if one is found quickly
 		if enableLocal {
 			select {
 			case <-localPeerFound:
-				// Local peer found, we're done
-			case <-time.After(1 * time.Second):
-				// Timeout waiting for local peer, continue with internet
+				// Local peer found, both connections active (local is preferred)
+			case <-time.After(localDiscoveryWait):
+				// Timeout waiting for local peer, continue with internet only
 			}
 		}
 	case err := <-internetErrChan:
@@ -98,13 +105,13 @@ func SetupConnections(roomID, serverURL string, enableLocal bool) (*ConnectionMa
 			select {
 			case <-localPeerFound:
 				log.Printf("Using local relay only (internet relay unavailable)")
-			case <-time.After(3 * time.Second):
+			case <-time.After(localFallbackWait):
 				return nil, fmt.Errorf("failed to connect to internet relay and no local relay available: %w", err)
 			}
 		} else {
 			return nil, fmt.Errorf("failed to connect to internet relay: %w", err)
 		}
-	case <-time.After(6 * time.Second):
+	case <-time.After(overallConnectTimeout):
 		// Overall timeout
 		return nil, fmt.Errorf("timeout waiting for relay connections")
 	}
