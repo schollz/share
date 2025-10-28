@@ -995,7 +995,7 @@ export default function App() {
                     >
                         <h2 className="text-2xl sm:text-3xl font-black uppercase mb-3 text-center">WHAT IS SHARE?</h2>
                         <p className="text-sm sm:text-base font-bold mb-3 text-center">
-                            Share allows two computers to share files with end-to-end encryption via a zero-knowledge relay. 
+                            Share allows two computers to share files with end-to-end encryption via a zero-knowledge relay.
                         </p>
                         <p className="text-sm sm:text-base font-bold mb-4 text-center">
                             Use the CLI to swap files between web or terminals:
@@ -1013,20 +1013,6 @@ export default function App() {
                 </div>
             )}
 
-        {/* Footer */}
-        <div className="w-full max-w-4xl mt-8 pb-4 text-center">
-            <p className="text-sm font-bold">
-                <a
-                    href="https://github.com/schollz"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-black hover:underline"
-                >
-                    Zack
-                </a>
-                {' '}(C) 2025
-            </p>
         </div>
-    </div>
     );
 }
