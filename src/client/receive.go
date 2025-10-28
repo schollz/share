@@ -12,7 +12,6 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/share/src/crypto"
-	"github.com/schollz/share/src/relay"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -54,7 +53,7 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 		"roomId":   roomID,
 		"clientId": clientID,
 	}
-	conn.WriteJSON(joinMsg)
+	sendProtobufMessage(conn, joinMsg)
 
 	var sharedSecret []byte
 	var fileName string
@@ -69,12 +68,11 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 			"type": "pubkey",
 			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
 		}
-		conn.WriteJSON(pubKeyMsg)
+		sendProtobufMessage(conn, pubKeyMsg)
 	}
 
 	for {
-		var msg relay.OutgoingMessage
-		err := conn.ReadJSON(&msg)
+		msg, err := receiveProtobufMessage(conn)
 		if err != nil {
 			log.Fatalf("Connection closed: %v", err)
 		}

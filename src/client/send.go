@@ -13,7 +13,6 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/share/src/crypto"
-	"github.com/schollz/share/src/relay"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -48,7 +47,7 @@ func SendFile(filePath, roomID, serverURL string) {
 		"roomId":   roomID,
 		"clientId": clientID,
 	}
-	conn.WriteJSON(joinMsg)
+	sendProtobufMessage(conn, joinMsg)
 
 	var sharedSecret []byte
 	var peerMnemonic string
@@ -59,14 +58,13 @@ func SendFile(filePath, roomID, serverURL string) {
 			"type": "pubkey",
 			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
 		}
-		conn.WriteJSON(pubKeyMsg)
+		sendProtobufMessage(conn, pubKeyMsg)
 	}
 
 	done := make(chan bool)
 	go func() {
 		for {
-			var msg relay.OutgoingMessage
-			err := conn.ReadJSON(&msg)
+			msg, err := receiveProtobufMessage(conn)
 			if err != nil {
 				return
 			}
@@ -127,7 +125,7 @@ func SendFile(filePath, roomID, serverURL string) {
 					"name":       fileName,
 					"total_size": fileSize,
 				}
-				conn.WriteJSON(fileStartMsg)
+				sendProtobufMessage(conn, fileStartMsg)
 
 				// Create progress bar
 				bar := progressbar.NewOptions64(
@@ -168,7 +166,7 @@ func SendFile(filePath, roomID, serverURL string) {
 							"chunk_data": base64.StdEncoding.EncodeToString(cipherChunk),
 							"iv_b64":     base64.StdEncoding.EncodeToString(iv),
 						}
-						conn.WriteJSON(chunkMsg)
+						sendProtobufMessage(conn, chunkMsg)
 						bar.Add(n)
 						chunkNum++
 
@@ -188,7 +186,7 @@ func SendFile(filePath, roomID, serverURL string) {
 				fileEndMsg := map[string]interface{}{
 					"type": "file_end",
 				}
-				conn.WriteJSON(fileEndMsg)
+				sendProtobufMessage(conn, fileEndMsg)
 
 				fmt.Printf("Sent encrypted file '%s' to %s (%s)\n", fileName, peerMnemonic, formatBytes(fileSize))
 

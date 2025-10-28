@@ -9,6 +9,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/spf13/cobra v1.10.1
 	github.com/tyler-smith/go-bip39 v1.1.0
+	google.golang.org/protobuf v1.36.10
 )
 
 require (

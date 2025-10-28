@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package relay;
+
+option go_package = "github.com/schollz/share/src/relay";
+
+// PBIncomingMessage represents messages received by the relay server from clients
+message PBIncomingMessage {
+  string type = 1;
+  string room_id = 2;
+  string client_id = 3;
+  string pub = 4;
+  string name = 5;
+  int64 size = 6;
+  string iv_b64 = 7;
+  string data_b64 = 8;
+  string chunk_data = 9;
+  int32 chunk_num = 10;
+  int64 total_size = 11;
+}
+
+// PBOutgoingMessage represents messages sent by the relay server to clients
+message PBOutgoingMessage {
+  string type = 1;
+  string from = 2;
+  string mnemonic = 3;
+  string room_id = 4;
+  string pub = 5;
+  string name = 6;
+  int64 size = 7;
+  string iv_b64 = 8;
+  string data_b64 = 9;
+  string chunk_data = 10;
+  int32 chunk_num = 11;
+  int64 total_size = 12;
+  string self_id = 13;
+  repeated string peers = 14;
+  int32 count = 15;
+  string error = 16;
+}
