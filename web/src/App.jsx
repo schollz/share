@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import protobuf from "protobufjs";
 
 /* ---------- Crypto helpers (ECDH + AES-GCM) ---------- */
 
@@ -72,6 +73,97 @@ function base64ToUint8(b64) {
     const out = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
+}
+
+/* ------------------- Protobuf Message Handling ------------------- */
+
+// Protobuf schema definition
+const protoSchema = `
+syntax = "proto3";
+
+package relay;
+
+message PBIncomingMessage {
+  string type = 1;
+  string room_id = 2;
+  string client_id = 3;
+  string pub = 4;
+  string name = 5;
+  int64 size = 6;
+  string iv_b64 = 7;
+  string data_b64 = 8;
+  string chunk_data = 9;
+  int32 chunk_num = 10;
+  int64 total_size = 11;
+}
+
+message PBOutgoingMessage {
+  string type = 1;
+  string from = 2;
+  string mnemonic = 3;
+  string room_id = 4;
+  string pub = 5;
+  string name = 6;
+  int64 size = 7;
+  string iv_b64 = 8;
+  string data_b64 = 9;
+  string chunk_data = 10;
+  int32 chunk_num = 11;
+  int64 total_size = 12;
+  string self_id = 13;
+  repeated string peers = 14;
+  int32 count = 15;
+  string error = 16;
+}
+`;
+
+let pbIncomingMessage, pbOutgoingMessage;
+
+// Load protobuf schema
+protobuf.parse(protoSchema).root.lookupType("relay.PBIncomingMessage");
+const root = protobuf.parse(protoSchema).root;
+pbIncomingMessage = root.lookupType("relay.PBIncomingMessage");
+pbOutgoingMessage = root.lookupType("relay.PBOutgoingMessage");
+
+// Encode message to protobuf
+function encodeProtobuf(obj) {
+    const message = pbIncomingMessage.create({
+        type: obj.type,
+        room_id: obj.roomId,
+        client_id: obj.clientId,
+        pub: obj.pub,
+        name: obj.name,
+        size: obj.size,
+        iv_b64: obj.iv_b64,
+        data_b64: obj.data_b64,
+        chunk_data: obj.chunk_data,
+        chunk_num: obj.chunk_num,
+        total_size: obj.total_size
+    });
+    return pbIncomingMessage.encode(message).finish();
+}
+
+// Decode protobuf message
+function decodeProtobuf(buffer) {
+    const message = pbOutgoingMessage.decode(buffer);
+    return {
+        type: message.type,
+        from: message.from,
+        mnemonic: message.mnemonic,
+        roomId: message.room_id,
+        pub: message.pub,
+        name: message.name,
+        size: message.size ? Number(message.size) : 0,
+        iv_b64: message.iv_b64,
+        data_b64: message.data_b64,
+        chunk_data: message.chunk_data,
+        chunk_num: message.chunk_num,
+        total_size: message.total_size ? Number(message.total_size) : 0,
+        selfId: message.self_id,
+        peers: message.peers || [],
+        count: message.count,
+        error: message.error
+    };
 }
 
 /* ------------------- Helper Functions ------------------- */
@@ -327,7 +419,9 @@ export default function App() {
 
     function sendMsg(obj) {
         if (!wsRef.current || wsRef.current.readyState !== 1) return;
-        wsRef.current.send(JSON.stringify(obj));
+        // Send as protobuf binary
+        const buffer = encodeProtobuf(obj);
+        wsRef.current.send(buffer);
     }
 
     async function initKeys() {
@@ -386,8 +480,20 @@ export default function App() {
         ws.onmessage = async (event) => {
             let msg;
             try {
-                msg = JSON.parse(event.data);
-            } catch {
+                // Handle both protobuf binary and JSON messages
+                if (event.data instanceof Blob) {
+                    // Binary protobuf message
+                    const arrayBuffer = await event.data.arrayBuffer();
+                    const buffer = new Uint8Array(arrayBuffer);
+                    msg = decodeProtobuf(buffer);
+                } else if (typeof event.data === 'string') {
+                    // JSON message (fallback for compatibility)
+                    msg = JSON.parse(event.data);
+                } else {
+                    return;
+                }
+            } catch (e) {
+                console.error("Failed to parse message:", e);
                 return;
             }
 
