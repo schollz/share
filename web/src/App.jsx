@@ -359,7 +359,7 @@ function ProgressBar({ progress, label }) {
                     className="absolute top-0 left-0 h-full bg-black transition-all duration-300"
                     style={{ width: `${progress.percent}%` }}
                 />
-                <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold">
+                <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold" style={{ mixBlendMode: 'difference', color: 'white' }}>
                     {progress.percent}%
                 </div>
             </div>
