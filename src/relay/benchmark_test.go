@@ -49,7 +49,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 	}
 
 	data, _ := json.Marshal(msg)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var decoded IncomingMessage
@@ -86,7 +86,7 @@ func BenchmarkJSONRoundTrip(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		var decoded OutgoingMessage
 		err = json.Unmarshal(data, &decoded)
 		if err != nil {
@@ -121,7 +121,7 @@ func BenchmarkJSONDecodeSmallMessage(b *testing.B) {
 	}
 
 	data, _ := json.Marshal(msg)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var decoded IncomingMessage
@@ -139,7 +139,7 @@ func BenchmarkJSONEncodeLargeChunk(b *testing.B) {
 	for i := range largeData {
 		largeData[i] = byte(i % 256)
 	}
-	
+
 	msg := IncomingMessage{
 		Type:      "file_chunk",
 		RoomID:    "test-room-12345",
@@ -165,7 +165,7 @@ func BenchmarkJSONDecodeLargeChunk(b *testing.B) {
 	for i := range largeData {
 		largeData[i] = byte(i % 256)
 	}
-	
+
 	msg := IncomingMessage{
 		Type:      "file_chunk",
 		RoomID:    "test-room-12345",
@@ -176,7 +176,7 @@ func BenchmarkJSONDecodeLargeChunk(b *testing.B) {
 	}
 
 	data, _ := json.Marshal(msg)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var decoded IncomingMessage
@@ -233,7 +233,7 @@ func BenchmarkProtobufDecode(b *testing.B) {
 	}
 
 	data, _ := proto.Marshal(msg)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		decoded := &PBIncomingMessage{}
@@ -270,7 +270,7 @@ func BenchmarkProtobufRoundTrip(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		decoded := &PBOutgoingMessage{}
 		err = proto.Unmarshal(data, decoded)
 		if err != nil {
@@ -305,7 +305,7 @@ func BenchmarkProtobufDecodeSmallMessage(b *testing.B) {
 	}
 
 	data, _ := proto.Marshal(msg)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		decoded := &PBIncomingMessage{}
@@ -321,9 +321,9 @@ func BenchmarkProtobufEncodeLargeChunk(b *testing.B) {
 	// Create a large base64 string (~64KB) - use base64 encoding to ensure valid UTF-8
 	largeData := make([]byte, 65536)
 	for i := range largeData {
-		largeData[i] = byte(i % 64) + 32 // Generate printable ASCII characters
+		largeData[i] = byte(i%64) + 32 // Generate printable ASCII characters
 	}
-	
+
 	msg := &PBIncomingMessage{
 		Type:      "file_chunk",
 		RoomId:    "test-room-12345",
@@ -347,9 +347,9 @@ func BenchmarkProtobufDecodeLargeChunk(b *testing.B) {
 	// Create a large base64 string (~64KB) - use base64 encoding to ensure valid UTF-8
 	largeData := make([]byte, 65536)
 	for i := range largeData {
-		largeData[i] = byte(i % 64) + 32 // Generate printable ASCII characters
+		largeData[i] = byte(i%64) + 32 // Generate printable ASCII characters
 	}
-	
+
 	msg := &PBIncomingMessage{
 		Type:      "file_chunk",
 		RoomId:    "test-room-12345",
@@ -360,7 +360,7 @@ func BenchmarkProtobufDecodeLargeChunk(b *testing.B) {
 	}
 
 	data, _ := proto.Marshal(msg)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		decoded := &PBIncomingMessage{}

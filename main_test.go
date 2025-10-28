@@ -171,10 +171,10 @@ func TestCreateLoggerDefaultLevel(t *testing.T) {
 	// Test various invalid inputs that should default to info
 	invalidLevels := []string{
 		"invalid",
-		"DEBUG",  // uppercase
-		"Info",   // mixed case
-		"trace",  // not a valid level
-		"fatal",  // not a valid level
+		"DEBUG", // uppercase
+		"Info",  // mixed case
+		"trace", // not a valid level
+		"fatal", // not a valid level
 		"unknown",
 	}
 

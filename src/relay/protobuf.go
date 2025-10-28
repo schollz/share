@@ -120,7 +120,7 @@ func sendMessage(conn *websocket.Conn, msg *OutgoingMessage, useProtobuf bool) e
 		}
 		return conn.WriteMessage(websocket.BinaryMessage, data)
 	}
-	
+
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err

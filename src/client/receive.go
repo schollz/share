@@ -58,6 +58,8 @@ func checkFileOverwrite(outputPath string, forceOverwrite bool) bool {
 		}
 	}
 	return true
+}
+
 // sanitizeFileName cleans a filename to prevent path traversal attacks
 // by extracting only the base filename and removing any directory components
 func sanitizeFileName(fileName string) string {
@@ -151,12 +153,12 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 
 			// Create output file for streaming
 			outputPath := filepath.Join(outputDir, fileName)
-			
+
 			// Check if file exists and prompt for overwrite if needed
 			if !checkFileOverwrite(outputPath, forceOverwrite) {
 				return
 			}
-			
+
 			outputFile, err = os.Create(outputPath)
 			if err != nil {
 				log.Fatalf("Failed to create output file: %v", err)
@@ -245,14 +247,12 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				log.Fatalf("Decryption failed: %v", err)
 			}
 
-			
 			outputPath := filepath.Join(outputDir, sanitizeFileName(msg.Name))
 			// Check if file exists and prompt for overwrite if needed
 			if !checkFileOverwrite(outputPath, forceOverwrite) {
 				return
 			}
-			
-			
+
 			err = os.WriteFile(outputPath, plaintext, 0644)
 			if err != nil {
 				log.Fatalf("Failed to write file: %v", err)

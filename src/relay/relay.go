@@ -266,7 +266,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var in IncomingMessage
-		
+
 		// Auto-detect message format
 		if isProtobufMessage(raw) {
 			decoded, err := decodeProtobuf(raw)
