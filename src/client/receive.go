@@ -46,6 +46,20 @@ func promptOverwrite(filePath string) bool {
 	return response == "Y"
 }
 
+// checkFileOverwrite checks if a file exists and prompts for overwrite if not forcing
+// Returns true to proceed, false to cancel
+func checkFileOverwrite(outputPath string, forceOverwrite bool) bool {
+	if !forceOverwrite {
+		if _, err := os.Stat(outputPath); err == nil {
+			if !promptOverwrite(outputPath) {
+				fmt.Println("File transfer cancelled.")
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // ReceiveFile receives a file from the specified room via the relay server
 func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 	clientID := uuid.New().String()
@@ -132,14 +146,9 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			// Create output file for streaming
 			outputPath := filepath.Join(outputDir, fileName)
 			
-			// Check if file exists and prompt for overwrite if not forcing
-			if !forceOverwrite {
-				if _, err := os.Stat(outputPath); err == nil {
-					if !promptOverwrite(outputPath) {
-						fmt.Println("File transfer cancelled.")
-						return
-					}
-				}
+			// Check if file exists and prompt for overwrite if needed
+			if !checkFileOverwrite(outputPath, forceOverwrite) {
+				return
 			}
 			
 			outputFile, err = os.Create(outputPath)
@@ -232,14 +241,9 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 
 			outputPath := filepath.Join(outputDir, msg.Name)
 			
-			// Check if file exists and prompt for overwrite if not forcing
-			if !forceOverwrite {
-				if _, err := os.Stat(outputPath); err == nil {
-					if !promptOverwrite(outputPath) {
-						fmt.Println("File transfer cancelled.")
-						return
-					}
-				}
+			// Check if file exists and prompt for overwrite if needed
+			if !checkFileOverwrite(outputPath, forceOverwrite) {
+				return
 			}
 			
 			err = os.WriteFile(outputPath, plaintext, 0644)
