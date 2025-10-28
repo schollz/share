@@ -10,6 +10,7 @@
     "dependencies": {
         "@fortawesome/fontawesome-free": "^7.1.0",
         "protobufjs": "^7.5.4",
+        "qrcode.react": "^4.2.0",
         "react": "^19.2.0",
         "react-dom": "^19.2.0"
     },
