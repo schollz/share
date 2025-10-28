@@ -58,6 +58,8 @@ func checkFileOverwrite(outputPath string, forceOverwrite bool) bool {
 		}
 	}
 	return true
+}
+
 // sanitizeFileName cleans a filename to prevent path traversal attacks
 // by extracting only the base filename and removing any directory components
 func sanitizeFileName(fileName string) string {

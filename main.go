@@ -17,7 +17,7 @@ import (
 	"github.com/tyler-smith/go-bip39"
 )
 
-//go:embed web/dist install.sh
+//go:embed all:web/dist install.sh
 var staticFS embed.FS
 
 var (
