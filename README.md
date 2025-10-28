@@ -1,7 +1,6 @@
-
 <p align="center">
   <a href="https://www.youtube.com/watch?v=zViMACW6VbQ">
-    <img width="600" alt="share-screenshot" src="https://github.com/user-attachments/assets/9f10996c-0c61-4f40-887c-0e7831fdd9cc" />
+    <img width="600" alt="share-screenshot" src="https://github.com/user-attachments/assets/5c16e293-ce95-4f97-98a3-edae69a8c825" />
   </a>
   <br>
   <a href="https://github.com/schollz/share/releases/latest">
