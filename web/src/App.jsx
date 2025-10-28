@@ -877,6 +877,11 @@ export default function App() {
                     </div>
                 </div>
             )}
+
+            {/* Footer */}
+            <footer className="mt-8 text-center text-sm font-bold text-gray-600">
+                © 2025 <a href="https://github.com/schollz" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-black underline">Zack</a>
+            </footer>
         </div>
     );
 }
