@@ -354,13 +354,23 @@ function ProgressBar({ progress, label }) {
     return (
         <div className="bg-white border-2 sm:border-4 border-black p-3 sm:p-4 mb-3 sm:mb-4">
             <div className="text-sm sm:text-base font-black mb-2 uppercase">{cleanLabel}</div>
-            <div className="relative w-full h-6 sm:h-8 bg-gray-300 border-2 sm:border-4 border-black">
+            <div className="relative w-full h-6 sm:h-8 bg-gray-300 border-2 sm:border-4 border-black overflow-hidden">
                 <div
                     className="absolute top-0 left-0 h-full bg-black transition-all duration-300"
                     style={{ width: `${progress.percent}%` }}
                 />
-                <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold">
+                {/* Black text for gray background area */}
+                <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold text-black">
                     {progress.percent}%
+                </div>
+                {/* White text for black progress bar area - clipped to only show over the black bar */}
+                <div 
+                    className="absolute top-0 left-0 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-white overflow-hidden"
+                    style={{ width: `${progress.percent}%` }}
+                >
+                    <div className="w-full text-center" style={{ width: '100vw' }}>
+                        {progress.percent}%
+                    </div>
                 </div>
             </div>
             {(progress.speed > 0 || progress.eta > 0) && (
