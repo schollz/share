@@ -155,12 +155,12 @@ integration_test.go   # End-to-end integration tests
 ### Source Code Layout
 
 **`src/relay/`** - WebSocket relay server
-- `relay.go` - Server implementation, room management, WebSocket handling
+- `relay.go` - Server implementation, room management, WebSocket handling (protobuf-only)
 - `relay_test.go` - Server tests including room limits
 - `protobuf.go` - Protobuf message serialization
 - `messages.proto` - Protocol buffer definitions (shared with web client)
 - `messages.pb.go` - Generated protobuf code (DO NOT EDIT)
-- `compatibility_test.go` - JSON/Protobuf compatibility tests
+- `compatibility_test.go` - Protobuf messaging tests
 - `benchmark_test.go` - Performance benchmarks
 
 **`src/client/`** - CLI client implementation

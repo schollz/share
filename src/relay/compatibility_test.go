@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -10,8 +9,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestBackwardCompatibility tests that JSON and Protobuf clients can communicate through the relay
-func TestBackwardCompatibility(t *testing.T) {
+// TestProtobufMessaging tests that Protobuf clients can communicate through the relay
+func TestProtobufMessaging(t *testing.T) {
 	// Setup test server
 	roomMux.Lock()
 	rooms = make(map[string]*Room)
@@ -22,52 +21,25 @@ func TestBackwardCompatibility(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
 
-	// Connect first client using JSON
-	jsonConn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	// Connect first client using Protobuf
+	pbConn1, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
-		t.Fatalf("Failed to connect JSON client: %v", err)
+		t.Fatalf("Failed to connect first Protobuf client: %v", err)
 	}
-	defer jsonConn.Close()
-
-	// Send JSON join message
-	jsonJoinMsg := IncomingMessage{
-		Type:     "join",
-		RoomID:   "compat-test-room",
-		ClientID: "json-client",
-	}
-	jsonData, _ := json.Marshal(jsonJoinMsg)
-	jsonConn.WriteMessage(websocket.TextMessage, jsonData)
-
-	// Read joined response (should be in JSON for JSON client)
-	jsonConn.SetReadDeadline(time.Now().Add(2 * time.Second))
-	var jsonResp OutgoingMessage
-	if err := jsonConn.ReadJSON(&jsonResp); err != nil {
-		t.Fatalf("Failed to read JSON response: %v", err)
-	}
-
-	if jsonResp.Type != "joined" {
-		t.Fatalf("Expected 'joined' message, got '%s'", jsonResp.Type)
-	}
-
-	// Connect second client using Protobuf
-	pbConn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-	if err != nil {
-		t.Fatalf("Failed to connect Protobuf client: %v", err)
-	}
-	defer pbConn.Close()
+	defer pbConn1.Close()
 
 	// Send Protobuf join message
-	pbJoinMsg := &PBIncomingMessage{
+	pbJoinMsg1 := &PBIncomingMessage{
 		Type:     "join",
-		RoomId:   "compat-test-room",
-		ClientId: "pb-client",
+		RoomId:   "protobuf-test-room",
+		ClientId: "pb-client-1",
 	}
-	pbData, _ := proto.Marshal(pbJoinMsg)
-	pbConn.WriteMessage(websocket.BinaryMessage, pbData)
+	pbData1, _ := proto.Marshal(pbJoinMsg1)
+	pbConn1.WriteMessage(websocket.BinaryMessage, pbData1)
 
-	// Read joined response (should be in Protobuf for Protobuf client)
-	pbConn.SetReadDeadline(time.Now().Add(2 * time.Second))
-	msgType, raw, err := pbConn.ReadMessage()
+	// Read joined response
+	pbConn1.SetReadDeadline(time.Now().Add(2 * time.Second))
+	msgType, raw, err := pbConn1.ReadMessage()
 	if err != nil {
 		t.Fatalf("Failed to read Protobuf response: %v", err)
 	}
@@ -76,40 +48,88 @@ func TestBackwardCompatibility(t *testing.T) {
 		t.Fatalf("Expected binary message, got type %d", msgType)
 	}
 
-	pbResp := &PBOutgoingMessage{}
-	if err := proto.Unmarshal(raw, pbResp); err != nil {
+	pbResp1 := &PBOutgoingMessage{}
+	if err := proto.Unmarshal(raw, pbResp1); err != nil {
 		t.Fatalf("Failed to unmarshal Protobuf response: %v", err)
 	}
 
-	if pbResp.Type != "joined" {
-		t.Fatalf("Expected 'joined' message, got '%s'", pbResp.Type)
+	if pbResp1.Type != "joined" {
+		t.Fatalf("Expected 'joined' message, got '%s'", pbResp1.Type)
 	}
 
-	// Both clients should receive peers update
-	// Read peers message from JSON client
-	jsonConn.SetReadDeadline(time.Now().Add(2 * time.Second))
-	var peersMsg1 OutgoingMessage
-	if err := jsonConn.ReadJSON(&peersMsg1); err != nil {
-		t.Fatalf("Failed to read peers message for JSON client: %v", err)
-	}
+	// Read initial peers message for first client (count will be 1)
+	pbConn1.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, _, _ = pbConn1.ReadMessage()
 
-	if peersMsg1.Type != "peers" {
-		t.Fatalf("Expected 'peers' message, got type='%s'", peersMsg1.Type)
-	}
-
-	// Read peers message from Protobuf client
-	pbConn.SetReadDeadline(time.Now().Add(2 * time.Second))
-	msgType2, raw2, err := pbConn.ReadMessage()
+	// Connect second client using Protobuf
+	pbConn2, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
-		t.Fatalf("Failed to read peers message for Protobuf client: %v", err)
+		t.Fatalf("Failed to connect second Protobuf client: %v", err)
+	}
+	defer pbConn2.Close()
+
+	// Send Protobuf join message
+	pbJoinMsg2 := &PBIncomingMessage{
+		Type:     "join",
+		RoomId:   "protobuf-test-room",
+		ClientId: "pb-client-2",
+	}
+	pbData2, _ := proto.Marshal(pbJoinMsg2)
+	pbConn2.WriteMessage(websocket.BinaryMessage, pbData2)
+
+	// Read joined response for second client
+	pbConn2.SetReadDeadline(time.Now().Add(2 * time.Second))
+	msgType2, raw2, err := pbConn2.ReadMessage()
+	if err != nil {
+		t.Fatalf("Failed to read Protobuf response for second client: %v", err)
 	}
 
 	if msgType2 != websocket.BinaryMessage {
 		t.Fatalf("Expected binary message, got type %d", msgType2)
 	}
 
+	pbResp2 := &PBOutgoingMessage{}
+	if err := proto.Unmarshal(raw2, pbResp2); err != nil {
+		t.Fatalf("Failed to unmarshal Protobuf response: %v", err)
+	}
+
+	if pbResp2.Type != "joined" {
+		t.Fatalf("Expected 'joined' message, got '%s'", pbResp2.Type)
+	}
+
+	// Read peers message from first client
+	pbConn1.SetReadDeadline(time.Now().Add(2 * time.Second))
+	msgType3, raw3, err := pbConn1.ReadMessage()
+	if err != nil {
+		t.Fatalf("Failed to read peers message for first client: %v", err)
+	}
+
+	if msgType3 != websocket.BinaryMessage {
+		t.Fatalf("Expected binary message, got type %d", msgType3)
+	}
+
+	peersMsg1 := &PBOutgoingMessage{}
+	if err := proto.Unmarshal(raw3, peersMsg1); err != nil {
+		t.Fatalf("Failed to unmarshal peers message: %v", err)
+	}
+
+	if peersMsg1.Type != "peers" {
+		t.Fatalf("Expected 'peers' message, got type='%s'", peersMsg1.Type)
+	}
+
+	// Read peers message from second client
+	pbConn2.SetReadDeadline(time.Now().Add(2 * time.Second))
+	msgType4, raw4, err := pbConn2.ReadMessage()
+	if err != nil {
+		t.Fatalf("Failed to read peers message for second client: %v", err)
+	}
+
+	if msgType4 != websocket.BinaryMessage {
+		t.Fatalf("Expected binary message, got type %d", msgType4)
+	}
+
 	peersMsg2 := &PBOutgoingMessage{}
-	if err := proto.Unmarshal(raw2, peersMsg2); err != nil {
+	if err := proto.Unmarshal(raw4, peersMsg2); err != nil {
 		t.Fatalf("Failed to unmarshal peers message: %v", err)
 	}
 
@@ -119,10 +139,8 @@ func TestBackwardCompatibility(t *testing.T) {
 
 	// Verify both clients see 2 peers
 	if peersMsg1.Count != 2 || peersMsg2.Count != 2 {
-		t.Logf("JSON client sees %d peers, Protobuf client sees %d peers", peersMsg1.Count, peersMsg2.Count)
-	} else {
-		t.Log("Both clients correctly see 2 peers in the room")
+		t.Fatalf("Expected both clients to see 2 peers, got %d and %d", peersMsg1.Count, peersMsg2.Count)
 	}
 
-	t.Log("Successfully tested backward compatibility between JSON and Protobuf clients")
+	t.Log("Successfully tested Protobuf messaging between clients")
 }
