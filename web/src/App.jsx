@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import protobuf from "protobufjs";
+import { QRCodeSVG } from "qrcode.react";
 
 /* ---------- Crypto helpers (ECDH + AES-GCM) ---------- */
 
@@ -831,38 +832,51 @@ export default function App() {
         <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8 font-mono flex flex-col items-center justify-center">
             <div className="max-w-4xl w-full flex-grow flex flex-col justify-center">
                 {/* Header */}
-                <div className="bg-black text-white border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)', boxShadow: '4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black' }}>
-                    <h1 className="text-3xl sm:text-5xl md:text-6xl font-black mb-2 sm:mb-4 uppercase tracking-tight">
-                        <a href="/" className="text-white no-underline cursor-pointer hover:text-white hover:underline">SHARE</a>
-                    </h1>
-                    <p className="flex items-center gap-2 text-sm sm:text-lg md:text-xl font-bold leading-tight">
-                        <a href="https://github.com/schollz/share" target="_blank" rel="noopener noreferrer" className="text-white no-underline cursor-pointer hover:text-white hover:underline">E2EE FILE TRANSFER</a>
-                        <button
-                            type="button"
-                            onClick={() => setShowAboutModal(true)}
-                            className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer"
-                            aria-label="About Share"
-                        >
-                            ?
-                        </button>
-                    </p>
-                    {myMnemonic && (
-                        <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
-                            <IconBadge mnemonic={myMnemonic} label="You" className="shrink-0" />
-                            <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
-                            <a
-                                href={`/${roomId}`}
-                                className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-flex items-center justify-center border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase no-underline cursor-pointer hover:bg-white"
+                <div className="bg-black text-white border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 flex items-start justify-between gap-4" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)', boxShadow: '4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black' }}>
+                    <div className="flex-1">
+                        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black mb-2 sm:mb-4 uppercase tracking-tight">
+                            <a href="/" className="text-white no-underline cursor-pointer hover:text-white hover:underline">SHARE</a>
+                        </h1>
+                        <p className="flex items-center gap-2 text-sm sm:text-lg md:text-xl font-bold leading-tight">
+                            <a href="https://github.com/schollz/share" target="_blank" rel="noopener noreferrer" className="text-white no-underline cursor-pointer hover:text-white hover:underline">E2EE FILE TRANSFER</a>
+                            <button
+                                type="button"
+                                onClick={() => setShowAboutModal(true)}
+                                className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer"
+                                aria-label="About Share"
                             >
-                                {roomId ? roomId.toUpperCase() : "ROOM"}
-                                <span className="sr-only">Link to {window.location.host}/{roomId}</span>
-                            </a>
-                            {peerMnemonic && (
-                                <>
-                                    <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
-                                    <IconBadge mnemonic={peerMnemonic} label="Peer" className="shrink-0" />
-                                </>
-                            )}
+                                ?
+                            </button>
+                        </p>
+                        {myMnemonic && (
+                            <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
+                                <IconBadge mnemonic={myMnemonic} label="You" className="shrink-0" />
+                                <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
+                                <a
+                                    href={`/${roomId}`}
+                                    className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-flex items-center justify-center border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase no-underline cursor-pointer hover:bg-white"
+                                >
+                                    {roomId ? roomId.toUpperCase() : "ROOM"}
+                                    <span className="sr-only">Link to {window.location.host}/{roomId}</span>
+                                </a>
+                                {peerMnemonic && (
+                                    <>
+                                        <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
+                                        <IconBadge mnemonic={peerMnemonic} label="Peer" className="shrink-0" />
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    {myMnemonic && !peerMnemonic && roomId && (
+                        <div className="flex-shrink-0">
+                            <QRCodeSVG
+                                value={`${window.location.origin}/${roomId}`}
+                                size={96}
+                                level="M"
+                                fgColor="#ffffff"
+                                bgColor="#000000"
+                            />
                         </div>
                     )}
                 </div>
