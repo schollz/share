@@ -363,14 +363,14 @@ function ProgressBar({ progress, label }) {
                 <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold text-black">
                     {progress.percent}%
                 </div>
-                {/* White text for black progress bar area - clipped to only show over the black bar */}
+                {/* White text for black progress bar area - uses clipping to show only over the black bar */}
                 <div 
-                    className="absolute top-0 left-0 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-white overflow-hidden"
+                    className="absolute top-0 left-0 h-full flex items-center justify-center text-xs sm:text-sm font-bold text-white overflow-hidden whitespace-nowrap"
                     style={{ width: `${progress.percent}%` }}
                 >
-                    <div className="w-full text-center" style={{ width: '100vw' }}>
+                    <span className="inline-block" style={{ minWidth: '100vw' }}>
                         {progress.percent}%
-                    </div>
+                    </span>
                 </div>
             </div>
             {(progress.speed > 0 || progress.eta > 0) && (
