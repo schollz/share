@@ -18,11 +18,12 @@ import (
 )
 
 type Client struct {
-	ID       string
-	Mnemonic string
-	Conn     *websocket.Conn
-	RoomID   string
-	IP       string
+	ID          string
+	Mnemonic    string
+	Conn        *websocket.Conn
+	RoomID      string
+	IP          string
+	UseProtobuf bool // Track if client uses protobuf
 }
 
 type Room struct {
@@ -218,9 +219,8 @@ func broadcastPeers(room *Room) {
 		RoomID: room.ID,
 	}
 
-	data, _ := json.Marshal(payload)
 	for _, c := range room.Clients {
-		c.Conn.WriteMessage(websocket.TextMessage, data)
+		sendMessage(c.Conn, &payload, c.UseProtobuf)
 	}
 }
 
@@ -266,9 +266,22 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var in IncomingMessage
-		if err := json.Unmarshal(raw, &in); err != nil {
-			logger.Warn("Bad JSON", "error", err)
-			continue
+		
+		// Auto-detect message format
+		if isProtobufMessage(raw) {
+			decoded, err := decodeProtobuf(raw)
+			if err != nil {
+				logger.Warn("Bad protobuf", "error", err)
+				continue
+			}
+			in = *decoded
+			client.UseProtobuf = true
+		} else {
+			// Try JSON
+			if err := json.Unmarshal(raw, &in); err != nil {
+				logger.Warn("Bad message format", "error", err)
+				continue
+			}
 		}
 
 		switch in.Type {
@@ -285,8 +298,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 					Mnemonic: client.Mnemonic,
 					RoomID:   in.RoomID,
 				}
-				respBytes, _ := json.Marshal(resp)
-				conn.WriteMessage(websocket.TextMessage, respBytes)
+				sendMessage(conn, &resp, client.UseProtobuf)
 				continue
 			}
 
@@ -300,8 +312,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 					Type:  "error",
 					Error: "Maximum rooms per IP reached, try again later",
 				}
-				respBytes, _ := json.Marshal(resp)
-				conn.WriteMessage(websocket.TextMessage, respBytes)
+				sendMessage(conn, &resp, client.UseProtobuf)
 				conn.Close()
 				return
 			}
@@ -315,8 +326,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 					Type:  "error",
 					Error: "Maximum rooms reached, try again later",
 				}
-				respBytes, _ := json.Marshal(resp)
-				conn.WriteMessage(websocket.TextMessage, respBytes)
+				sendMessage(conn, &resp, client.UseProtobuf)
 				conn.Close()
 				return
 			}
@@ -333,8 +343,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				Mnemonic: client.Mnemonic,
 				RoomID:   in.RoomID,
 			}
-			respBytes, _ := json.Marshal(resp)
-			conn.WriteMessage(websocket.TextMessage, respBytes)
+			sendMessage(conn, &resp, client.UseProtobuf)
 			broadcastPeers(room)
 
 		default:
@@ -364,12 +373,10 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				TotalSize: in.TotalSize,
 			}
 
-			data, _ := json.Marshal(out)
-
 			room.Mutex.Lock()
 			for _, other := range room.Clients {
 				if other.ID != client.ID {
-					other.Conn.WriteMessage(websocket.TextMessage, data)
+					sendMessage(other.Conn, &out, other.UseProtobuf)
 				}
 			}
 			room.Mutex.Unlock()
