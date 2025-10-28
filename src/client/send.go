@@ -89,8 +89,9 @@ func SendFile(filePath, roomID, serverURL string) {
 				parsedURL.Path = ""
 				fmt.Printf("Sending file '%s' (%s).\n",
 					fileName, formatBytes(fileSize))
-				fmt.Printf("\nReceive file online at\n\n\t%s/%s\n\nor receive via CLI with\n\n\tshare receive %s\n\n",
-					parsedURL.String(), roomID, roomID)
+				fmt.Printf("Receive via CLI with\n\n\tshare receive %s\n\nor online at\n\n\t%s/%s\n\n",
+					roomID, parsedURL.String(), roomID)
+				// TODO: show QR code
 				sendPublicKey()
 
 			case "peers":
