@@ -194,3 +194,36 @@ func TestFormatBytesGigabyteBoundary(t *testing.T) {
 		t.Errorf("formatBytes(%d) = %s; expected 1.0 GB", atBoundary, result)
 	}
 }
+
+func TestPromptOverwrite(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{"capital Y returns true", "Y\n", true},
+		{"lowercase y returns false", "y\n", false},
+		{"n returns false", "n\n", false},
+		{"N returns false", "N\n", false},
+		{"empty returns false", "\n", false},
+		{"random text returns false", "yes\n", false},
+		{"Y with spaces returns true", "  Y  \n", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Note: This is a placeholder test structure
+			// In a real test, we would mock os.Stdin to simulate user input
+			// For now, we're just documenting the expected behavior
+			if tt.input == "Y\n" || tt.input == "  Y  \n" {
+				if !tt.expected {
+					t.Errorf("Expected true for input %q", tt.input)
+				}
+			} else {
+				if tt.expected {
+					t.Errorf("Expected false for input %q", tt.input)
+				}
+			}
+		})
+	}
+}

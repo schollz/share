@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"crypto/ecdh"
 	"encoding/base64"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
@@ -31,6 +33,31 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+// promptOverwrite prompts the user to confirm overwriting an existing file
+// Returns true if the user confirms with capital 'Y', false otherwise
+func promptOverwrite(filePath string) bool {
+	fmt.Printf("File '%s' already exists. Overwrite? (Y/n): ", filePath)
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	response = strings.TrimSpace(response)
+	return response == "Y"
+}
+
+// checkFileOverwrite checks if a file exists and prompts for overwrite if not forcing
+// Returns true to proceed, false to cancel
+func checkFileOverwrite(outputPath string, forceOverwrite bool) bool {
+	if !forceOverwrite {
+		if _, err := os.Stat(outputPath); err == nil {
+			if !promptOverwrite(outputPath) {
+				fmt.Println("File transfer cancelled.")
+				return false
+			}
+		}
+	}
+	return true
 // sanitizeFileName cleans a filename to prevent path traversal attacks
 // by extracting only the base filename and removing any directory components
 func sanitizeFileName(fileName string) string {
@@ -40,7 +67,7 @@ func sanitizeFileName(fileName string) string {
 }
 
 // ReceiveFile receives a file from the specified room via the relay server
-func ReceiveFile(roomID, serverURL, outputDir string) {
+func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 	clientID := uuid.New().String()
 
 	privKey, err := crypto.GenerateECDHKeyPair()
@@ -124,6 +151,12 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 
 			// Create output file for streaming
 			outputPath := filepath.Join(outputDir, fileName)
+			
+			// Check if file exists and prompt for overwrite if needed
+			if !checkFileOverwrite(outputPath, forceOverwrite) {
+				return
+			}
+			
 			outputFile, err = os.Create(outputPath)
 			if err != nil {
 				log.Fatalf("Failed to create output file: %v", err)
@@ -212,7 +245,14 @@ func ReceiveFile(roomID, serverURL, outputDir string) {
 				log.Fatalf("Decryption failed: %v", err)
 			}
 
+			
 			outputPath := filepath.Join(outputDir, sanitizeFileName(msg.Name))
+			// Check if file exists and prompt for overwrite if needed
+			if !checkFileOverwrite(outputPath, forceOverwrite) {
+				return
+			}
+			
+			
 			err = os.WriteFile(outputPath, plaintext, 0644)
 			if err != nil {
 				log.Fatalf("Failed to write file: %v", err)
