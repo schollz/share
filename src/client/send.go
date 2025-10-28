@@ -13,6 +13,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/share/src/crypto"
+	"github.com/schollz/share/src/qrcode"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -87,11 +88,27 @@ func SendFile(filePath, roomID, serverURL string) {
 				// Remove /ws path if present
 				parsedURL, _ := url.Parse(webURL)
 				parsedURL.Path = ""
+				fullURL := fmt.Sprintf("%s/%s", parsedURL.String(), roomID)
+
 				fmt.Printf("Sending file '%s' (%s).\n",
 					fileName, formatBytes(fileSize))
-				fmt.Printf("Receive via CLI with\n\n\tshare receive %s\n\nor online at\n\n\t%s/%s\n\n",
-					roomID, parsedURL.String(), roomID)
-				// TODO: show QR code
+				fmt.Printf("Receive via CLI with\n\n\tshare receive %s\n\nor online at\n\n\t%s\n\n",
+					roomID, fullURL)
+
+				// Generate compact QR code (strip protocol for shorter code)
+				qrURL := fullURL
+				if len(qrURL) >= 8 && qrURL[:8] == "https://" {
+					qrURL = qrURL[8:]
+				} else if len(qrURL) >= 7 && qrURL[:7] == "http://" {
+					qrURL = qrURL[7:]
+				}
+
+				// Print QR code using custom half-block renderer with left padding
+				if err := qrcode.PrintHalfBlock(os.Stdout, qrURL, 15); err != nil {
+					log.Printf("Failed to generate QR code: %v", err)
+				}
+				fmt.Println()
+
 				sendPublicKey()
 
 			case "peers":
