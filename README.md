@@ -48,6 +48,17 @@ share send <file>
 share receive
 ```
 
+#### Local Network Acceleration
+
+When both CLI clients are on the same local network, file transfers automatically use a local relay for faster speeds. The transfer will fall back to the internet relay if no local peers are found.
+
+To disable local relay and use only the internet relay:
+
+```bash
+share send <file> --no-local
+share receive --no-local
+```
+
 ### Run your own relay server
 
 You can run your own relay server if you want to self-host.
