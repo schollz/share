@@ -3,15 +3,16 @@
 LDFLAGS ?=
 
 all: build
+	@echo "Build completed at $(shell date)"
 
 web:
 	cd web && npm run build
+	touch web/dist/.keep
 
 server: web
 	go build -ldflags "$(LDFLAGS)" -o share .
 
 build: server
-	@echo "Build completed at $(shell date)"
 
 install: build
 	go install

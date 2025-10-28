@@ -1,8 +1,6 @@
 package relay
 
 import (
-	"encoding/json"
-
 	"github.com/gorilla/websocket"
 	"google.golang.org/protobuf/proto"
 )
@@ -85,17 +83,6 @@ func pbToOutgoing(pb *PBOutgoingMessage) *OutgoingMessage {
 	}
 }
 
-// Detect if message is protobuf binary format (starts with field tag for "type" field)
-// Protobuf field 1 (type) with wire type 2 (length-delimited) = 0x0A
-func isProtobufMessage(data []byte) bool {
-	if len(data) < 2 {
-		return false
-	}
-	// Check for protobuf field tag 0x0A (field 1, wire type 2)
-	// This is the encoding for field 1 (type) which is a string
-	return data[0] == 0x0A
-}
-
 // Encode OutgoingMessage to protobuf binary format
 func encodeProtobuf(msg *OutgoingMessage) ([]byte, error) {
 	pb := outgoingToPB(msg)
@@ -111,19 +98,11 @@ func decodeProtobuf(data []byte) (*IncomingMessage, error) {
 	return pbToIncoming(pb), nil
 }
 
-// Helper to send a message to a websocket connection in the appropriate format
+// Helper to send a protobuf message to a websocket connection
 func sendMessage(conn *websocket.Conn, msg *OutgoingMessage, useProtobuf bool) error {
-	if useProtobuf {
-		data, err := encodeProtobuf(msg)
-		if err != nil {
-			return err
-		}
-		return conn.WriteMessage(websocket.BinaryMessage, data)
-	}
-
-	data, err := json.Marshal(msg)
+	data, err := encodeProtobuf(msg)
 	if err != nil {
 		return err
 	}
-	return conn.WriteMessage(websocket.TextMessage, data)
+	return conn.WriteMessage(websocket.BinaryMessage, data)
 }
