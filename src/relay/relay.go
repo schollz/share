@@ -440,7 +440,8 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 
 	installScript, err := staticFS.ReadFile("install.sh")
 	if err != nil {
-		logger.Warn("Install script missing", "error", err)
+		// Install script missing is okay for local relay
+		logger.Debug("Install script missing", "error", err)
 	}
 
 	if len(installScript) > 0 {
@@ -450,13 +451,18 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 		})
 	}
 
-	// Serve embedded static files with SPA support
+	// Serve embedded static files with SPA support (if available)
 	distFS, err := fs.Sub(staticFS, "web/dist")
 	if err != nil {
-		logger.Error("Failed to access embedded files", "error", err)
-		return
+		// If web/dist doesn't exist, just serve a simple handler for local relay
+		logger.Debug("Web assets not available (local relay mode)", "error", err)
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte("Local relay server - WebSocket endpoint at /ws"))
+		})
+	} else {
+		mux.Handle("/", spaHandler{staticFS: http.FS(distFS), installScript: installScript})
 	}
-	mux.Handle("/", spaHandler{staticFS: http.FS(distFS), installScript: installScript})
 
 	handler := cors.AllowAll().Handler(mux)
 	addr := fmt.Sprintf(":%d", port)

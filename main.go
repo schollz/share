@@ -63,7 +63,12 @@ var sendCmd = &cobra.Command{
 		if server == "" {
 			server = getWebSocketURL(domain)
 		}
-		client.SendFile(filePath, roomID, server)
+		useLocal, _ := cmd.Flags().GetBool("local")
+		if useLocal {
+			client.SendFileWithLocalRelay(filePath, roomID, server)
+		} else {
+			client.SendFile(filePath, roomID, server)
+		}
 	},
 }
 
@@ -85,7 +90,12 @@ var receiveCmd = &cobra.Command{
 		}
 		output, _ := cmd.Flags().GetString("output")
 		force, _ := cmd.Flags().GetBool("force")
-		client.ReceiveFile(roomID, server, output, force)
+		useLocal, _ := cmd.Flags().GetBool("local")
+		if useLocal {
+			client.ReceiveFileWithLocalRelay(roomID, server, output, force)
+		} else {
+			client.ReceiveFile(roomID, server, output, force)
+		}
 	},
 }
 
@@ -173,7 +183,9 @@ func init() {
 	serveCmd.Flags().Int("max-rooms", 10, "Maximum number of concurrent rooms allowed on the server")
 	serveCmd.Flags().Int("max-rooms-per-ip", 2, "Maximum number of rooms per IP address")
 	sendCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
+	sendCmd.Flags().BoolP("local", "l", false, "Enable local relay for faster transfers on same network")
 	receiveCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
+	receiveCmd.Flags().BoolP("local", "l", false, "Enable local relay for faster transfers on same network")
 	receiveCmd.Flags().StringP("output", "o", ".", "Output directory")
 	receiveCmd.Flags().BoolP("force", "f", false, "Force overwrite existing files without prompting")
 
