@@ -127,7 +127,8 @@ jobs:
           if ($VERSION -like 'refs/heads/*') {
             $VERSION = 'dev'
           }
-          go build -ldflags "-X main.Version=$VERSION" -o share.exe .
+          $env:CGO_ENABLED = '0'
+          go build -ldflags "-X main.Version=$VERSION -extldflags '-static'" -o share.exe .
 
       - name: Verify binary
         shell: pwsh
