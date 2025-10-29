@@ -64,6 +64,12 @@ func SendFile(filePath, roomID, serverURL string) {
 
 	done := make(chan bool)
 	go func() {
+		defer func() {
+			select {
+			case done <- true:
+			default:
+			}
+		}()
 		for {
 			msg, err := receiveProtobufMessage(conn)
 			if err != nil {
