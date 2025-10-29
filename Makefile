@@ -10,7 +10,7 @@ web:
 	touch web/dist/.keep
 
 server: web
-	go build -ldflags "$(LDFLAGS)" -o share .
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS) -extldflags '-static'" -o share .
 
 build: server
 
