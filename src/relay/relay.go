@@ -32,36 +32,40 @@ type Room struct {
 }
 
 type IncomingMessage struct {
-	Type      string `json:"type"`
-	RoomID    string `json:"roomId,omitempty"`
-	ClientID  string `json:"clientId,omitempty"`
-	Pub       string `json:"pub,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Size      int64  `json:"size,omitempty"`
-	IvB64     string `json:"iv_b64,omitempty"`
-	DataB64   string `json:"data_b64,omitempty"`
-	ChunkData string `json:"chunk_data,omitempty"`
-	ChunkNum  int    `json:"chunk_num,omitempty"`
-	TotalSize int64  `json:"total_size,omitempty"`
+	Type               string `json:"type"`
+	RoomID             string `json:"roomId,omitempty"`
+	ClientID           string `json:"clientId,omitempty"`
+	Pub                string `json:"pub,omitempty"`
+	Name               string `json:"name,omitempty"`
+	Size               int64  `json:"size,omitempty"`
+	IvB64              string `json:"iv_b64,omitempty"`
+	DataB64            string `json:"data_b64,omitempty"`
+	ChunkData          string `json:"chunk_data,omitempty"`
+	ChunkNum           int    `json:"chunk_num,omitempty"`
+	TotalSize          int64  `json:"total_size,omitempty"`
+	IsFolder           bool   `json:"is_folder,omitempty"`
+	OriginalFolderName string `json:"original_folder_name,omitempty"`
 }
 
 type OutgoingMessage struct {
-	Type      string   `json:"type"`
-	From      string   `json:"from,omitempty"`
-	Mnemonic  string   `json:"mnemonic,omitempty"`
-	RoomID    string   `json:"roomId,omitempty"`
-	Pub       string   `json:"pub,omitempty"`
-	Name      string   `json:"name,omitempty"`
-	Size      int64    `json:"size,omitempty"`
-	IvB64     string   `json:"iv_b64,omitempty"`
-	DataB64   string   `json:"data_b64,omitempty"`
-	ChunkData string   `json:"chunk_data,omitempty"`
-	ChunkNum  int      `json:"chunk_num,omitempty"`
-	TotalSize int64    `json:"total_size,omitempty"`
-	SelfID    string   `json:"selfId,omitempty"`
-	Peers     []string `json:"peers,omitempty"`
-	Count     int      `json:"count,omitempty"`
-	Error     string   `json:"error,omitempty"`
+	Type               string   `json:"type"`
+	From               string   `json:"from,omitempty"`
+	Mnemonic           string   `json:"mnemonic,omitempty"`
+	RoomID             string   `json:"roomId,omitempty"`
+	Pub                string   `json:"pub,omitempty"`
+	Name               string   `json:"name,omitempty"`
+	Size               int64    `json:"size,omitempty"`
+	IvB64              string   `json:"iv_b64,omitempty"`
+	DataB64            string   `json:"data_b64,omitempty"`
+	ChunkData          string   `json:"chunk_data,omitempty"`
+	ChunkNum           int      `json:"chunk_num,omitempty"`
+	TotalSize          int64    `json:"total_size,omitempty"`
+	SelfID             string   `json:"selfId,omitempty"`
+	Peers              []string `json:"peers,omitempty"`
+	Count              int      `json:"count,omitempty"`
+	Error              string   `json:"error,omitempty"`
+	IsFolder           bool     `json:"is_folder,omitempty"`
+	OriginalFolderName string   `json:"original_folder_name,omitempty"`
 }
 
 var (
@@ -351,18 +355,20 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			out := OutgoingMessage{
-				Type:      in.Type,
-				From:      client.ID,
-				Mnemonic:  client.Mnemonic,
-				RoomID:    client.RoomID,
-				Pub:       in.Pub,
-				Name:      in.Name,
-				Size:      in.Size,
-				IvB64:     in.IvB64,
-				DataB64:   in.DataB64,
-				ChunkData: in.ChunkData,
-				ChunkNum:  in.ChunkNum,
-				TotalSize: in.TotalSize,
+				Type:               in.Type,
+				From:               client.ID,
+				Mnemonic:           client.Mnemonic,
+				RoomID:             client.RoomID,
+				Pub:                in.Pub,
+				Name:               in.Name,
+				Size:               in.Size,
+				IvB64:              in.IvB64,
+				DataB64:            in.DataB64,
+				ChunkData:          in.ChunkData,
+				ChunkNum:           in.ChunkNum,
+				TotalSize:          in.TotalSize,
+				IsFolder:           in.IsFolder,
+				OriginalFolderName: in.OriginalFolderName,
 			}
 
 			room.Mutex.Lock()

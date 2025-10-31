@@ -17,6 +17,8 @@ message PBIncomingMessage {
   string chunk_data = 9;
   int32 chunk_num = 10;
   int64 total_size = 11;
+  bool is_folder = 17;              // Indicates original input was a folder
+  string original_folder_name = 18; // Original folder name (before zipping)
 }
 
 // PBOutgoingMessage represents messages sent by the relay server to clients
@@ -37,4 +39,6 @@ message PBOutgoingMessage {
   repeated string peers = 14;
   int32 count = 15;
   string error = 16;
+  bool is_folder = 17;              // Indicates original input was a folder
+  string original_folder_name = 18; // Original folder name (before zipping)
 }

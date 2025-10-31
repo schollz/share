@@ -144,3 +144,4 @@ share
 node_modules
 tmp/*
 web/dist/*
+test_folder

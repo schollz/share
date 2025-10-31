@@ -25,9 +25,51 @@ func SendFile(filePath, roomID, serverURL string) {
 	if err != nil {
 		log.Fatalf("Failed to stat file: %v", err)
 	}
-	fileSize := fileInfo.Size()
 
-	fileName := filepath.Base(filePath)
+	// Check if path is a directory
+	isFolder := fileInfo.IsDir()
+	var actualFilePath string
+	var originalFolderName string
+	var tempZipPath string
+	var fileSize int64
+
+	if isFolder {
+		// It's a folder - we need to zip it
+		originalFolderName = filepath.Base(filePath)
+
+		// Count files for user feedback
+		fileCount, err := CountFilesInDirectory(filePath)
+		if err != nil {
+			log.Fatalf("Failed to count files in directory: %v", err)
+		}
+
+		fmt.Printf("Zipping folder '%s' (%d files)...\n", originalFolderName, fileCount)
+
+		// Create temp zip file
+		tempZipPath = filepath.Join(os.TempDir(), originalFolderName+".zip")
+		err = CreateZipFromDirectory(filePath, tempZipPath)
+		if err != nil {
+			log.Fatalf("Failed to zip folder: %v", err)
+		}
+		defer os.Remove(tempZipPath) // Clean up temp file when done
+
+		// Get zip file size
+		zipInfo, err := os.Stat(tempZipPath)
+		if err != nil {
+			log.Fatalf("Failed to stat zip file: %v", err)
+		}
+		fileSize = zipInfo.Size()
+		actualFilePath = tempZipPath
+
+		fmt.Printf("Folder zipped successfully (%s)\n", formatBytes(fileSize))
+	} else {
+		// It's a regular file
+		fileSize = fileInfo.Size()
+		actualFilePath = filePath
+		originalFolderName = ""
+	}
+
+	fileName := filepath.Base(actualFilePath)
 	clientID := uuid.New().String()
 
 	privKey, err := crypto.GenerateECDHKeyPair()
@@ -96,8 +138,13 @@ func SendFile(filePath, roomID, serverURL string) {
 				parsedURL.Path = ""
 				fullURL := fmt.Sprintf("%s/%s", parsedURL.String(), roomID)
 
-				fmt.Printf("Sending file '%s' (%s).\n",
-					fileName, formatBytes(fileSize))
+				if isFolder {
+					fmt.Printf("Sending folder '%s' (%s, zipped).\n",
+						originalFolderName, formatBytes(fileSize))
+				} else {
+					fmt.Printf("Sending file '%s' (%s).\n",
+						fileName, formatBytes(fileSize))
+				}
 				fmt.Printf("Receive via CLI with\n\n\tshare receive %s\n\nor online at\n\n\t%s\n\n",
 					roomID, fullURL)
 
@@ -137,17 +184,21 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 
 				// Open file for streaming
-				file, err := os.Open(filePath)
+				file, err := os.Open(actualFilePath)
 				if err != nil {
 					log.Fatalf("Failed to open file: %v", err)
 				}
 				defer file.Close()
 
-				// Send file_start message (no IV needed here anymore)
+				// Send file_start message with folder metadata
 				fileStartMsg := map[string]interface{}{
 					"type":       "file_start",
 					"name":       fileName,
 					"total_size": fileSize,
+				}
+				if isFolder {
+					fileStartMsg["is_folder"] = true
+					fileStartMsg["original_folder_name"] = originalFolderName
 				}
 				sendProtobufMessage(conn, fileStartMsg)
 
@@ -212,7 +263,11 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 				sendProtobufMessage(conn, fileEndMsg)
 
-				fmt.Printf("Sent encrypted file '%s' to %s (%s)\n", fileName, peerMnemonic, formatBytes(fileSize))
+				if isFolder {
+					fmt.Printf("Sent encrypted folder '%s' to %s (%s)\n", originalFolderName, peerMnemonic, formatBytes(fileSize))
+				} else {
+					fmt.Printf("Sent encrypted file '%s' to %s (%s)\n", fileName, peerMnemonic, formatBytes(fileSize))
+				}
 
 				time.Sleep(500 * time.Millisecond)
 				done <- true

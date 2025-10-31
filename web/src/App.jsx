@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import protobuf from "protobufjs";
 import { QRCodeSVG } from "qrcode.react";
+import JSZip from "jszip";
 
 /* ---------- Crypto helpers (ECDH + AES-GCM) ---------- */
 
@@ -165,6 +166,12 @@ function encodeProtobuf(obj) {
     if (obj.total_size !== undefined && obj.total_size !== null) {
         pbMessage.totalSize = obj.total_size;
     }
+    if (obj.is_folder !== undefined && obj.is_folder !== null) {
+        pbMessage.isFolder = obj.is_folder;
+    }
+    if (obj.original_folder_name !== undefined && obj.original_folder_name !== null && obj.original_folder_name !== "") {
+        pbMessage.originalFolderName = obj.original_folder_name;
+    }
 
     const message = pbIncomingMessage.create(pbMessage);
     return pbIncomingMessage.encode(message).finish();
@@ -190,7 +197,9 @@ function decodeProtobuf(buffer) {
         selfId: message.selfId,
         peers: message.peers || [],
         count: message.count,
-        error: message.error
+        error: message.error,
+        is_folder: message.isFolder || false,
+        original_folder_name: message.originalFolderName || null
     };
 }
 
@@ -420,6 +429,7 @@ export default function App() {
     const [downloadProgress, setDownloadProgress] = useState(null);
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -438,6 +448,8 @@ export default function App() {
     const fileTotalSizeRef = useRef(0);
     const receivedBytesRef = useRef(0);
     const downloadStartTimeRef = useRef(null);
+    const isFolderRef = useRef(false);
+    const originalFolderNameRef = useRef(null);
 
     const myIconClass = mnemonicToIcon(myMnemonic);
     const peerIconClass = mnemonicToIcon(peerMnemonic);
@@ -574,9 +586,13 @@ export default function App() {
                 fileChunksRef.current = [];
                 receivedBytesRef.current = 0;
                 downloadStartTimeRef.current = Date.now();
+                isFolderRef.current = msg.is_folder || false;
+                originalFolderNameRef.current = msg.original_folder_name || null;
 
-                log(`Incoming encrypted file: ${msg.name} (${formatBytes(msg.total_size)})`);
-                setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: downloadStartTimeRef.current, fileName: msg.name });
+                const displayName = isFolderRef.current ? originalFolderNameRef.current : msg.name;
+                const typeLabel = isFolderRef.current ? "folder" : "file";
+                log(`Incoming encrypted ${typeLabel}: ${displayName} (${formatBytes(msg.total_size)})`);
+                setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: downloadStartTimeRef.current, fileName: displayName });
                 return;
             }
 
@@ -635,22 +651,31 @@ export default function App() {
                     const elapsed = (Date.now() - downloadStartTimeRef.current) / 1000;
                     const speed = elapsed > 0 ? totalLen / elapsed : 0;
 
-                    setDownloadProgress({ percent: 100, speed, eta: 0, fileName: fileNameRef.current });
+                    // Determine download name based on whether it's a folder
+                    let downloadFileName;
+                    if (isFolderRef.current && originalFolderNameRef.current) {
+                        downloadFileName = originalFolderNameRef.current + ".zip";
+                    } else {
+                        downloadFileName = fileNameRef.current || "download.bin";
+                    }
 
-                    const blob = new Blob([plainBytes], { type: "application/octet-stream" });
+                    setDownloadProgress({ percent: 100, speed, eta: 0, fileName: downloadFileName });
+
+                    const blob = new Blob([plainBytes], { type: isFolderRef.current ? "application/zip" : "application/octet-stream" });
                     const url = URL.createObjectURL(blob);
                     setDownloadUrl(url);
-                    setDownloadName(fileNameRef.current);
+                    setDownloadName(downloadFileName);
 
                     // auto trigger browser download
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = fileNameRef.current || "download.bin";
+                    a.download = downloadFileName;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
 
-                    log(`Decrypted and prepared download "${fileNameRef.current}"`);
+                    const typeLabel = isFolderRef.current ? "folder" : "file";
+                    log(`Decrypted and prepared download "${downloadFileName}" (${typeLabel})`);
                 } catch (err) {
                     console.error(err);
                     log("Failed to assemble file");
@@ -721,24 +746,89 @@ export default function App() {
         };
     }, [roomId]);
 
+    // Helper function to zip a folder
+    async function zipFolder(files, folderName) {
+        const zip = new JSZip();
+        const folder = zip.folder(folderName);
+
+        // Add all files to the zip
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            // Get relative path (remove the folder name prefix if present)
+            let relativePath = file.webkitRelativePath || file.name;
+
+            // Remove the first folder component to get relative path within the folder
+            const parts = relativePath.split('/');
+            if (parts.length > 1) {
+                relativePath = parts.slice(1).join('/');
+            }
+
+            folder.file(relativePath, file);
+        }
+
+        // Generate the zip blob
+        const zipBlob = await zip.generateAsync({
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+        });
+
+        return zipBlob;
+    }
+
     async function handleFileSelect(e) {
-        const file = e.target.files?.[0];
-        if (!file || !aesKeyRef.current) {
+        const files = e.target.files;
+        if (!files || files.length === 0 || !aesKeyRef.current) {
             log("No file or key not ready");
             return;
         }
+
         try {
+            let fileToSend;
+            let isFolder = false;
+            let originalFolderName = null;
+
+            // Check if this is a folder (multiple files with webkitRelativePath)
+            if (files.length > 1 || (files.length === 1 && files[0].webkitRelativePath)) {
+                isFolder = true;
+
+                // Get folder name from the first file's path
+                if (files[0].webkitRelativePath) {
+                    originalFolderName = files[0].webkitRelativePath.split('/')[0];
+                } else {
+                    originalFolderName = 'folder';
+                }
+
+                log(`Zipping folder "${originalFolderName}" (${files.length} files)...`);
+                const zipBlob = await zipFolder(files, originalFolderName);
+
+                fileToSend = new File([zipBlob], originalFolderName + '.zip', { type: 'application/zip' });
+                log(`Folder zipped successfully (${formatBytes(zipBlob.size)})`);
+            } else {
+                // Single file
+                fileToSend = files[0];
+            }
+
             const startTime = Date.now();
-            setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime, fileName: file.name });
+            const displayName = isFolder ? originalFolderName : fileToSend.name;
+            setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime, fileName: displayName });
 
-            log(`Streaming file "${file.name}" (${formatBytes(file.size)})`);
+            const typeLabel = isFolder ? "folder" : "file";
+            log(`Streaming ${typeLabel} "${displayName}" (${formatBytes(fileToSend.size)})`);
 
-            // Send file_start message (with original file size, not encrypted size)
-            sendMsg({
+            // Send file_start message with folder metadata if applicable
+            const fileStartMsg = {
                 type: "file_start",
-                name: file.name,
-                total_size: file.size
-            });
+                name: fileToSend.name,
+                total_size: fileToSend.size
+            };
+
+            if (isFolder) {
+                fileStartMsg.is_folder = true;
+                fileStartMsg.original_folder_name = originalFolderName;
+            }
+
+            sendMsg(fileStartMsg);
 
             // Stream file in chunks, encrypting each chunk individually
             const chunkSize = 256 * 1024;
@@ -746,7 +836,7 @@ export default function App() {
             let chunkNum = 0;
 
             // Use File stream API for memory-efficient reading
-            const stream = file.stream();
+            const stream = fileToSend.stream();
             const reader = stream.getReader();
 
             try {
@@ -768,12 +858,12 @@ export default function App() {
                     sentBytes += value.length;
                     const elapsed = (Date.now() - startTime) / 1000;
                     const speed = elapsed > 0 ? sentBytes / elapsed : 0;
-                    const percent = Math.round((sentBytes / file.size) * 100);
+                    const percent = Math.round((sentBytes / fileToSend.size) * 100);
 
-                    const remainingBytes = file.size - sentBytes;
+                    const remainingBytes = fileToSend.size - sentBytes;
                     const eta = speed > 0 ? remainingBytes / speed : 0;
 
-                    setUploadProgress({ percent, speed, eta, startTime, fileName: file.name });
+                    setUploadProgress({ percent, speed, eta, startTime, fileName: displayName });
 
                     chunkNum++;
 
@@ -790,14 +880,59 @@ export default function App() {
             });
 
             const elapsed = (Date.now() - startTime) / 1000;
-            const speed = file.size / elapsed;
-            setUploadProgress({ percent: 100, speed, eta: 0, fileName: file.name });
+            const speed = fileToSend.size / elapsed;
+            setUploadProgress({ percent: 100, speed, eta: 0, fileName: displayName });
 
-            log(`Sent encrypted file "${file.name}"`);
+            log(`Sent encrypted ${typeLabel} "${displayName}"`);
         } catch (err) {
             console.error(err);
-            log("Failed to send file");
+            log("Failed to send " + (err.message || "file"));
             setUploadProgress(null);
+        }
+    }
+
+    // Drag and drop handlers
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (hasAesKey) {
+            setIsDragging(true);
+        }
+    }
+
+    function handleDragEnter(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (hasAesKey) {
+            setIsDragging(true);
+        }
+    }
+
+    function handleDragLeave(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Only set to false if leaving the label element itself
+        if (e.currentTarget === e.target) {
+            setIsDragging(false);
+        }
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        if (!hasAesKey) return;
+
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+            // Create a synthetic event that matches the onChange event structure
+            const syntheticEvent = {
+                target: {
+                    files: files
+                }
+            };
+            handleFileSelect(syntheticEvent);
         }
     }
 
@@ -946,20 +1081,54 @@ export default function App() {
                             <ProgressBar progress={downloadProgress} label={`Receiving ${downloadProgress.fileName}`} />
                         )}
 
-                        <label
-                            className={`block border-2 sm:border-4 border-black p-6 sm:p-8 text-center font-black uppercase ${hasAesKey
-                                ? "bg-white cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-xl sm:text-2xl"
-                                : "bg-gray-400 cursor-not-allowed text-sm sm:text-base"
+                        <div
+                            className={`border-2 sm:border-4 border-black p-6 sm:p-8 text-center transition-all ${hasAesKey
+                                ? isDragging
+                                    ? "bg-yellow-300 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] scale-105"
+                                    : "bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                                : "bg-gray-400"
                                 }`}
+                            onDragOver={handleDragOver}
+                            onDragEnter={handleDragEnter}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
                         >
-                            {hasAesKey ? "SHARE" : `WAITING FOR PEER TO JOIN ${window.location.host}/${roomId}`.toUpperCase()}
-                            <input
-                                type="file"
-                                className="hidden"
-                                onChange={handleFileSelect}
-                                disabled={!hasAesKey}
-                            />
-                        </label>
+                            {hasAesKey ? (
+                                isDragging ? (
+                                    <div className="font-black uppercase text-xl sm:text-2xl">
+                                        📁 DROP FILE OR FOLDER HERE
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                        <label className="block border-2 border-black p-4 font-black uppercase cursor-pointer hover:bg-gray-100 transition-colors text-base sm:text-lg">
+                                            📄 SHARE FILE
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                onChange={handleFileSelect}
+                                                disabled={!hasAesKey}
+                                            />
+                                        </label>
+                                        <label className="block border-2 border-black p-4 font-black uppercase cursor-pointer hover:bg-gray-100 transition-colors text-base sm:text-lg">
+                                            📁 SHARE FOLDER
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                onChange={handleFileSelect}
+                                                disabled={!hasAesKey}
+                                                webkitdirectory=""
+                                                directory=""
+                                                multiple
+                                            />
+                                        </label>
+                                    </div>
+                                )
+                            ) : (
+                                <div className="font-black uppercase text-sm sm:text-base text-gray-600">
+                                    {`WAITING FOR PEER TO JOIN ${window.location.host}/${roomId}`.toUpperCase()}
+                                </div>
+                            )}
+                        </div>
 
                         {downloadUrl && (
                             <div className="mt-3 sm:mt-4 bg-white border-2 sm:border-4 border-black p-3 sm:p-4">

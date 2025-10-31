@@ -47,9 +47,9 @@ var serveCmd = &cobra.Command{
 }
 
 var sendCmd = &cobra.Command{
-	Use:   "send <file> [room]",
-	Short: "Send a file to a room",
-	Long:  "Send a file through E2E encryption to a specified room",
+	Use:   "send <file-or-folder> [room]",
+	Short: "Send a file or folder to a room",
+	Long:  "Send a file or folder through E2E encryption to a specified room. Folders are automatically zipped for transfer.",
 	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		filePath := args[0]
@@ -69,8 +69,8 @@ var sendCmd = &cobra.Command{
 
 var receiveCmd = &cobra.Command{
 	Use:   "receive [room]",
-	Short: "Receive a file from a room",
-	Long:  "Receive a file through E2E encryption from a specified room",
+	Short: "Receive a file or folder from a room",
+	Long:  "Receive a file or folder through E2E encryption from a specified room. Folders are automatically extracted.",
 	Args:  cobra.RangeArgs(0, 1),
 	Run: func(cmd *cobra.Command, args []string) {
 		var roomID string
