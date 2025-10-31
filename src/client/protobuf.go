@@ -44,6 +44,12 @@ func sendProtobufMessage(conn *websocket.Conn, msg map[string]interface{}) error
 	if v, ok := msg["total_size"].(int64); ok {
 		pbMsg.TotalSize = v
 	}
+	if v, ok := msg["is_folder"].(bool); ok {
+		pbMsg.IsFolder = v
+	}
+	if v, ok := msg["original_folder_name"].(string); ok {
+		pbMsg.OriginalFolderName = v
+	}
 
 	data, err := proto.Marshal(pbMsg)
 	if err != nil {
@@ -69,22 +75,24 @@ func receiveProtobufMessage(conn *websocket.Conn) (*relay.OutgoingMessage, error
 
 		// Convert to OutgoingMessage
 		return &relay.OutgoingMessage{
-			Type:      pbMsg.Type,
-			From:      pbMsg.From,
-			Mnemonic:  pbMsg.Mnemonic,
-			RoomID:    pbMsg.RoomId,
-			Pub:       pbMsg.Pub,
-			Name:      pbMsg.Name,
-			Size:      pbMsg.Size,
-			IvB64:     pbMsg.IvB64,
-			DataB64:   pbMsg.DataB64,
-			ChunkData: pbMsg.ChunkData,
-			ChunkNum:  int(pbMsg.ChunkNum),
-			TotalSize: pbMsg.TotalSize,
-			SelfID:    pbMsg.SelfId,
-			Peers:     pbMsg.Peers,
-			Count:     int(pbMsg.Count),
-			Error:     pbMsg.Error,
+			Type:               pbMsg.Type,
+			From:               pbMsg.From,
+			Mnemonic:           pbMsg.Mnemonic,
+			RoomID:             pbMsg.RoomId,
+			Pub:                pbMsg.Pub,
+			Name:               pbMsg.Name,
+			Size:               pbMsg.Size,
+			IvB64:              pbMsg.IvB64,
+			DataB64:            pbMsg.DataB64,
+			ChunkData:          pbMsg.ChunkData,
+			ChunkNum:           int(pbMsg.ChunkNum),
+			TotalSize:          pbMsg.TotalSize,
+			SelfID:             pbMsg.SelfId,
+			Peers:              pbMsg.Peers,
+			Count:              int(pbMsg.Count),
+			Error:              pbMsg.Error,
+			IsFolder:           pbMsg.IsFolder,
+			OriginalFolderName: pbMsg.OriginalFolderName,
 		}, nil
 	}
 
