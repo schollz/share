@@ -585,7 +585,7 @@ export default function App() {
                     return;
                 }
 
-                let fileName, totalSize, isFolder, originalFolderName, isMultipleFiles;
+                let fileName, totalSize, isFolder, originalFolderName, isMultipleFiles, expectedHash;
                 
                 try {
                     // Decrypt metadata
@@ -601,7 +601,7 @@ export default function App() {
                     isFolder = metadata.is_folder || false;
                     originalFolderName = metadata.original_folder_name || null;
                     isMultipleFiles = metadata.is_multiple_files || false;
-                    const expectedHash = metadata.hash || null;
+                    expectedHash = metadata.hash || null;
                 } catch (err) {
                     console.error("Failed to decrypt metadata:", err);
                     log("Failed to decrypt metadata");
