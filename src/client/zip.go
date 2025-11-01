@@ -182,39 +182,59 @@ func extractFile(file *zip.File, targetDir string) error {
 
 // sanitizeExtractPath validates and sanitizes file paths to prevent zip slip attacks
 func sanitizeExtractPath(baseDir, filePath string) (string, error) {
-	// Convert to platform-specific path for processing
-	filePath = filepath.FromSlash(filePath)
-
-	// Clean the path to remove .. and other tricks
-	cleanPath := filepath.Clean(filePath)
-
-	// Check for absolute paths
-	if filepath.IsAbs(cleanPath) {
-		return "", fmt.Errorf("illegal absolute path: %s", filePath)
-	}
-
-	// Check for null bytes
-	if strings.Contains(cleanPath, "\x00") {
+	// Reject null bytes early (avoid issues with subsequent processing)
+	if strings.Contains(filePath, "\x00") {
 		return "", fmt.Errorf("illegal null byte in path: %s", filePath)
 	}
 
-	// Join with base directory
-	fullPath := filepath.Join(baseDir, cleanPath)
+	// Reject explicit absolute zip entry names (leading slash/backslash)
+	// and Windows drive-letter rooted names like "C:\..."
+	if strings.HasPrefix(filePath, "/") || strings.HasPrefix(filePath, `\`) {
+		return "", fmt.Errorf("absolute paths are not allowed: %s", filePath)
+	}
+	if len(filePath) >= 2 {
+		// Windows drive-letter check (e.g. "C:\")
+		c := filePath[0]
+		if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) && filePath[1] == ':' {
+			return "", fmt.Errorf("absolute windows drive paths are not allowed: %s", filePath)
+		}
+	}
 
-	// Use filepath.Rel to verify the path stays within baseDir
-	relPath, err := filepath.Rel(baseDir, fullPath)
+	// Convert zipped path slashes to OS separators, then clean
+	filePath = filepath.FromSlash(filePath)
+	cleanPath := filepath.Clean(filePath)
+
+	// Clean may turn an empty name into "."; treat that as error
+	if cleanPath == "." || cleanPath == "" {
+		return "", fmt.Errorf("invalid path: %s", filePath)
+	}
+
+	// Get absolute base directory
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute absolute base directory: %w", err)
+	}
+
+	// Join (if cleanPath is absolute Join will return cleanPath)
+	joined := filepath.Join(absBase, cleanPath)
+
+	// Resolve absolute path for the joined destination
+	absDest, err := filepath.Abs(joined)
+	if err != nil {
+		return "", fmt.Errorf("failed to compute absolute destination path: %w", err)
+	}
+
+	// Ensure dest is within base by using Rel between absBase and absDest
+	rel, err := filepath.Rel(absBase, absDest)
 	if err != nil {
 		return "", fmt.Errorf("failed to compute relative path: %w", err)
 	}
-
-	// Check if the relative path escapes the base directory
-	// On any platform, if it starts with "..", it's trying to escape
-	if strings.HasPrefix(relPath, "..") {
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		return "", fmt.Errorf("illegal path escape: %s", filePath)
 	}
 
-	// Normalize to forward slashes for cross-platform compatibility
-	return filepath.ToSlash(fullPath), nil
+	// Return normalized path (use OS path format)
+	return absDest, nil
 }
 
 // GetDirectorySize calculates the total size of a directory
