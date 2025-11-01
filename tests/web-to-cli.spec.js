@@ -224,6 +224,12 @@ test.describe('Web to CLI Transfer', () => {
         console.error(`CLI Sender Error: ${data}`);
       });
 
+      // Wait for the download confirmation modal to appear
+      await page.waitForSelector('text=DOWNLOAD FILE?', { timeout: 30000 });
+      
+      // Click the Download button in the confirmation modal
+      await page.click('button:has-text("Download")');
+
       // Wait for download to complete
       const download = await downloadPromise;
       

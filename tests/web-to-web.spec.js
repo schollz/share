@@ -107,6 +107,12 @@ test.describe('Web to Web Transfer', () => {
 
       // The app automatically sends the file once selected
 
+      // Receiver: Wait for the download confirmation modal to appear
+      await receiverPage.waitForSelector('text=DOWNLOAD FILE?', { timeout: 30000 });
+      
+      // Click the Download button in the confirmation modal
+      await receiverPage.click('button:has-text("Download")');
+
       // Receiver: Wait for download to start and complete
       const download = await downloadPromise;
       
