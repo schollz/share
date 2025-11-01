@@ -14,13 +14,10 @@ func BenchmarkJSONEncode(b *testing.B) {
 		RoomID:    "test-room-12345",
 		ClientID:  "client-67890",
 		Pub:       "base64encodedpublickey1234567890abcdef",
-		Name:      "example-file.txt",
-		Size:      1024000,
 		IvB64:     "base64encodediv123456",
 		DataB64:   "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkData: "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkNum:  42,
-		TotalSize: 10240000,
 	}
 
 	b.ResetTimer()
@@ -39,13 +36,10 @@ func BenchmarkJSONDecode(b *testing.B) {
 		RoomID:    "test-room-12345",
 		ClientID:  "client-67890",
 		Pub:       "base64encodedpublickey1234567890abcdef",
-		Name:      "example-file.txt",
-		Size:      1024000,
 		IvB64:     "base64encodediv123456",
 		DataB64:   "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkData: "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkNum:  42,
-		TotalSize: 10240000,
 	}
 
 	data, _ := json.Marshal(msg)
@@ -68,13 +62,10 @@ func BenchmarkJSONRoundTrip(b *testing.B) {
 		Mnemonic:  "apple-banana",
 		RoomID:    "test-room-12345",
 		Pub:       "base64encodedpublickey1234567890abcdef",
-		Name:      "example-file.txt",
-		Size:      1024000,
 		IvB64:     "base64encodediv123456",
 		DataB64:   "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkData: "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkNum:  42,
-		TotalSize: 10240000,
 		SelfID:    "self-client-456",
 		Peers:     []string{"peer1", "peer2", "peer3"},
 		Count:     3,
@@ -146,7 +137,6 @@ func BenchmarkJSONEncodeLargeChunk(b *testing.B) {
 		ClientID:  "client-67890",
 		ChunkData: string(largeData),
 		ChunkNum:  1,
-		TotalSize: 1048576,
 	}
 
 	b.ResetTimer()
@@ -172,7 +162,6 @@ func BenchmarkJSONDecodeLargeChunk(b *testing.B) {
 		ClientID:  "client-67890",
 		ChunkData: string(largeData),
 		ChunkNum:  1,
-		TotalSize: 1048576,
 	}
 
 	data, _ := json.Marshal(msg)
@@ -198,13 +187,10 @@ func BenchmarkProtobufEncode(b *testing.B) {
 		RoomId:    "test-room-12345",
 		ClientId:  "client-67890",
 		Pub:       "base64encodedpublickey1234567890abcdef",
-		Name:      "example-file.txt",
-		Size:      1024000,
 		IvB64:     "base64encodediv123456",
 		DataB64:   "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkData: "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkNum:  42,
-		TotalSize: 10240000,
 	}
 
 	b.ResetTimer()
@@ -223,13 +209,10 @@ func BenchmarkProtobufDecode(b *testing.B) {
 		RoomId:    "test-room-12345",
 		ClientId:  "client-67890",
 		Pub:       "base64encodedpublickey1234567890abcdef",
-		Name:      "example-file.txt",
-		Size:      1024000,
 		IvB64:     "base64encodediv123456",
 		DataB64:   "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkData: "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkNum:  42,
-		TotalSize: 10240000,
 	}
 
 	data, _ := proto.Marshal(msg)
@@ -252,13 +235,10 @@ func BenchmarkProtobufRoundTrip(b *testing.B) {
 		Mnemonic:  "apple-banana",
 		RoomId:    "test-room-12345",
 		Pub:       "base64encodedpublickey1234567890abcdef",
-		Name:      "example-file.txt",
-		Size:      1024000,
 		IvB64:     "base64encodediv123456",
 		DataB64:   "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkData: "VGhpcyBpcyBhIHRlc3QgZGF0YSBzdHJpbmcgdGhhdCByZXByZXNlbnRzIGEgY2h1bmsgb2YgYmlnZ2VyIGZpbGUgZGF0YS4gSXQgc2hvdWxkIGJlIGxvbmcgZW5vdWdoIHRvIG1ha2UgdGhlIGJlbmNobWFyayByZWFsaXN0aWMu",
 		ChunkNum:  42,
-		TotalSize: 10240000,
 		SelfId:    "self-client-456",
 		Peers:     []string{"peer1", "peer2", "peer3"},
 		Count:     3,
@@ -330,7 +310,6 @@ func BenchmarkProtobufEncodeLargeChunk(b *testing.B) {
 		ClientId:  "client-67890",
 		ChunkData: string(largeData),
 		ChunkNum:  1,
-		TotalSize: 1048576,
 	}
 
 	b.ResetTimer()
@@ -356,7 +335,6 @@ func BenchmarkProtobufDecodeLargeChunk(b *testing.B) {
 		ClientId:  "client-67890",
 		ChunkData: string(largeData),
 		ChunkNum:  1,
-		TotalSize: 1048576,
 	}
 
 	data, _ := proto.Marshal(msg)

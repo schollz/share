@@ -162,10 +162,10 @@ func TestIntegrationFolderTransfer(t *testing.T) {
 
 	// Create test files with different content
 	testFiles := map[string]string{
-		"file1.txt":            "This is file 1 content",
-		"file2.txt":            "This is file 2 content with more data",
-		"subdir/file3.txt":     "This is file 3 in a subdirectory",
-		"subdir/file4.txt":     "This is file 4 in a subdirectory",
+		"file1.txt":             "This is file 1 content",
+		"file2.txt":             "This is file 2 content with more data",
+		"subdir/file3.txt":      "This is file 3 in a subdirectory",
+		"subdir/file4.txt":      "This is file 4 in a subdirectory",
 		"subdir/deep/file5.txt": "This is file 5 in a nested subdirectory",
 	}
 

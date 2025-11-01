@@ -10,15 +10,12 @@ message PBIncomingMessage {
   string room_id = 2;
   string client_id = 3;
   string pub = 4;
-  string name = 5;
-  int64 size = 6;
   string iv_b64 = 7;
   string data_b64 = 8;
   string chunk_data = 9;
   int32 chunk_num = 10;
-  int64 total_size = 11;
-  bool is_folder = 17;              // Indicates original input was a folder
-  string original_folder_name = 18; // Original folder name (before zipping)
+  string encrypted_metadata = 20;    // Encrypted metadata (name, total_size, is_folder, etc.)
+  string metadata_iv = 21;           // IV for encrypted_metadata
 }
 
 // PBOutgoingMessage represents messages sent by the relay server to clients
@@ -28,17 +25,14 @@ message PBOutgoingMessage {
   string mnemonic = 3;
   string room_id = 4;
   string pub = 5;
-  string name = 6;
-  int64 size = 7;
   string iv_b64 = 8;
   string data_b64 = 9;
   string chunk_data = 10;
   int32 chunk_num = 11;
-  int64 total_size = 12;
   string self_id = 13;
   repeated string peers = 14;
   int32 count = 15;
   string error = 16;
-  bool is_folder = 17;              // Indicates original input was a folder
-  string original_folder_name = 18; // Original folder name (before zipping)
+  string encrypted_metadata = 20;    // Encrypted metadata (name, total_size, is_folder, etc.)
+  string metadata_iv = 21;           // IV for encrypted_metadata
 }

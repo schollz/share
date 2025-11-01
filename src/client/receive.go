@@ -151,12 +151,32 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				continue
 			}
 
-			fileName = sanitizeFileName(msg.Name)
-			totalSize = msg.TotalSize
+			// Decrypt metadata
+			if msg.EncryptedMetadata == "" || msg.MetadataIV == "" {
+				log.Fatal("Missing encrypted metadata")
+			}
+
+			metadataIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
+			encryptedMeta, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
+
+			metadataJSON, err := crypto.DecryptAESGCM(sharedSecret, metadataIV, encryptedMeta)
+			if err != nil {
+				log.Fatalf("Failed to decrypt metadata: %v", err)
+			}
+
+			metadata, err := UnmarshalMetadata(metadataJSON)
+			if err != nil {
+				log.Fatalf("Failed to unmarshal metadata: %v", err)
+			}
+
+			// Use decrypted metadata
+			fileName = sanitizeFileName(metadata.Name)
+			totalSize = metadata.TotalSize
+			isFolder = metadata.IsFolder
+			isMultipleFiles = metadata.IsMultipleFiles
+			originalFolderName = metadata.OriginalFolderName
+
 			receivedBytes = 0
-			isFolder = msg.IsFolder
-			isMultipleFiles = msg.IsMultipleFiles
-			originalFolderName = msg.OriginalFolderName
 
 			var outputPath string
 			if isFolder {
@@ -331,51 +351,6 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			}
 			return
 
-		case "file":
-			// Backward compatibility: handle old-style single-message transfers
-			if sharedSecret == nil {
-				continue
-			}
-
-			bar := progressbar.NewOptions64(
-				msg.Size,
-				progressbar.OptionSetDescription("Receiving"),
-				progressbar.OptionSetWriter(os.Stderr),
-				progressbar.OptionShowBytes(true),
-				progressbar.OptionSetWidth(10),
-				progressbar.OptionThrottle(65*time.Millisecond),
-				progressbar.OptionShowCount(),
-				progressbar.OptionOnCompletion(func() {
-					fmt.Fprint(os.Stderr, "\n")
-				}),
-				progressbar.OptionSpinnerType(14),
-				progressbar.OptionFullWidth(),
-			)
-
-			iv, _ := base64.StdEncoding.DecodeString(msg.IvB64)
-			ciphertext, _ := base64.StdEncoding.DecodeString(msg.DataB64)
-
-			bar.Add64(msg.Size)
-			bar.Finish()
-
-			plaintext, err := crypto.DecryptAESGCM(sharedSecret, iv, ciphertext)
-			if err != nil {
-				log.Fatalf("Decryption failed: %v", err)
-			}
-
-			outputPath := filepath.Join(outputDir, sanitizeFileName(msg.Name))
-			// Check if file exists and prompt for overwrite if needed
-			if !checkFileOverwrite(outputPath, forceOverwrite) {
-				return
-			}
-
-			err = os.WriteFile(outputPath, plaintext, 0644)
-			if err != nil {
-				log.Fatalf("Failed to write file: %v", err)
-			}
-
-			fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(int64(len(plaintext))))
-			return
 		}
 	}
 }

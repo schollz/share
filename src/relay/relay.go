@@ -32,42 +32,34 @@ type Room struct {
 }
 
 type IncomingMessage struct {
-	Type               string `json:"type"`
-	RoomID             string `json:"roomId,omitempty"`
-	ClientID           string `json:"clientId,omitempty"`
-	Pub                string `json:"pub,omitempty"`
-	Name               string `json:"name,omitempty"`
-	Size               int64  `json:"size,omitempty"`
-	IvB64              string `json:"iv_b64,omitempty"`
-	DataB64            string `json:"data_b64,omitempty"`
-	ChunkData          string `json:"chunk_data,omitempty"`
-	ChunkNum           int    `json:"chunk_num,omitempty"`
-	TotalSize          int64  `json:"total_size,omitempty"`
-	IsFolder           bool   `json:"is_folder,omitempty"`
-	OriginalFolderName string `json:"original_folder_name,omitempty"`
-	IsMultipleFiles    bool   `json:"is_multiple_files,omitempty"`
+	Type              string `json:"type"`
+	RoomID            string `json:"roomId,omitempty"`
+	ClientID          string `json:"clientId,omitempty"`
+	Pub               string `json:"pub,omitempty"`
+	IvB64             string `json:"iv_b64,omitempty"`
+	DataB64           string `json:"data_b64,omitempty"`
+	ChunkData         string `json:"chunk_data,omitempty"`
+	ChunkNum          int    `json:"chunk_num,omitempty"`
+	EncryptedMetadata string `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
+	MetadataIV        string `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
 }
 
 type OutgoingMessage struct {
-	Type               string   `json:"type"`
-	From               string   `json:"from,omitempty"`
-	Mnemonic           string   `json:"mnemonic,omitempty"`
-	RoomID             string   `json:"roomId,omitempty"`
-	Pub                string   `json:"pub,omitempty"`
-	Name               string   `json:"name,omitempty"`
-	Size               int64    `json:"size,omitempty"`
-	IvB64              string   `json:"iv_b64,omitempty"`
-	DataB64            string   `json:"data_b64,omitempty"`
-	ChunkData          string   `json:"chunk_data,omitempty"`
-	ChunkNum           int      `json:"chunk_num,omitempty"`
-	TotalSize          int64    `json:"total_size,omitempty"`
-	SelfID             string   `json:"selfId,omitempty"`
-	Peers              []string `json:"peers,omitempty"`
-	Count              int      `json:"count,omitempty"`
-	Error              string   `json:"error,omitempty"`
-	IsFolder           bool     `json:"is_folder,omitempty"`
-	OriginalFolderName string   `json:"original_folder_name,omitempty"`
-	IsMultipleFiles    bool     `json:"is_multiple_files,omitempty"`
+	Type              string   `json:"type"`
+	From              string   `json:"from,omitempty"`
+	Mnemonic          string   `json:"mnemonic,omitempty"`
+	RoomID            string   `json:"roomId,omitempty"`
+	Pub               string   `json:"pub,omitempty"`
+	IvB64             string   `json:"iv_b64,omitempty"`
+	DataB64           string   `json:"data_b64,omitempty"`
+	ChunkData         string   `json:"chunk_data,omitempty"`
+	ChunkNum          int      `json:"chunk_num,omitempty"`
+	SelfID            string   `json:"selfId,omitempty"`
+	Peers             []string `json:"peers,omitempty"`
+	Count             int      `json:"count,omitempty"`
+	Error             string   `json:"error,omitempty"`
+	EncryptedMetadata string   `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
+	MetadataIV        string   `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
 }
 
 var (
@@ -356,31 +348,25 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			// Debug logging for file_start messages
+			// Debug logging for file_start messages - but not the sensitive metadata
 			if in.Type == "file_start" {
+				hasEncrypted := in.EncryptedMetadata != ""
 				logger.Debug("Relay forwarding file_start",
-					"name", in.Name,
-					"isFolder", in.IsFolder,
-					"isMultipleFiles", in.IsMultipleFiles,
-					"originalFolderName", in.OriginalFolderName)
+					"hasEncryptedMetadata", hasEncrypted)
 			}
 
 			out := OutgoingMessage{
-				Type:               in.Type,
-				From:               client.ID,
-				Mnemonic:           client.Mnemonic,
-				RoomID:             client.RoomID,
-				Pub:                in.Pub,
-				Name:               in.Name,
-				Size:               in.Size,
-				IvB64:              in.IvB64,
-				DataB64:            in.DataB64,
-				ChunkData:          in.ChunkData,
-				ChunkNum:           in.ChunkNum,
-				TotalSize:          in.TotalSize,
-				IsFolder:           in.IsFolder,
-				OriginalFolderName: in.OriginalFolderName,
-				IsMultipleFiles:    in.IsMultipleFiles,
+				Type:              in.Type,
+				From:              client.ID,
+				Mnemonic:          client.Mnemonic,
+				RoomID:            client.RoomID,
+				Pub:               in.Pub,
+				IvB64:             in.IvB64,
+				DataB64:           in.DataB64,
+				ChunkData:         in.ChunkData,
+				ChunkNum:          in.ChunkNum,
+				EncryptedMetadata: in.EncryptedMetadata, // Zero-knowledge metadata
+				MetadataIV:        in.MetadataIV,        // IV for encrypted metadata
 			}
 
 			room.Mutex.Lock()
