@@ -92,16 +92,10 @@ message PBIncomingMessage {
   string room_id = 2;
   string client_id = 3;
   string pub = 4;
-  string name = 5;
-  int64 size = 6;
   string iv_b64 = 7;
   string data_b64 = 8;
   string chunk_data = 9;
   int32 chunk_num = 10;
-  int64 total_size = 11;
-  bool is_folder = 17;
-  string original_folder_name = 18;
-  bool is_multiple_files = 19;
   string encrypted_metadata = 20;
   string metadata_iv = 21;
 }
@@ -112,20 +106,14 @@ message PBOutgoingMessage {
   string mnemonic = 3;
   string room_id = 4;
   string pub = 5;
-  string name = 6;
-  int64 size = 7;
   string iv_b64 = 8;
   string data_b64 = 9;
   string chunk_data = 10;
   int32 chunk_num = 11;
-  int64 total_size = 12;
   string self_id = 13;
   repeated string peers = 14;
   int32 count = 15;
   string error = 16;
-  bool is_folder = 17;
-  string original_folder_name = 18;
-  bool is_multiple_files = 19;
   string encrypted_metadata = 20;
   string metadata_iv = 21;
 }
@@ -155,12 +143,6 @@ function encodeProtobuf(obj) {
     if (obj.pub !== undefined && obj.pub !== null && obj.pub !== "") {
         pbMessage.pub = obj.pub;
     }
-    if (obj.name !== undefined && obj.name !== null && obj.name !== "") {
-        pbMessage.name = obj.name;
-    }
-    if (obj.size !== undefined && obj.size !== null) {
-        pbMessage.size = obj.size;
-    }
     if (obj.iv_b64 !== undefined && obj.iv_b64 !== null && obj.iv_b64 !== "") {
         pbMessage.ivB64 = obj.iv_b64;
     }
@@ -172,18 +154,6 @@ function encodeProtobuf(obj) {
     }
     if (obj.chunk_num !== undefined && obj.chunk_num !== null) {
         pbMessage.chunkNum = obj.chunk_num;
-    }
-    if (obj.total_size !== undefined && obj.total_size !== null) {
-        pbMessage.totalSize = obj.total_size;
-    }
-    if (obj.is_folder !== undefined && obj.is_folder !== null) {
-        pbMessage.isFolder = obj.is_folder;
-    }
-    if (obj.original_folder_name !== undefined && obj.original_folder_name !== null && obj.original_folder_name !== "") {
-        pbMessage.originalFolderName = obj.original_folder_name;
-    }
-    if (obj.is_multiple_files !== undefined && obj.is_multiple_files !== null) {
-        pbMessage.isMultipleFiles = obj.is_multiple_files;
     }
     if (obj.encrypted_metadata !== undefined && obj.encrypted_metadata !== null && obj.encrypted_metadata !== "") {
         pbMessage.encryptedMetadata = obj.encrypted_metadata;
@@ -206,20 +176,14 @@ function decodeProtobuf(buffer) {
         mnemonic: message.mnemonic,
         roomId: message.roomId,
         pub: message.pub,
-        name: message.name,
-        size: message.size ? Number(message.size) : 0,
         iv_b64: message.ivB64,
         data_b64: message.dataB64,
         chunk_data: message.chunkData,
         chunk_num: message.chunkNum,
-        total_size: message.totalSize ? Number(message.totalSize) : 0,
         selfId: message.selfId,
         peers: message.peers || [],
         count: message.count,
         error: message.error,
-        is_folder: message.isFolder || false,
-        original_folder_name: message.originalFolderName || null,
-        is_multiple_files: message.isMultipleFiles || false,
         encrypted_metadata: message.encryptedMetadata || null,
         metadata_iv: message.metadataIv || null
     };
@@ -605,36 +569,33 @@ export default function App() {
                     return;
                 }
 
-                // Try to use encrypted metadata first (zero-knowledge)
+                // Decrypt metadata
+                if (!msg.encrypted_metadata || !msg.metadata_iv) {
+                    console.error("Missing encrypted metadata");
+                    log("Missing encrypted metadata");
+                    return;
+                }
+
                 let fileName, totalSize, isFolder, originalFolderName, isMultipleFiles;
                 
-                if (msg.encrypted_metadata && msg.metadata_iv) {
-                    try {
-                        // Decrypt metadata
-                        const metadataIV = base64ToUint8(msg.metadata_iv);
-                        const encryptedMetadata = base64ToUint8(msg.encrypted_metadata);
-                        const metadataBytes = await decryptBytes(aesKeyRef.current, metadataIV, encryptedMetadata);
-                        const metadataJSON = new TextDecoder().decode(metadataBytes);
-                        const metadata = JSON.parse(metadataJSON);
+                try {
+                    // Decrypt metadata
+                    const metadataIV = base64ToUint8(msg.metadata_iv);
+                    const encryptedMetadata = base64ToUint8(msg.encrypted_metadata);
+                    const metadataBytes = await decryptBytes(aesKeyRef.current, metadataIV, encryptedMetadata);
+                    const metadataJSON = new TextDecoder().decode(metadataBytes);
+                    const metadata = JSON.parse(metadataJSON);
 
-                        // Use decrypted metadata
-                        fileName = metadata.name;
-                        totalSize = metadata.total_size;
-                        isFolder = metadata.is_folder || false;
-                        originalFolderName = metadata.original_folder_name || null;
-                        isMultipleFiles = metadata.is_multiple_files || false;
-                    } catch (err) {
-                        console.error("Failed to decrypt metadata:", err);
-                        log("Failed to decrypt metadata");
-                        return;
-                    }
-                } else {
-                    // Fallback to legacy plain text fields for backward compatibility
-                    fileName = msg.name;
-                    totalSize = msg.total_size;
-                    isFolder = msg.is_folder || false;
-                    originalFolderName = msg.original_folder_name || null;
-                    isMultipleFiles = msg.is_multiple_files || false;
+                    // Use decrypted metadata
+                    fileName = metadata.name;
+                    totalSize = metadata.total_size;
+                    isFolder = metadata.is_folder || false;
+                    originalFolderName = metadata.original_folder_name || null;
+                    isMultipleFiles = metadata.is_multiple_files || false;
+                } catch (err) {
+                    console.error("Failed to decrypt metadata:", err);
+                    log("Failed to decrypt metadata");
+                    return;
                 }
 
                 fileNameRef.current = fileName;
@@ -740,53 +701,6 @@ export default function App() {
                 return;
             }
 
-            if (msg.type === "file") {
-                // Backward compatibility: handle old-style single-message transfers
-                const { name, size, iv_b64, data_b64 } = msg;
-                log(`Incoming encrypted file: ${name}`);
-
-                if (!aesKeyRef.current) {
-                    log("Can't decrypt yet (no shared key)");
-                    return;
-                }
-
-                try {
-                    const startTime = Date.now();
-                    setDownloadProgress({ percent: 0, speed: 0, eta: 0, fileName: name });
-
-                    const iv = base64ToUint8(iv_b64);
-                    const ciphertext = base64ToUint8(data_b64);
-
-                    setDownloadProgress({ percent: 50, speed: 0, eta: 0, fileName: name });
-
-                    const plainBytes = await decryptBytes(aesKeyRef.current, iv, ciphertext);
-
-                    const elapsed = (Date.now() - startTime) / 1000;
-                    const speed = size / elapsed;
-
-                    setDownloadProgress({ percent: 100, speed, eta: 0, fileName: name });
-
-                    const blob = new Blob([plainBytes], { type: "application/octet-stream" });
-                    const url = URL.createObjectURL(blob);
-                    setDownloadUrl(url);
-                    setDownloadName(name);
-
-                    // auto trigger browser download
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = name || "download.bin";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-
-                    log(`Decrypted and prepared download "${name}"`);
-                } catch (err) {
-                    console.error(err);
-                    log("Decryption failed");
-                    setDownloadProgress(null);
-                }
-                return;
-            }
         };
 
         ws.onclose = () => {

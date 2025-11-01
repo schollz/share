@@ -23,25 +23,19 @@ const (
 
 // PBIncomingMessage represents messages received by the relay server from clients
 type PBIncomingMessage struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Type               string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	RoomId             string                 `protobuf:"bytes,2,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
-	ClientId           string                 `protobuf:"bytes,3,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
-	Pub                string                 `protobuf:"bytes,4,opt,name=pub,proto3" json:"pub,omitempty"`
-	Name               string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`  // DEPRECATED: Use encrypted_metadata instead
-	Size               int64                  `protobuf:"varint,6,opt,name=size,proto3" json:"size,omitempty"` // DEPRECATED: Use encrypted_metadata instead
-	IvB64              string                 `protobuf:"bytes,7,opt,name=iv_b64,json=ivB64,proto3" json:"iv_b64,omitempty"`
-	DataB64            string                 `protobuf:"bytes,8,opt,name=data_b64,json=dataB64,proto3" json:"data_b64,omitempty"`
-	ChunkData          string                 `protobuf:"bytes,9,opt,name=chunk_data,json=chunkData,proto3" json:"chunk_data,omitempty"`
-	ChunkNum           int32                  `protobuf:"varint,10,opt,name=chunk_num,json=chunkNum,proto3" json:"chunk_num,omitempty"`
-	TotalSize          int64                  `protobuf:"varint,11,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`                             // DEPRECATED: Use encrypted_metadata instead
-	IsFolder           bool                   `protobuf:"varint,17,opt,name=is_folder,json=isFolder,proto3" json:"is_folder,omitempty"`                                // DEPRECATED: Use encrypted_metadata instead
-	OriginalFolderName string                 `protobuf:"bytes,18,opt,name=original_folder_name,json=originalFolderName,proto3" json:"original_folder_name,omitempty"` // DEPRECATED: Use encrypted_metadata instead
-	IsMultipleFiles    bool                   `protobuf:"varint,19,opt,name=is_multiple_files,json=isMultipleFiles,proto3" json:"is_multiple_files,omitempty"`         // DEPRECATED: Use encrypted_metadata instead
-	EncryptedMetadata  string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`      // Encrypted metadata (name, total_size, is_folder, etc.)
-	MetadataIv         string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                           // IV for encrypted_metadata
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Type              string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	RoomId            string                 `protobuf:"bytes,2,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	ClientId          string                 `protobuf:"bytes,3,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	Pub               string                 `protobuf:"bytes,4,opt,name=pub,proto3" json:"pub,omitempty"`
+	IvB64             string                 `protobuf:"bytes,7,opt,name=iv_b64,json=ivB64,proto3" json:"iv_b64,omitempty"`
+	DataB64           string                 `protobuf:"bytes,8,opt,name=data_b64,json=dataB64,proto3" json:"data_b64,omitempty"`
+	ChunkData         string                 `protobuf:"bytes,9,opt,name=chunk_data,json=chunkData,proto3" json:"chunk_data,omitempty"`
+	ChunkNum          int32                  `protobuf:"varint,10,opt,name=chunk_num,json=chunkNum,proto3" json:"chunk_num,omitempty"`
+	EncryptedMetadata string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"` // Encrypted metadata (name, total_size, is_folder, etc.)
+	MetadataIv        string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                      // IV for encrypted_metadata
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *PBIncomingMessage) Reset() {
@@ -102,20 +96,6 @@ func (x *PBIncomingMessage) GetPub() string {
 	return ""
 }
 
-func (x *PBIncomingMessage) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *PBIncomingMessage) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
-}
-
 func (x *PBIncomingMessage) GetIvB64() string {
 	if x != nil {
 		return x.IvB64
@@ -144,34 +124,6 @@ func (x *PBIncomingMessage) GetChunkNum() int32 {
 	return 0
 }
 
-func (x *PBIncomingMessage) GetTotalSize() int64 {
-	if x != nil {
-		return x.TotalSize
-	}
-	return 0
-}
-
-func (x *PBIncomingMessage) GetIsFolder() bool {
-	if x != nil {
-		return x.IsFolder
-	}
-	return false
-}
-
-func (x *PBIncomingMessage) GetOriginalFolderName() string {
-	if x != nil {
-		return x.OriginalFolderName
-	}
-	return ""
-}
-
-func (x *PBIncomingMessage) GetIsMultipleFiles() bool {
-	if x != nil {
-		return x.IsMultipleFiles
-	}
-	return false
-}
-
 func (x *PBIncomingMessage) GetEncryptedMetadata() string {
 	if x != nil {
 		return x.EncryptedMetadata
@@ -188,30 +140,24 @@ func (x *PBIncomingMessage) GetMetadataIv() string {
 
 // PBOutgoingMessage represents messages sent by the relay server to clients
 type PBOutgoingMessage struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Type               string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	From               string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
-	Mnemonic           string                 `protobuf:"bytes,3,opt,name=mnemonic,proto3" json:"mnemonic,omitempty"`
-	RoomId             string                 `protobuf:"bytes,4,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
-	Pub                string                 `protobuf:"bytes,5,opt,name=pub,proto3" json:"pub,omitempty"`
-	Name               string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`  // DEPRECATED: Use encrypted_metadata instead
-	Size               int64                  `protobuf:"varint,7,opt,name=size,proto3" json:"size,omitempty"` // DEPRECATED: Use encrypted_metadata instead
-	IvB64              string                 `protobuf:"bytes,8,opt,name=iv_b64,json=ivB64,proto3" json:"iv_b64,omitempty"`
-	DataB64            string                 `protobuf:"bytes,9,opt,name=data_b64,json=dataB64,proto3" json:"data_b64,omitempty"`
-	ChunkData          string                 `protobuf:"bytes,10,opt,name=chunk_data,json=chunkData,proto3" json:"chunk_data,omitempty"`
-	ChunkNum           int32                  `protobuf:"varint,11,opt,name=chunk_num,json=chunkNum,proto3" json:"chunk_num,omitempty"`
-	TotalSize          int64                  `protobuf:"varint,12,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"` // DEPRECATED: Use encrypted_metadata instead
-	SelfId             string                 `protobuf:"bytes,13,opt,name=self_id,json=selfId,proto3" json:"self_id,omitempty"`
-	Peers              []string               `protobuf:"bytes,14,rep,name=peers,proto3" json:"peers,omitempty"`
-	Count              int32                  `protobuf:"varint,15,opt,name=count,proto3" json:"count,omitempty"`
-	Error              string                 `protobuf:"bytes,16,opt,name=error,proto3" json:"error,omitempty"`
-	IsFolder           bool                   `protobuf:"varint,17,opt,name=is_folder,json=isFolder,proto3" json:"is_folder,omitempty"`                                // DEPRECATED: Use encrypted_metadata instead
-	OriginalFolderName string                 `protobuf:"bytes,18,opt,name=original_folder_name,json=originalFolderName,proto3" json:"original_folder_name,omitempty"` // DEPRECATED: Use encrypted_metadata instead
-	IsMultipleFiles    bool                   `protobuf:"varint,19,opt,name=is_multiple_files,json=isMultipleFiles,proto3" json:"is_multiple_files,omitempty"`         // DEPRECATED: Use encrypted_metadata instead
-	EncryptedMetadata  string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`      // Encrypted metadata (name, total_size, is_folder, etc.)
-	MetadataIv         string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                           // IV for encrypted_metadata
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Type              string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	From              string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	Mnemonic          string                 `protobuf:"bytes,3,opt,name=mnemonic,proto3" json:"mnemonic,omitempty"`
+	RoomId            string                 `protobuf:"bytes,4,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
+	Pub               string                 `protobuf:"bytes,5,opt,name=pub,proto3" json:"pub,omitempty"`
+	IvB64             string                 `protobuf:"bytes,8,opt,name=iv_b64,json=ivB64,proto3" json:"iv_b64,omitempty"`
+	DataB64           string                 `protobuf:"bytes,9,opt,name=data_b64,json=dataB64,proto3" json:"data_b64,omitempty"`
+	ChunkData         string                 `protobuf:"bytes,10,opt,name=chunk_data,json=chunkData,proto3" json:"chunk_data,omitempty"`
+	ChunkNum          int32                  `protobuf:"varint,11,opt,name=chunk_num,json=chunkNum,proto3" json:"chunk_num,omitempty"`
+	SelfId            string                 `protobuf:"bytes,13,opt,name=self_id,json=selfId,proto3" json:"self_id,omitempty"`
+	Peers             []string               `protobuf:"bytes,14,rep,name=peers,proto3" json:"peers,omitempty"`
+	Count             int32                  `protobuf:"varint,15,opt,name=count,proto3" json:"count,omitempty"`
+	Error             string                 `protobuf:"bytes,16,opt,name=error,proto3" json:"error,omitempty"`
+	EncryptedMetadata string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"` // Encrypted metadata (name, total_size, is_folder, etc.)
+	MetadataIv        string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                      // IV for encrypted_metadata
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *PBOutgoingMessage) Reset() {
@@ -279,20 +225,6 @@ func (x *PBOutgoingMessage) GetPub() string {
 	return ""
 }
 
-func (x *PBOutgoingMessage) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *PBOutgoingMessage) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
-}
-
 func (x *PBOutgoingMessage) GetIvB64() string {
 	if x != nil {
 		return x.IvB64
@@ -317,13 +249,6 @@ func (x *PBOutgoingMessage) GetChunkData() string {
 func (x *PBOutgoingMessage) GetChunkNum() int32 {
 	if x != nil {
 		return x.ChunkNum
-	}
-	return 0
-}
-
-func (x *PBOutgoingMessage) GetTotalSize() int64 {
-	if x != nil {
-		return x.TotalSize
 	}
 	return 0
 }
@@ -356,27 +281,6 @@ func (x *PBOutgoingMessage) GetError() string {
 	return ""
 }
 
-func (x *PBOutgoingMessage) GetIsFolder() bool {
-	if x != nil {
-		return x.IsFolder
-	}
-	return false
-}
-
-func (x *PBOutgoingMessage) GetOriginalFolderName() string {
-	if x != nil {
-		return x.OriginalFolderName
-	}
-	return ""
-}
-
-func (x *PBOutgoingMessage) GetIsMultipleFiles() bool {
-	if x != nil {
-		return x.IsMultipleFiles
-	}
-	return false
-}
-
 func (x *PBOutgoingMessage) GetEncryptedMetadata() string {
 	if x != nil {
 		return x.EncryptedMetadata
@@ -395,51 +299,37 @@ var File_src_relay_messages_proto protoreflect.FileDescriptor
 
 const file_src_relay_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x18src/relay/messages.proto\x12\x05relay\"\xef\x03\n" +
+	"\x18src/relay/messages.proto\x12\x05relay\"\xad\x02\n" +
 	"\x11PBIncomingMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x17\n" +
 	"\aroom_id\x18\x02 \x01(\tR\x06roomId\x12\x1b\n" +
 	"\tclient_id\x18\x03 \x01(\tR\bclientId\x12\x10\n" +
-	"\x03pub\x18\x04 \x01(\tR\x03pub\x12\x12\n" +
-	"\x04name\x18\x05 \x01(\tR\x04name\x12\x12\n" +
-	"\x04size\x18\x06 \x01(\x03R\x04size\x12\x15\n" +
+	"\x03pub\x18\x04 \x01(\tR\x03pub\x12\x15\n" +
 	"\x06iv_b64\x18\a \x01(\tR\x05ivB64\x12\x19\n" +
 	"\bdata_b64\x18\b \x01(\tR\adataB64\x12\x1d\n" +
 	"\n" +
 	"chunk_data\x18\t \x01(\tR\tchunkData\x12\x1b\n" +
 	"\tchunk_num\x18\n" +
-	" \x01(\x05R\bchunkNum\x12\x1d\n" +
-	"\n" +
-	"total_size\x18\v \x01(\x03R\ttotalSize\x12\x1b\n" +
-	"\tis_folder\x18\x11 \x01(\bR\bisFolder\x120\n" +
-	"\x14original_folder_name\x18\x12 \x01(\tR\x12originalFolderName\x12*\n" +
-	"\x11is_multiple_files\x18\x13 \x01(\bR\x0fisMultipleFiles\x12-\n" +
+	" \x01(\x05R\bchunkNum\x12-\n" +
 	"\x12encrypted_metadata\x18\x14 \x01(\tR\x11encryptedMetadata\x12\x1f\n" +
 	"\vmetadata_iv\x18\x15 \x01(\tR\n" +
-	"metadataIv\"\xdd\x04\n" +
+	"metadataIv\"\x9b\x03\n" +
 	"\x11PBOutgoingMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x1a\n" +
 	"\bmnemonic\x18\x03 \x01(\tR\bmnemonic\x12\x17\n" +
 	"\aroom_id\x18\x04 \x01(\tR\x06roomId\x12\x10\n" +
-	"\x03pub\x18\x05 \x01(\tR\x03pub\x12\x12\n" +
-	"\x04name\x18\x06 \x01(\tR\x04name\x12\x12\n" +
-	"\x04size\x18\a \x01(\x03R\x04size\x12\x15\n" +
+	"\x03pub\x18\x05 \x01(\tR\x03pub\x12\x15\n" +
 	"\x06iv_b64\x18\b \x01(\tR\x05ivB64\x12\x19\n" +
 	"\bdata_b64\x18\t \x01(\tR\adataB64\x12\x1d\n" +
 	"\n" +
 	"chunk_data\x18\n" +
 	" \x01(\tR\tchunkData\x12\x1b\n" +
-	"\tchunk_num\x18\v \x01(\x05R\bchunkNum\x12\x1d\n" +
-	"\n" +
-	"total_size\x18\f \x01(\x03R\ttotalSize\x12\x17\n" +
+	"\tchunk_num\x18\v \x01(\x05R\bchunkNum\x12\x17\n" +
 	"\aself_id\x18\r \x01(\tR\x06selfId\x12\x14\n" +
 	"\x05peers\x18\x0e \x03(\tR\x05peers\x12\x14\n" +
 	"\x05count\x18\x0f \x01(\x05R\x05count\x12\x14\n" +
-	"\x05error\x18\x10 \x01(\tR\x05error\x12\x1b\n" +
-	"\tis_folder\x18\x11 \x01(\bR\bisFolder\x120\n" +
-	"\x14original_folder_name\x18\x12 \x01(\tR\x12originalFolderName\x12*\n" +
-	"\x11is_multiple_files\x18\x13 \x01(\bR\x0fisMultipleFiles\x12-\n" +
+	"\x05error\x18\x10 \x01(\tR\x05error\x12-\n" +
 	"\x12encrypted_metadata\x18\x14 \x01(\tR\x11encryptedMetadata\x12\x1f\n" +
 	"\vmetadata_iv\x18\x15 \x01(\tR\n" +
 	"metadataIvB$Z\"github.com/schollz/share/src/relayb\x06proto3"
