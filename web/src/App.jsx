@@ -99,6 +99,8 @@ message PBIncomingMessage {
   string chunk_data = 9;
   int32 chunk_num = 10;
   int64 total_size = 11;
+  bool is_folder = 12;
+  string original_folder_name = 13;
 }
 
 message PBOutgoingMessage {
@@ -118,6 +120,8 @@ message PBOutgoingMessage {
   repeated string peers = 14;
   int32 count = 15;
   string error = 16;
+  bool is_folder = 17;
+  string original_folder_name = 18;
 }
 `;
 
@@ -441,6 +445,7 @@ export default function App() {
     const myMnemonicRef = useRef(null);
     const clientIdRef = useRef(crypto.randomUUID());
     const roomInputRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     // For chunked file reception
     const fileChunksRef = useRef([]);
@@ -784,27 +789,38 @@ export default function App() {
             return;
         }
 
+        log(`Selected ${files.length} file(s)`);
+        for (let i = 0; i < files.length; i++) {
+            log(`  File ${i + 1}: ${files[i].name}, webkitRelativePath: ${files[i].webkitRelativePath || '(none)'}`);
+        }
+
         try {
             let fileToSend;
             let isFolder = false;
             let originalFolderName = null;
 
-            // Check if this is a folder (multiple files with webkitRelativePath)
+            // Check if this is a folder (multiple files with webkitRelativePath) or multiple files
             if (files.length > 1 || (files.length === 1 && files[0].webkitRelativePath)) {
                 isFolder = true;
 
-                // Get folder name from the first file's path
+                // Get folder name from the first file's path, or use "files" for multiple selected files
                 if (files[0].webkitRelativePath) {
                     originalFolderName = files[0].webkitRelativePath.split('/')[0];
                 } else {
-                    originalFolderName = 'folder';
+                    originalFolderName = 'files';
                 }
 
-                log(`Zipping folder "${originalFolderName}" (${files.length} files)...`);
+                log(`Zipping ${files[0].webkitRelativePath ? 'folder' : 'files'} "${originalFolderName}" (${files.length} files)...`);
                 const zipBlob = await zipFolder(files, originalFolderName);
 
+                if (!zipBlob || zipBlob.size === 0) {
+                    log("Error: zip file is empty");
+                    setUploadProgress(null);
+                    return;
+                }
+
                 fileToSend = new File([zipBlob], originalFolderName + '.zip', { type: 'application/zip' });
-                log(`Folder zipped successfully (${formatBytes(zipBlob.size)})`);
+                log(`${files[0].webkitRelativePath ? 'Folder' : 'Files'} zipped successfully (${formatBytes(zipBlob.size)})`);
             } else {
                 // Single file
                 fileToSend = files[0];
@@ -918,23 +934,115 @@ export default function App() {
         }
     }
 
-    function handleDrop(e) {
+    async function handleDrop(e) {
         e.preventDefault();
         e.stopPropagation();
         setIsDragging(false);
 
         if (!hasAesKey) return;
 
-        const files = e.dataTransfer?.files;
-        if (files && files.length > 0) {
-            // Create a synthetic event that matches the onChange event structure
-            const syntheticEvent = {
-                target: {
-                    files: files
+        const items = e.dataTransfer?.items;
+        if (!items || items.length === 0) return;
+
+        try {
+            const allFiles = [];
+            let folderName = null;
+            let isFolder = false;
+
+            // Process each dropped item
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                if (item.kind === 'file') {
+                    const entry = item.webkitGetAsEntry();
+                    if (entry) {
+                        if (entry.isDirectory) {
+                            isFolder = true;
+                            folderName = entry.name;
+                            // Read all files from the directory
+                            const dirFiles = await readDirectory(entry, entry.name);
+                            allFiles.push(...dirFiles);
+                        } else if (entry.isFile) {
+                            const file = item.getAsFile();
+                            if (file) {
+                                allFiles.push(file);
+                            }
+                        }
+                    }
                 }
-            };
-            handleFileSelect(syntheticEvent);
+            }
+
+            if (allFiles.length > 0) {
+                // Create a FileList-like object with webkitRelativePath set for folder files
+                const fileList = {
+                    length: allFiles.length,
+                    item: (index) => allFiles[index],
+                    [Symbol.iterator]: function* () {
+                        for (let i = 0; i < allFiles.length; i++) {
+                            yield allFiles[i];
+                        }
+                    }
+                };
+
+                // Add indexed properties
+                for (let i = 0; i < allFiles.length; i++) {
+                    fileList[i] = allFiles[i];
+                }
+
+                const syntheticEvent = {
+                    target: {
+                        files: fileList
+                    }
+                };
+                handleFileSelect(syntheticEvent);
+            }
+        } catch (err) {
+            console.error("Error processing dropped items:", err);
+            log("Failed to process dropped items");
         }
+    }
+
+    // Helper function to recursively read directory contents
+    async function readDirectory(dirEntry, basePath = '') {
+        const files = [];
+        const reader = dirEntry.createReader();
+
+        return new Promise((resolve, reject) => {
+            const readEntries = () => {
+                reader.readEntries(async (entries) => {
+                    if (entries.length === 0) {
+                        resolve(files);
+                        return;
+                    }
+
+                    for (const entry of entries) {
+                        if (entry.isFile) {
+                            const file = await new Promise((res, rej) => {
+                                entry.file((f) => {
+                                    // Create a new File object with webkitRelativePath set
+                                    const path = basePath ? `${basePath}/${f.name}` : f.name;
+                                    const newFile = new File([f], f.name, { type: f.type, lastModified: f.lastModified });
+                                    Object.defineProperty(newFile, 'webkitRelativePath', {
+                                        value: path,
+                                        writable: false
+                                    });
+                                    res(newFile);
+                                }, rej);
+                            });
+                            files.push(file);
+                        } else if (entry.isDirectory) {
+                            const subPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+                            const subFiles = await readDirectory(entry, subPath);
+                            files.push(...subFiles);
+                        }
+                    }
+
+                    // Continue reading (directories may have many entries)
+                    readEntries();
+                }, reject);
+            };
+
+            readEntries();
+        });
     }
 
     useEffect(() => {
@@ -1099,32 +1207,26 @@ export default function App() {
                             {hasAesKey ? (
                                 isDragging ? (
                                     <div className="font-black uppercase text-xl sm:text-2xl">
-                                        📁 DROP FILE OR FOLDER HERE
+                                        📁 DROP FILES OR FOLDER HERE
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                        <label className="block border-2 border-black p-4 font-black uppercase cursor-pointer hover:bg-gray-100 transition-colors text-base sm:text-lg">
-                                            📄 SHARE FILE
-                                            <input
-                                                type="file"
-                                                className="hidden"
-                                                onChange={handleFileSelect}
-                                                disabled={!hasAesKey}
-                                            />
-                                        </label>
-                                        <label className="block border-2 border-black p-4 font-black uppercase cursor-pointer hover:bg-gray-100 transition-colors text-base sm:text-lg">
-                                            📁 SHARE FOLDER
-                                            <input
-                                                type="file"
-                                                className="hidden"
-                                                onChange={handleFileSelect}
-                                                disabled={!hasAesKey}
-                                                webkitdirectory=""
-                                                directory=""
-                                                multiple
-                                            />
-                                        </label>
-                                    </div>
+                                    <>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            className="hidden"
+                                            onChange={handleFileSelect}
+                                            disabled={!hasAesKey}
+                                            multiple
+                                        />
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={!hasAesKey}
+                                            className="block w-full border-2 border-black p-4 font-black uppercase cursor-pointer hover:bg-gray-100 transition-colors text-base sm:text-lg disabled:cursor-not-allowed disabled:bg-gray-400"
+                                        >
+                                            SHARE
+                                        </button>
+                                    </>
                                 )
                             ) : (
                                 <div className="font-black uppercase text-sm sm:text-base text-gray-600">
