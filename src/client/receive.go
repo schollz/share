@@ -257,6 +257,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			// Verify file hash if provided
 			if expectedHash != "" {
 				// Calculate hash of received file
+				// Note: fileName is already sanitized using sanitizeFileName() on line 181
 				outputPath := filepath.Join(outputDir, fileName)
 
 				receivedFile, err := os.Open(outputPath)
