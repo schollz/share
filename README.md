@@ -75,6 +75,25 @@ Share implements several features to ensure reliable file transfers:
 
 These features ensure that transfers complete successfully even over unreliable network connections.
 
+## Testing
+
+Share includes comprehensive test suites to ensure reliability:
+
+### Unit and Integration Tests
+Run Go tests for the core functionality:
+```bash
+go test -v ./...
+```
+
+### End-to-End Tests
+Playwright tests verify web-to-web and web-to-CLI file transfers:
+```bash
+cd tests
+./run-tests.sh
+```
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
