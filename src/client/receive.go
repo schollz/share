@@ -280,7 +280,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 					// Continue with extraction anyway, but user is warned
 				} else {
 					// Log debug info with truncated hash
-					slog.Debug("File hash verified", actualHash)
+					slog.Debug("File hash verified", "hash", actualHash)
 				}
 			}
 
