@@ -109,19 +109,14 @@ test.describe('Web to CLI Transfer', () => {
       await page.goto(`${serverUrl}/${roomName}`);
       await page.waitForLoadState('networkidle');
 
+      // Wait for connection to be established (SHARE button enabled)
+      await page.waitForSelector('button:has-text("SHARE"):not([disabled])', { timeout: 10000 });
+
       // Sender: Upload the file
-      const fileInput = await page.locator('input[type="file"]').first();
+      const fileInput = await page.locator('input[type="file"]');
       await fileInput.setInputFiles(testFilePath);
 
-      // Wait for file to be processed
-      await page.waitForTimeout(1000);
-
-      // Check if there's a send button and click it
-      const sendButton = page.locator('button:has-text("Send")');
-      const sendButtonCount = await sendButton.count();
-      if (sendButtonCount > 0) {
-        await sendButton.click();
-      }
+      // File is automatically sent once selected
 
       // Wait for transfer to complete
       await new Promise((resolve) => {
@@ -195,8 +190,11 @@ test.describe('Web to CLI Transfer', () => {
       await page.goto(`${serverUrl}/${roomName}`);
       await page.waitForLoadState('networkidle');
 
+      // Wait for the page to be ready (SHARE button visible means ready to receive)
+      await page.waitForSelector('button:has-text("SHARE"), div:has-text("WAITING FOR PEER")', { timeout: 10000 });
+
       // Set up download handler for receiver
-      const downloadPromise = page.waitForEvent('download', { timeout: 20000 });
+      const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
 
       // Start CLI sender
       const wsUrl = `ws://localhost:${serverPort}`;

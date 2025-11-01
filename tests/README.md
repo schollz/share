@@ -37,24 +37,49 @@ This directory contains Playwright tests for the Share application, testing both
 
 ## Running Tests
 
-### Run all tests
+### Quick Start (Recommended)
+The easiest way to run tests is using the helper script:
+
+```bash
+cd tests
+./run-tests.sh
+```
+
+This script will:
+- Check if the share binary exists (and build it if needed)
+- Install test dependencies
+- Install Playwright browsers if needed
+- Run all Playwright tests
+- Show results and test report location
+
+### Run all tests (manual)
 ```bash
 npm run test:e2e
 ```
 
 ### Run tests in headed mode (see the browser)
 ```bash
+./run-tests.sh --headed
+# Or manually:
 npm run test:e2e:headed
 ```
 
 ### Debug tests
 ```bash
+./run-tests.sh --debug
+# Or manually:
 npm run test:e2e:debug
 ```
 
 ### View test report
 ```bash
 npm run test:report
+```
+
+### Run specific test file
+```bash
+npx playwright test tests/web-to-web.spec.js
+npx playwright test tests/web-to-cli.spec.js
 ```
 
 ## Test Suites

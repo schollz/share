@@ -82,28 +82,23 @@ test.describe('Web to Web Transfer', () => {
       await receiverPage.goto(`${serverUrl}/${roomName}`);
       await senderPage.goto(`${serverUrl}/${roomName}`);
 
-      // Wait for pages to load
+      // Wait for pages to load and establish connection
       await receiverPage.waitForLoadState('networkidle');
       await senderPage.waitForLoadState('networkidle');
 
-      // Set up download handler for receiver
-      const downloadPromise = receiverPage.waitForEvent('download');
+      // Wait for WebSocket connections to be established (both peers need to be connected)
+      // Look for the "SHARE" button to be enabled on sender (indicates peer connection)
+      await senderPage.waitForSelector('button:has-text("SHARE"):not([disabled])', { timeout: 10000 });
+
+      // Set up download handler for receiver before sending
+      const downloadPromise = receiverPage.waitForEvent('download', { timeout: 30000 });
 
       // Sender: Upload the file
-      // Find the file input and set the file
-      const fileInput = await senderPage.locator('input[type="file"]').first();
+      // Find the hidden file input and set the file
+      const fileInput = await senderPage.locator('input[type="file"]');
       await fileInput.setInputFiles(testFilePath);
 
-      // Wait for the file to be processed and transfer to start
-      await senderPage.waitForTimeout(1000);
-
-      // Look for send button or automatic sending
-      // The app might auto-send once a file is selected
-      const sendButton = senderPage.locator('button:has-text("Send")');
-      const sendButtonCount = await sendButton.count();
-      if (sendButtonCount > 0) {
-        await sendButton.click();
-      }
+      // The app automatically sends the file once selected
 
       // Receiver: Wait for download to start and complete
       const download = await downloadPromise;
