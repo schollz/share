@@ -146,3 +146,6 @@ tmp/*
 web/dist/*
 test_folder
 tmp.zip
+*.wav
+*.deb
+
