@@ -19,6 +19,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	// Hash display constants
+	hashMinDisplayLength = 16
+	hashPrefixLength     = 8
+	hashSuffixLength     = 8
+)
+
 // formatBytes formats bytes into human-readable string
 func formatBytes(bytes int64) string {
 	const unit = 1024
@@ -271,8 +278,10 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 					// Continue with extraction anyway, but user is warned
 				} else {
 					// Display truncated hash only if it's long enough
-					if len(expectedHash) >= 16 {
-						fmt.Printf("✓ File integrity verified (hash: %s...%s)\n", expectedHash[:8], expectedHash[len(expectedHash)-8:])
+					if len(expectedHash) >= hashMinDisplayLength {
+						fmt.Printf("✓ File integrity verified (hash: %s...%s)\n", 
+							expectedHash[:hashPrefixLength], 
+							expectedHash[len(expectedHash)-hashSuffixLength:])
 					} else {
 						fmt.Printf("✓ File integrity verified (hash: %s)\n", expectedHash)
 					}
