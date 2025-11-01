@@ -141,7 +141,6 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			case <-ticker.C:
 				if outputFile != nil && time.Since(lastActivityTime) > transferTimeout {
 					log.Fatalf("Transfer timeout: no data received for %v", transferTimeout)
-					return
 				}
 			}
 		}

@@ -936,6 +936,7 @@ export default function App() {
                 // Check for transfer timeout
                 if (now - lastActivityTimeRef.current > transferTimeout) {
                     clearInterval(retransmitTimerRef.current);
+                    retransmitTimerRef.current = null;
                     log("Transfer timeout: no activity for 30 seconds");
                     setUploadProgress(null);
                     return;
@@ -946,6 +947,7 @@ export default function App() {
                     if (now - chunkInfo.sentTime > ackTimeout) {
                         if (chunkInfo.retries >= maxRetries) {
                             clearInterval(retransmitTimerRef.current);
+                            retransmitTimerRef.current = null;
                             log(`Failed to send chunk ${chunkNum} after ${maxRetries} retries`);
                             setUploadProgress(null);
                             return;
@@ -1028,6 +1030,7 @@ export default function App() {
             while (pendingChunksRef.current.size > 0) {
                 if (Date.now() - waitStart > 30000) {
                     clearInterval(retransmitTimerRef.current);
+                    retransmitTimerRef.current = null;
                     log("Timeout waiting for chunk acknowledgments");
                     setUploadProgress(null);
                     return;
@@ -1037,6 +1040,7 @@ export default function App() {
             
             // Stop retransmission checker
             clearInterval(retransmitTimerRef.current);
+            retransmitTimerRef.current = null;
 
             // Send file_end message
             sendMsg({

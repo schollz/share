@@ -200,6 +200,12 @@ func SendFile(filePath, roomID, serverURL string) {
 
 				// Start file transfer in a separate goroutine so message loop continues
 				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Fatalf("Panic during file transfer: %v", r)
+						}
+					}()
+					
 					// Calculate file hash before sending
 					hashFile, err := os.Open(actualFilePath)
 					if err != nil {
@@ -309,7 +315,6 @@ func SendFile(filePath, roomID, serverURL string) {
 								if now.Sub(lastActivityTime) > transferTimeout {
 									pendingMutex.Unlock()
 									log.Fatalf("Transfer timeout: no activity for %v", transferTimeout)
-									return
 								}
 								
 								for _, chunk := range pendingChunks {
@@ -317,7 +322,6 @@ func SendFile(filePath, roomID, serverURL string) {
 										if chunk.retries >= maxRetries {
 											pendingMutex.Unlock()
 											log.Fatalf("Failed to send chunk %d after %d retries", chunk.num, maxRetries)
-											return
 										}
 										
 										// Resend chunk
@@ -346,7 +350,6 @@ func SendFile(filePath, roomID, serverURL string) {
 							// Encrypt this chunk with its own IV
 							iv, cipherChunk, err := crypto.EncryptAESGCM(sharedSecret, plainChunk)
 							if err != nil {
-								stopRetransmitter <- true
 								log.Fatalf("Failed to encrypt chunk: %v", err)
 							}
 
@@ -381,7 +384,6 @@ func SendFile(filePath, roomID, serverURL string) {
 							break
 						}
 						if err != nil {
-							stopRetransmitter <- true
 							log.Fatalf("Failed to read file: %v", err)
 						}
 					}
