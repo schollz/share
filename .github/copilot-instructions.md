@@ -6,11 +6,29 @@
 
 **Repository Stats:**
 - **Type:** Go application with React web frontend
-- **Size:** ~15 Go source files, 3 React components
-- **Languages:** Go 1.25, JavaScript/React 19, Node.js 20+
+- **Size:** ~9 main Go source files (plus tests), 4 React components
+- **Languages:** Go 1.25, JavaScript/React 19.2.0, Node.js 20+
 - **Frameworks:** Cobra CLI, Vite, Gorilla WebSocket, React
 - **Runtime:** Go 1.25+ required
 - **Build time:** ~2-3 seconds for full build
+
+## Recent Major Features (2024-2025)
+
+The following significant features have been added recently:
+
+1. **SHA256 Hash Verification** (#40) - File integrity checking via SHA256 hashes
+2. **Zero-Knowledge Metadata Encryption** (#38) - File metadata (name, size, hash) encrypted before relay transmission
+3. **Folder Support** - Automatic zip/unzip for folder transfers, supports multiple files
+4. **QR Code Generation** - Terminal and web-based QR codes for easy room sharing (rsc.io/qr)
+5. **Drag and Drop** - Improved web UI with drag-and-drop file/folder support
+6. **Overwrite Protection** - --force flag prevents accidental file overwrites
+7. **Per-IP Room Limits** - --max-rooms-per-ip flag prevents abuse
+8. **Path Traversal Protection** (#10) - Security fix for file reception
+9. **Protobuf Protocol** (#8) - 5-75x performance improvement over JSON
+
+**New Dependencies:**
+- Go: `rsc.io/qr` (QR code generation)
+- Web: `jszip` (folder handling), `qrcode.react` (QR display), React 19.2.0
 
 ## Build & Development Workflow
 
@@ -116,16 +134,25 @@ air
 **Start relay server:**
 ```bash
 ./share serve --port 8080
+# Optional flags:
+# --max-rooms <n>         # Maximum number of rooms (default: unlimited)
+# --max-rooms-per-ip <n>  # Maximum rooms per IP address (prevents abuse)
 ```
 
-**Send a file:**
+**Send a file or folder:**
 ```bash
-./share send <filename> [room-name]
+./share send <file-or-folder> [room-name]
+# Folders are automatically zipped for transfer
+# Displays QR code in terminal for easy room sharing
 ```
 
-**Receive a file:**
+**Receive a file or folder:**
 ```bash
 ./share receive [room-name]
+# Folders are automatically extracted
+# Optional flags:
+# --output <path>   # Specify output location
+# --force          # Overwrite existing files without prompting
 ```
 
 **View help:**
@@ -133,6 +160,7 @@ air
 ./share --help
 ./share serve --help
 ./share send --help
+./share receive --help
 ```
 
 ## Project Structure
@@ -162,35 +190,46 @@ integration_test.go   # End-to-end integration tests
 - `messages.pb.go` - Generated protobuf code (DO NOT EDIT)
 - `compatibility_test.go` - Protobuf messaging tests
 - `benchmark_test.go` - Performance benchmarks
+- `zero_knowledge_test.go` - Tests for encrypted metadata transmission
 
 **`src/client/`** - CLI client implementation
 - `send.go` - File sending logic with encryption
 - `receive.go` - File receiving logic with decryption
 - `protobuf.go` - Client-side protobuf handling
+- `metadata.go` - Encrypted file metadata structure (name, size, hash, folder info)
+- `metadata_test.go` - Metadata handling tests
+- `zip.go` - Folder compression/decompression for folder transfers
+- `zip_test.go` - Zip functionality tests
 - `client_test.go` - Client unit tests
 
 **`src/crypto/`** - Cryptographic operations
 - `crypto.go` - ECDH key exchange, AES-GCM encryption/decryption
 - `crypto_test.go` - Comprehensive crypto tests (81% coverage)
 
+**`src/qrcode/`** - QR code generation
+- `qrcode.go` - Terminal QR code display using half-block characters
+- `qrcode_test.go` - QR code generation tests
+
 **`web/`** - React frontend
-- `src/App.jsx` - Main React component
+- `src/App.jsx` - Main React component with drag-and-drop support
 - `src/main.jsx` - React entry point
 - `src/index.css` - Tailwind CSS styles
 - `src/messages.proto` - Protobuf definitions (synced with src/relay)
 - `index.html` - HTML entry point
-- `package.json` - Node dependencies and scripts
+- `package.json` - Node dependencies (React 19.2.0, jszip, qrcode.react, protobufjs)
 - `vite.config.js` - Vite build configuration
 - `postcss.config.js` - Tailwind CSS configuration
 - `dist/` - Built assets (embedded in Go binary)
 
 ### Key Architectural Components
 
-1. **Relay Server** (`src/relay/`): Zero-knowledge WebSocket relay that coordinates peer connections without accessing file content
-2. **Client** (`src/client/`): CLI for sending/receiving files with E2E encryption
+1. **Relay Server** (`src/relay/`): Zero-knowledge WebSocket relay that coordinates peer connections without accessing file content or metadata
+2. **Client** (`src/client/`): CLI for sending/receiving files with E2E encryption, folder support via automatic zip/unzip
 3. **Crypto** (`src/crypto/`): ECDH P-256 + AES-GCM implementation
-4. **Web UI** (`web/src/`): React-based browser interface for file transfers
+4. **Web UI** (`web/src/`): React-based browser interface with drag-and-drop, QR codes, and folder support
 5. **Protobuf Protocol**: Shared message format between Go and JavaScript clients
+6. **QR Code Display** (`src/qrcode/`): Terminal-based QR code generation for easy room sharing
+7. **Encrypted Metadata**: File names, sizes, and SHA256 hashes encrypted before relay transmission
 
 ## CI/CD Pipeline
 
@@ -322,9 +361,13 @@ When modifying this repository:
 - **Embedded Assets:** The Go binary embeds web/dist and install.sh via `//go:embed` directive in main.go
 - **Cross-compilation:** The CI builds for macOS, Linux, and Windows separately
 - **Version injection:** Use `LDFLAGS="-X main.Version=<version>"` to set version
-- **Room limits:** Relay server supports configurable max rooms (--max-rooms flag)
+- **Room limits:** Relay server supports configurable max rooms (--max-rooms and --max-rooms-per-ip flags)
 - **E2E Encryption:** All file transfers use ECDH P-256 key exchange + AES-GCM
-- **No external dependencies for relay:** Server has no knowledge of file contents
+- **Zero-knowledge relay:** Server has no knowledge of file contents or metadata (filename, size encrypted before transmission)
+- **Folder support:** Folders automatically zipped/unzipped; supports multiple files
+- **SHA256 verification:** File integrity verified via SHA256 hash transmitted in encrypted metadata
+- **QR codes:** Both CLI and web display QR codes for easy room sharing
+- **Overwrite protection:** --force flag required to overwrite existing files on receive
 
 ## Trust These Instructions
 

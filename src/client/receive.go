@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -278,14 +279,8 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 					fmt.Printf("   The file may be corrupted or tampered with.\n\n")
 					// Continue with extraction anyway, but user is warned
 				} else {
-					// Display truncated hash only if it's long enough
-					if len(expectedHash) >= hashMinDisplayLength {
-						fmt.Printf("✓ File integrity verified (hash: %s...%s)\n", 
-							expectedHash[:hashPrefixLength], 
-							expectedHash[len(expectedHash)-hashSuffixLength:])
-					} else {
-						fmt.Printf("✓ File integrity verified (hash: %s)\n", expectedHash)
-					}
+					// Log debug info with truncated hash
+					slog.Debug("File hash verified", actualHash)
 				}
 			}
 
