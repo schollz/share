@@ -89,8 +89,7 @@ cd tests && ./run-tests.sh
 
 ### CI/CD
 All tests run automatically in GitHub Actions:
-- `build.yml`: Builds and runs Go tests on macOS, Linux, and Windows
-- `playwright.yml`: Runs E2E tests on Linux with Chromium
+- `build.yml`: Builds and runs Go tests on macOS, Linux, and Windows, plus E2E Playwright tests on Linux
 
 ## Test Data
 
