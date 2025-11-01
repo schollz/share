@@ -99,8 +99,9 @@ message PBIncomingMessage {
   string chunk_data = 9;
   int32 chunk_num = 10;
   int64 total_size = 11;
-  bool is_folder = 12;
-  string original_folder_name = 13;
+  bool is_folder = 17;
+  string original_folder_name = 18;
+  bool is_multiple_files = 19;
 }
 
 message PBOutgoingMessage {
@@ -122,6 +123,7 @@ message PBOutgoingMessage {
   string error = 16;
   bool is_folder = 17;
   string original_folder_name = 18;
+  bool is_multiple_files = 19;
 }
 `;
 
@@ -176,6 +178,9 @@ function encodeProtobuf(obj) {
     if (obj.original_folder_name !== undefined && obj.original_folder_name !== null && obj.original_folder_name !== "") {
         pbMessage.originalFolderName = obj.original_folder_name;
     }
+    if (obj.is_multiple_files !== undefined && obj.is_multiple_files !== null) {
+        pbMessage.isMultipleFiles = obj.is_multiple_files;
+    }
 
     const message = pbIncomingMessage.create(pbMessage);
     return pbIncomingMessage.encode(message).finish();
@@ -203,7 +208,8 @@ function decodeProtobuf(buffer) {
         count: message.count,
         error: message.error,
         is_folder: message.isFolder || false,
-        original_folder_name: message.originalFolderName || null
+        original_folder_name: message.originalFolderName || null,
+        is_multiple_files: message.isMultipleFiles || false
     };
 }
 
@@ -797,20 +803,23 @@ export default function App() {
         try {
             let fileToSend;
             let isFolder = false;
+            let isMultipleFiles = false;
             let originalFolderName = null;
 
-            // Check if this is a folder (multiple files with webkitRelativePath) or multiple files
+            // Check if this is a folder (files with webkitRelativePath) or multiple individual files
             if (files.length > 1 || (files.length === 1 && files[0].webkitRelativePath)) {
-                isFolder = true;
-
-                // Get folder name from the first file's path, or use "files" for multiple selected files
+                // Get folder name from the first file's path, or detect multiple files
                 if (files[0].webkitRelativePath) {
+                    // Real folder with directory structure
+                    isFolder = true;
                     originalFolderName = files[0].webkitRelativePath.split('/')[0];
                 } else {
+                    // Multiple individual files selected (not a folder)
+                    isMultipleFiles = true;
                     originalFolderName = 'files';
                 }
 
-                log(`Zipping ${files[0].webkitRelativePath ? 'folder' : 'files'} "${originalFolderName}" (${files.length} files)...`);
+                log(`Zipping ${isFolder ? 'folder' : 'files'} "${originalFolderName}" (${files.length} files)...`);
                 const zipBlob = await zipFolder(files, originalFolderName);
 
                 if (!zipBlob || zipBlob.size === 0) {
@@ -820,20 +829,20 @@ export default function App() {
                 }
 
                 fileToSend = new File([zipBlob], originalFolderName + '.zip', { type: 'application/zip' });
-                log(`${files[0].webkitRelativePath ? 'Folder' : 'Files'} zipped successfully (${formatBytes(zipBlob.size)})`);
+                log(`${isFolder ? 'Folder' : 'Files'} zipped successfully (${formatBytes(zipBlob.size)})`);
             } else {
                 // Single file
                 fileToSend = files[0];
             }
 
             const startTime = Date.now();
-            const displayName = isFolder ? originalFolderName : fileToSend.name;
+            const displayName = (isFolder || isMultipleFiles) ? originalFolderName : fileToSend.name;
             setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime, fileName: displayName });
 
-            const typeLabel = isFolder ? "folder" : "file";
+            const typeLabel = isFolder ? "folder" : isMultipleFiles ? "files" : "file";
             log(`Streaming ${typeLabel} "${displayName}" (${formatBytes(fileToSend.size)})`);
 
-            // Send file_start message with folder metadata if applicable
+            // Send file_start message with metadata
             const fileStartMsg = {
                 type: "file_start",
                 name: fileToSend.name,
@@ -843,6 +852,8 @@ export default function App() {
             if (isFolder) {
                 fileStartMsg.is_folder = true;
                 fileStartMsg.original_folder_name = originalFolderName;
+            } else if (isMultipleFiles) {
+                fileStartMsg.is_multiple_files = true;
             }
 
             sendMsg(fileStartMsg);

@@ -45,6 +45,7 @@ type IncomingMessage struct {
 	TotalSize          int64  `json:"total_size,omitempty"`
 	IsFolder           bool   `json:"is_folder,omitempty"`
 	OriginalFolderName string `json:"original_folder_name,omitempty"`
+	IsMultipleFiles    bool   `json:"is_multiple_files,omitempty"`
 }
 
 type OutgoingMessage struct {
@@ -66,6 +67,7 @@ type OutgoingMessage struct {
 	Error              string   `json:"error,omitempty"`
 	IsFolder           bool     `json:"is_folder,omitempty"`
 	OriginalFolderName string   `json:"original_folder_name,omitempty"`
+	IsMultipleFiles    bool     `json:"is_multiple_files,omitempty"`
 }
 
 var (
@@ -354,6 +356,15 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
+			// Debug logging for file_start messages
+			if in.Type == "file_start" {
+				logger.Debug("Relay forwarding file_start",
+					"name", in.Name,
+					"isFolder", in.IsFolder,
+					"isMultipleFiles", in.IsMultipleFiles,
+					"originalFolderName", in.OriginalFolderName)
+			}
+
 			out := OutgoingMessage{
 				Type:               in.Type,
 				From:               client.ID,
@@ -369,6 +380,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				TotalSize:          in.TotalSize,
 				IsFolder:           in.IsFolder,
 				OriginalFolderName: in.OriginalFolderName,
+				IsMultipleFiles:    in.IsMultipleFiles,
 			}
 
 			room.Mutex.Lock()

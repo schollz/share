@@ -113,7 +113,7 @@ func TestExtractZipToDirectory(t *testing.T) {
 
 	// Extract to new directory
 	extractDir := filepath.Join(tempDir, "extracted")
-	err = ExtractZipToDirectory(zipPath, extractDir)
+	_, err = ExtractZipToDirectory(zipPath, extractDir)
 	if err != nil {
 		t.Fatalf("ExtractZipToDirectory failed: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestZipBombProtection(t *testing.T) {
 
 	// Should succeed
 	extractDir := filepath.Join(tempDir, "extracted")
-	err = ExtractZipToDirectory(zipPath, extractDir)
+	_, err = ExtractZipToDirectory(zipPath, extractDir)
 	if err != nil {
 		t.Errorf("Unexpected error for normal file: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestEmptyDirectory(t *testing.T) {
 
 	// Extract it
 	extractDir := filepath.Join(tempDir, "extracted")
-	err = ExtractZipToDirectory(zipPath, extractDir)
+	_, err = ExtractZipToDirectory(zipPath, extractDir)
 	if err != nil {
 		t.Fatalf("Failed to extract empty zip: %v", err)
 	}
