@@ -182,7 +182,7 @@ func extractFile(file *zip.File, targetDir string) error {
 
 // sanitizeExtractPath validates and sanitizes file paths to prevent zip slip attacks
 func sanitizeExtractPath(baseDir, filePath string) (string, error) {
-	// Convert to platform-specific path
+	// Convert to platform-specific path for processing
 	filePath = filepath.FromSlash(filePath)
 
 	// Clean the path to remove .. and other tricks
@@ -201,23 +201,20 @@ func sanitizeExtractPath(baseDir, filePath string) (string, error) {
 	// Join with base directory
 	fullPath := filepath.Join(baseDir, cleanPath)
 
-	// Resolve to absolute path to check for escapes
-	absBase, err := filepath.Abs(baseDir)
+	// Use filepath.Rel to verify the path stays within baseDir
+	relPath, err := filepath.Rel(baseDir, fullPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve base directory: %w", err)
+		return "", fmt.Errorf("failed to compute relative path: %w", err)
 	}
 
-	absPath, err := filepath.Abs(fullPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve file path: %w", err)
-	}
-
-	// Ensure the path is still within the base directory
-	if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) && absPath != absBase {
+	// Check if the relative path escapes the base directory
+	// On any platform, if it starts with "..", it's trying to escape
+	if strings.HasPrefix(relPath, "..") {
 		return "", fmt.Errorf("illegal path escape: %s", filePath)
 	}
 
-	return fullPath, nil
+	// Normalize to forward slashes for cross-platform compatibility
+	return filepath.ToSlash(fullPath), nil
 }
 
 // GetDirectorySize calculates the total size of a directory
