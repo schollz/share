@@ -36,18 +36,18 @@ type IncomingMessage struct {
 	RoomID             string `json:"roomId,omitempty"`
 	ClientID           string `json:"clientId,omitempty"`
 	Pub                string `json:"pub,omitempty"`
-	Name               string `json:"name,omitempty"`               // DEPRECATED
-	Size               int64  `json:"size,omitempty"`               // DEPRECATED
+	Name               string `json:"name,omitempty"` // DEPRECATED
+	Size               int64  `json:"size,omitempty"` // DEPRECATED
 	IvB64              string `json:"iv_b64,omitempty"`
 	DataB64            string `json:"data_b64,omitempty"`
 	ChunkData          string `json:"chunk_data,omitempty"`
 	ChunkNum           int    `json:"chunk_num,omitempty"`
-	TotalSize          int64  `json:"total_size,omitempty"`         // DEPRECATED
-	IsFolder           bool   `json:"is_folder,omitempty"`          // DEPRECATED
+	TotalSize          int64  `json:"total_size,omitempty"`           // DEPRECATED
+	IsFolder           bool   `json:"is_folder,omitempty"`            // DEPRECATED
 	OriginalFolderName string `json:"original_folder_name,omitempty"` // DEPRECATED
-	IsMultipleFiles    bool   `json:"is_multiple_files,omitempty"`  // DEPRECATED
-	EncryptedMetadata  string `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
-	MetadataIV         string `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
+	IsMultipleFiles    bool   `json:"is_multiple_files,omitempty"`    // DEPRECATED
+	EncryptedMetadata  string `json:"encrypted_metadata,omitempty"`   // Zero-knowledge metadata
+	MetadataIV         string `json:"metadata_iv,omitempty"`          // IV for encrypted metadata
 }
 
 type OutgoingMessage struct {
@@ -56,22 +56,22 @@ type OutgoingMessage struct {
 	Mnemonic           string   `json:"mnemonic,omitempty"`
 	RoomID             string   `json:"roomId,omitempty"`
 	Pub                string   `json:"pub,omitempty"`
-	Name               string   `json:"name,omitempty"`               // DEPRECATED
-	Size               int64    `json:"size,omitempty"`               // DEPRECATED
+	Name               string   `json:"name,omitempty"` // DEPRECATED
+	Size               int64    `json:"size,omitempty"` // DEPRECATED
 	IvB64              string   `json:"iv_b64,omitempty"`
 	DataB64            string   `json:"data_b64,omitempty"`
 	ChunkData          string   `json:"chunk_data,omitempty"`
 	ChunkNum           int      `json:"chunk_num,omitempty"`
-	TotalSize          int64    `json:"total_size,omitempty"`         // DEPRECATED
+	TotalSize          int64    `json:"total_size,omitempty"` // DEPRECATED
 	SelfID             string   `json:"selfId,omitempty"`
 	Peers              []string `json:"peers,omitempty"`
 	Count              int      `json:"count,omitempty"`
 	Error              string   `json:"error,omitempty"`
-	IsFolder           bool     `json:"is_folder,omitempty"`          // DEPRECATED
+	IsFolder           bool     `json:"is_folder,omitempty"`            // DEPRECATED
 	OriginalFolderName string   `json:"original_folder_name,omitempty"` // DEPRECATED
-	IsMultipleFiles    bool     `json:"is_multiple_files,omitempty"`  // DEPRECATED
-	EncryptedMetadata  string   `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
-	MetadataIV         string   `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
+	IsMultipleFiles    bool     `json:"is_multiple_files,omitempty"`    // DEPRECATED
+	EncryptedMetadata  string   `json:"encrypted_metadata,omitempty"`   // Zero-knowledge metadata
+	MetadataIV         string   `json:"metadata_iv,omitempty"`          // IV for encrypted metadata
 }
 
 var (
@@ -373,8 +373,8 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				Mnemonic:           client.Mnemonic,
 				RoomID:             client.RoomID,
 				Pub:                in.Pub,
-				Name:               in.Name,               // DEPRECATED - kept for backward compatibility
-				Size:               in.Size,               // DEPRECATED - kept for backward compatibility
+				Name:               in.Name, // DEPRECATED - kept for backward compatibility
+				Size:               in.Size, // DEPRECATED - kept for backward compatibility
 				IvB64:              in.IvB64,
 				DataB64:            in.DataB64,
 				ChunkData:          in.ChunkData,
