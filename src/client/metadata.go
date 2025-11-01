@@ -12,6 +12,7 @@ type FileMetadata struct {
 	IsFolder           bool   `json:"is_folder,omitempty"`
 	OriginalFolderName string `json:"original_folder_name,omitempty"`
 	IsMultipleFiles    bool   `json:"is_multiple_files,omitempty"`
+	Hash               string `json:"hash,omitempty"` // SHA256 hash of the file
 }
 
 // MarshalMetadata converts FileMetadata to JSON bytes for encryption

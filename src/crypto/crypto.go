@@ -5,6 +5,8 @@ import (
 	"crypto/cipher"
 	"crypto/ecdh"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 )
 
@@ -59,4 +61,19 @@ func GenerateMnemonic(clientID string) string {
 	// This is imported from the relay package to avoid circular dependencies
 	// The implementation is in relay/mnemonic.go
 	return ""
+}
+
+// CalculateFileHash calculates the SHA256 hash of a file
+func CalculateFileHash(reader io.Reader) (string, error) {
+	hash := sha256.New()
+	if _, err := io.Copy(hash, reader); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// CalculateBytesHash calculates the SHA256 hash of a byte slice
+func CalculateBytesHash(data []byte) string {
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:])
 }

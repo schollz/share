@@ -1,7 +1,9 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/ecdh"
+	"strings"
 	"testing"
 )
 
@@ -266,5 +268,106 @@ func TestEncryptionProducesUniqueIVs(t *testing.T) {
 
 	if same {
 		t.Fatal("Expected different IVs for two encryptions, but they were identical")
+	}
+}
+
+func TestCalculateFileHash(t *testing.T) {
+	data := []byte("Hello, World!")
+	reader := bytes.NewReader(data)
+
+	hash, err := CalculateFileHash(reader)
+	if err != nil {
+		t.Fatalf("CalculateFileHash failed: %v", err)
+	}
+
+	// Verify hash is a valid hex string
+	if len(hash) != 64 { // SHA256 produces 64 hex characters
+		t.Fatalf("Expected hash length of 64, got %d", len(hash))
+	}
+
+	// Expected SHA256 hash of "Hello, World!"
+	expectedHash := "dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f"
+	if hash != expectedHash {
+		t.Fatalf("Hash mismatch.\nExpected: %s\nGot: %s", expectedHash, hash)
+	}
+}
+
+func TestCalculateFileHashEmptyData(t *testing.T) {
+	reader := bytes.NewReader([]byte{})
+
+	hash, err := CalculateFileHash(reader)
+	if err != nil {
+		t.Fatalf("CalculateFileHash failed: %v", err)
+	}
+
+	// Expected SHA256 hash of empty data
+	expectedHash := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	if hash != expectedHash {
+		t.Fatalf("Hash mismatch for empty data.\nExpected: %s\nGot: %s", expectedHash, hash)
+	}
+}
+
+func TestCalculateBytesHash(t *testing.T) {
+	data := []byte("Hello, World!")
+
+	hash := CalculateBytesHash(data)
+
+	// Verify hash is a valid hex string
+	if len(hash) != 64 {
+		t.Fatalf("Expected hash length of 64, got %d", len(hash))
+	}
+
+	// Expected SHA256 hash of "Hello, World!"
+	expectedHash := "dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f"
+	if hash != expectedHash {
+		t.Fatalf("Hash mismatch.\nExpected: %s\nGot: %s", expectedHash, hash)
+	}
+}
+
+func TestCalculateBytesHashConsistency(t *testing.T) {
+	data := []byte("Test consistency")
+
+	hash1 := CalculateBytesHash(data)
+	hash2 := CalculateBytesHash(data)
+
+	if hash1 != hash2 {
+		t.Fatalf("Same data produced different hashes.\nHash1: %s\nHash2: %s", hash1, hash2)
+	}
+}
+
+func TestCalculateBytesHashDifferentData(t *testing.T) {
+	data1 := []byte("Data 1")
+	data2 := []byte("Data 2")
+
+	hash1 := CalculateBytesHash(data1)
+	hash2 := CalculateBytesHash(data2)
+
+	if hash1 == hash2 {
+		t.Fatal("Different data produced the same hash")
+	}
+}
+
+func TestCalculateFileHashLargeData(t *testing.T) {
+	// Create a large data buffer (1MB)
+	data := make([]byte, 1024*1024)
+	for i := range data {
+		data[i] = byte(i % 256)
+	}
+
+	reader := bytes.NewReader(data)
+	hash, err := CalculateFileHash(reader)
+	if err != nil {
+		t.Fatalf("CalculateFileHash failed for large data: %v", err)
+	}
+
+	if len(hash) != 64 {
+		t.Fatalf("Expected hash length of 64, got %d", len(hash))
+	}
+
+	// Verify hash is all lowercase hex characters
+	for _, c := range hash {
+		if !strings.ContainsRune("0123456789abcdef", c) {
+			t.Fatalf("Hash contains invalid character: %c", c)
+		}
 	}
 }

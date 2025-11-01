@@ -102,6 +102,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 	var isMultipleFiles bool
 	var originalFolderName string
 	var tempZipPath string
+	var expectedHash string
 
 	sendPublicKey := func() {
 		pubKeyBytes := privKey.PublicKey().Bytes()
@@ -175,6 +176,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			isFolder = metadata.IsFolder
 			isMultipleFiles = metadata.IsMultipleFiles
 			originalFolderName = metadata.OriginalFolderName
+			expectedHash = metadata.Hash
 
 			receivedBytes = 0
 
@@ -244,6 +246,38 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 
 			bar.Finish()
 			outputFile.Close()
+
+			// Verify file hash if provided
+			if expectedHash != "" {
+				// Calculate hash of received file
+				var outputPath string
+				if isFolder {
+					outputPath = filepath.Join(outputDir, fileName)
+				} else {
+					outputPath = filepath.Join(outputDir, fileName)
+				}
+
+				receivedFile, err := os.Open(outputPath)
+				if err != nil {
+					log.Fatalf("Failed to open received file for verification: %v", err)
+				}
+				actualHash, err := crypto.CalculateFileHash(receivedFile)
+				receivedFile.Close()
+				if err != nil {
+					log.Fatalf("Failed to calculate received file hash: %v", err)
+				}
+
+				// Compare hashes
+				if actualHash != expectedHash {
+					fmt.Printf("\n⚠️  WARNING: File hash mismatch!\n")
+					fmt.Printf("   Expected: %s\n", expectedHash)
+					fmt.Printf("   Received: %s\n", actualHash)
+					fmt.Printf("   The file may be corrupted or tampered with.\n\n")
+					// Continue with extraction anyway, but user is warned
+				} else {
+					fmt.Printf("✓ File integrity verified (hash: %s...%s)\n", expectedHash[:8], expectedHash[len(expectedHash)-8:])
+				}
+			}
 
 			// Check if this is a zip file (folder, multiple files, or ends with .zip)
 			isZipFile := isFolder || isMultipleFiles || strings.HasSuffix(strings.ToLower(fileName), ".zip")
