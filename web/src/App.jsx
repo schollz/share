@@ -369,10 +369,11 @@ function IconBadge({ mnemonic, label, className = "" }) {
         <div className={`relative group ${className}`}>
             <div
                 tabIndex={0}
-                className="bg-white text-black px-3 py-2 sm:px-4 sm:py-3 inline-flex items-center justify-center border-2 sm:border-4 border-black font-black focus:outline-hidden"
+                className="bg-white text-black px-3 py-2 sm:px-4 sm:py-3 inline-flex items-center justify-center gap-2 border-2 sm:border-4 border-black font-black focus:outline-hidden"
                 aria-label={`${label}: ${mnemonic}`}
             >
                 <i className={`fas ${iconClass} text-xl sm:text-2xl md:text-3xl`} aria-hidden="true"></i>
+                {label === "You" && <span className="text-sm sm:text-base">(YOU)</span>}
             </div>
             <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 bg-black text-white border-2 border-white px-2 py-1 text-xs font-black uppercase whitespace-nowrap shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                 {mnemonic.toUpperCase()}
@@ -1017,58 +1018,60 @@ export default function App() {
                 </div>
 
                 {/* Connection Panel */}
-                <div className="bg-gray-200 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                    {/* <h2 className="text-2xl sm:text-3xl font-black mb-3 sm:mb-4 uppercase">ROOM</h2> */}
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
-                        <input
-                            ref={roomInputRef}
-                            type="text"
-                            placeholder="ENTER ROOM ID"
-                            value={roomId}
-                            disabled={connected}
-                            onChange={(e) => setRoomId(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && !connected && connectToRoom()}
-                            className="flex-1 border-2 sm:border-4 border-black p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 focus:ring-black"
-                        />
-                        <button
-                            onClick={connectToRoom}
-                            disabled={connected}
-                            className={`border-2 sm:border-4 border-black px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-xl font-black uppercase transition-all whitespace-nowrap ${connected
-                                ? "bg-gray-400 cursor-not-allowed"
-                                : "bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 cursor-pointer"
-                                } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`}
-                        >
-                            {connected ? "CONNECTED" : "CONNECT"}
-                        </button>
-                    </div>
-                    <div className="bg-black text-white border-2 sm:border-4 border-black p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words">
-                        {connected && myMnemonic ? (
-                            peerMnemonic ? (
-                                <>
-                                    CONNECTED AS {myMnemonic.toUpperCase()} (
-                                    <span className="inline-flex items-center ml-1" title={`Your icon for ${myMnemonic}`}>
-                                        <i className={`fas ${myIconClass}`} aria-hidden="true"></i>
-                                    </span>
-                                    ) TO {peerMnemonic.toUpperCase()} (
-                                    <span className="inline-flex items-center ml-1" title={`Peer icon for ${peerMnemonic}`}>
-                                        <i className={`fas ${peerIconClass}`} aria-hidden="true"></i>
-                                    </span>
-                                    )
-                                </>
+                {!connected && (
+                    <div className="bg-gray-200 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                        {/* <h2 className="text-2xl sm:text-3xl font-black mb-3 sm:mb-4 uppercase">ROOM</h2> */}
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
+                            <input
+                                ref={roomInputRef}
+                                type="text"
+                                placeholder="ENTER ROOM ID"
+                                value={roomId}
+                                disabled={connected}
+                                onChange={(e) => setRoomId(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && !connected && connectToRoom()}
+                                className="flex-1 border-2 sm:border-4 border-black p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 focus:ring-black"
+                            />
+                            <button
+                                onClick={connectToRoom}
+                                disabled={connected}
+                                className={`border-2 sm:border-4 border-black px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-xl font-black uppercase transition-all whitespace-nowrap ${connected
+                                    ? "bg-gray-400 cursor-not-allowed"
+                                    : "bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 cursor-pointer"
+                                    } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`}
+                            >
+                                {connected ? "CONNECTED" : "CONNECT"}
+                            </button>
+                        </div>
+                        <div className="bg-black text-white border-2 sm:border-4 border-black p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words">
+                            {connected && myMnemonic ? (
+                                peerMnemonic ? (
+                                    <>
+                                        CONNECTED AS {myMnemonic.toUpperCase()} (
+                                        <span className="inline-flex items-center ml-1" title={`Your icon for ${myMnemonic}`}>
+                                            <i className={`fas ${myIconClass}`} aria-hidden="true"></i>
+                                        </span>
+                                        ) TO {peerMnemonic.toUpperCase()} (
+                                        <span className="inline-flex items-center ml-1" title={`Peer icon for ${peerMnemonic}`}>
+                                            <i className={`fas ${peerIconClass}`} aria-hidden="true"></i>
+                                        </span>
+                                        )
+                                    </>
+                                ) : (
+                                    <>
+                                        CONNECTED AS {myMnemonic.toUpperCase()} (
+                                        <span className="inline-flex items-center ml-1" title={`Your icon for ${myMnemonic}`}>
+                                            <i className={`fas ${myIconClass}`} aria-hidden="true"></i>
+                                        </span>
+                                        )
+                                    </>
+                                )
                             ) : (
-                                <>
-                                    CONNECTED AS {myMnemonic.toUpperCase()} (
-                                    <span className="inline-flex items-center ml-1" title={`Your icon for ${myMnemonic}`}>
-                                        <i className={`fas ${myIconClass}`} aria-hidden="true"></i>
-                                    </span>
-                                    )
-                                </>
-                            )
-                        ) : (
-                            <>STATUS: {status.toUpperCase()}</>
-                        )}
+                                <>STATUS: {status.toUpperCase()}</>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* File Transfer Panel */}
                 {connected && (
