@@ -111,6 +111,35 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 	var originalFolderName string
 	var tempZipPath string
 	var expectedHash string
+	
+	// Track chunks for ordering and deduplication
+	receivedChunks := make(map[int]bool)
+	chunkBuffer := make(map[int][]byte) // Buffer for out-of-order chunks
+	nextExpectedChunk := 0
+	lastActivityTime := time.Now()
+	transferTimeout := 30 * time.Second
+	
+	// Goroutine to monitor transfer timeout
+	timeoutDone := make(chan bool, 1)
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-timeoutDone:
+				return
+			case <-ticker.C:
+				if outputFile != nil && time.Since(lastActivityTime) > transferTimeout {
+					log.Fatalf("Transfer timeout: no data received for %v", transferTimeout)
+					return
+				}
+			}
+		}
+	}()
+	defer func() {
+		timeoutDone <- true
+	}()
 
 	sendPublicKey := func() {
 		pubKeyBytes := privKey.PublicKey().Bytes()
@@ -119,6 +148,25 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
 		}
 		sendProtobufMessage(conn, pubKeyMsg)
+	}
+	
+	sendChunkAck := func(chunkNum int) {
+		ackMsg := map[string]interface{}{
+			"type":      "chunk_ack",
+			"chunk_num": chunkNum,
+		}
+		sendProtobufMessage(conn, ackMsg)
+	}
+	
+	writeChunkToFile := func(plainChunk []byte) error {
+		n, err := outputFile.Write(plainChunk)
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %v", err)
+		}
+		receivedBytes += int64(n)
+		bar.Add(n)
+		lastActivityTime = time.Now()
+		return nil
 	}
 
 	for {
@@ -209,6 +257,12 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			}
 
 			// Create progress bar for receiving
+			// Reset chunk tracking for new file
+			receivedChunks = make(map[int]bool)
+			chunkBuffer = make(map[int][]byte)
+			nextExpectedChunk = 0
+			lastActivityTime = time.Now()
+
 			bar = progressbar.NewOptions64(
 				totalSize,
 				progressbar.OptionSetDescription("Receiving"),
@@ -229,6 +283,15 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				continue
 			}
 
+			chunkNum := msg.ChunkNum
+			
+			// Check for duplicate chunk (already received and processed)
+			if receivedChunks[chunkNum] {
+				// Send ACK again for idempotency
+				sendChunkAck(chunkNum)
+				continue
+			}
+
 			// Decrypt this chunk with its own IV
 			chunkIV, _ := base64.StdEncoding.DecodeString(msg.IvB64)
 			cipherChunk, _ := base64.StdEncoding.DecodeString(msg.ChunkData)
@@ -237,15 +300,39 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			if err != nil {
 				log.Fatalf("Failed to decrypt chunk: %v", err)
 			}
-
-			// Write decrypted chunk directly to file
-			n, err := outputFile.Write(plainChunk)
-			if err != nil {
-				log.Fatalf("Failed to write to file: %v", err)
+			
+			// Check if this is the next expected chunk
+			if chunkNum == nextExpectedChunk {
+				// Write this chunk
+				if err := writeChunkToFile(plainChunk); err != nil {
+					log.Fatalf("%v", err)
+				}
+				receivedChunks[chunkNum] = true
+				nextExpectedChunk++
+				
+				// Check if we have buffered chunks that can now be written
+				for {
+					bufferedChunk, exists := chunkBuffer[nextExpectedChunk]
+					if !exists {
+						break
+					}
+					
+					if err := writeChunkToFile(bufferedChunk); err != nil {
+						log.Fatalf("%v", err)
+					}
+					receivedChunks[nextExpectedChunk] = true
+					delete(chunkBuffer, nextExpectedChunk)
+					nextExpectedChunk++
+				}
+			} else if chunkNum > nextExpectedChunk {
+				// Out-of-order chunk - buffer it
+				chunkBuffer[chunkNum] = plainChunk
+				receivedChunks[chunkNum] = true
 			}
-
-			receivedBytes += int64(n)
-			bar.Add(n)
+			// If chunkNum < nextExpectedChunk, it's a duplicate of an already-processed chunk
+			
+			// Send ACK for this chunk
+			sendChunkAck(chunkNum)
 
 		case "file_end":
 			if bar == nil || outputFile == nil {
