@@ -1248,7 +1248,6 @@ export default function App() {
             setPendingDownload(null);
         }
         setShowDownloadConfirmModal(false);
-        setDownloadProgress(null);
         log("Download cancelled");
     }
 
@@ -1515,10 +1514,7 @@ export default function App() {
 
             {/* Download Confirmation Modal */}
             {showDownloadConfirmModal && pendingDownload && (
-                <div
-                    className="fixed inset-0 bg-[rgba(15,15,15,0.7)] flex items-center justify-center z-50 p-4"
-                    onClick={(e) => e.stopPropagation()}
-                >
+                <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] flex items-center justify-center z-50 p-4">
                     <div
                         className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
                         onClick={(e) => e.stopPropagation()}
