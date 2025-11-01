@@ -250,12 +250,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			// Verify file hash if provided
 			if expectedHash != "" {
 				// Calculate hash of received file
-				var outputPath string
-				if isFolder {
-					outputPath = filepath.Join(outputDir, fileName)
-				} else {
-					outputPath = filepath.Join(outputDir, fileName)
-				}
+				outputPath := filepath.Join(outputDir, fileName)
 
 				receivedFile, err := os.Open(outputPath)
 				if err != nil {
@@ -275,7 +270,12 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 					fmt.Printf("   The file may be corrupted or tampered with.\n\n")
 					// Continue with extraction anyway, but user is warned
 				} else {
-					fmt.Printf("✓ File integrity verified (hash: %s...%s)\n", expectedHash[:8], expectedHash[len(expectedHash)-8:])
+					// Display truncated hash only if it's long enough
+					if len(expectedHash) >= 16 {
+						fmt.Printf("✓ File integrity verified (hash: %s...%s)\n", expectedHash[:8], expectedHash[len(expectedHash)-8:])
+					} else {
+						fmt.Printf("✓ File integrity verified (hash: %s)\n", expectedHash)
+					}
 				}
 			}
 
