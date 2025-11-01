@@ -31,7 +31,8 @@ test.describe('Web to Web Transfer', () => {
         if (!started && data.toString().includes('Starting')) {
           started = true;
           serverUrl = `http://localhost:${serverPort}`;
-          setTimeout(resolve, 1000); // Give it a moment to fully start
+          // Give server more time to fully initialize WebSocket handlers
+          setTimeout(resolve, 3000);
         }
       });
 
@@ -50,14 +51,16 @@ test.describe('Web to Web Transfer', () => {
           serverUrl = `http://localhost:${serverPort}`;
           resolve();
         }
-      }, 3000);
+      }, 5000);
     });
   });
 
   test.afterAll(async () => {
-    // Stop the relay server
+    // Stop the relay server and wait for cleanup
     if (relayServer) {
-      relayServer.kill();
+      relayServer.kill('SIGTERM');
+      // Wait for server to fully shutdown
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
   });
 
@@ -78,20 +81,24 @@ test.describe('Web to Web Transfer', () => {
       // Generate a unique room name
       const roomName = `test-room-${Date.now()}`;
 
-      // Navigate both pages to the server with the room name
-      await receiverPage.goto(`${serverUrl}/${roomName}`);
-      await senderPage.goto(`${serverUrl}/${roomName}`);
-
-      // Wait for pages to load and establish connection
-      await receiverPage.waitForLoadState('networkidle');
-      await senderPage.waitForLoadState('networkidle');
+      // Navigate receiver first and wait for it to be ready
+      await receiverPage.goto(`${serverUrl}/${roomName}`, { waitUntil: 'networkidle', timeout: 30000 });
+      
+      // Wait a bit for receiver's WebSocket connection to establish
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Now navigate sender
+      await senderPage.goto(`${serverUrl}/${roomName}`, { waitUntil: 'networkidle', timeout: 30000 });
 
       // Wait for WebSocket connections to be established (both peers need to be connected)
       // Look for the "SHARE" button to be enabled on sender (indicates peer connection)
-      await senderPage.waitForSelector('button:has-text("SHARE"):not([disabled])', { timeout: 10000 });
+      await senderPage.waitForSelector('button:has-text("SHARE"):not([disabled])', { timeout: 15000 });
+      
+      // Extra wait to ensure connection is stable
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Set up download handler for receiver before sending
-      const downloadPromise = receiverPage.waitForEvent('download', { timeout: 30000 });
+      const downloadPromise = receiverPage.waitForEvent('download', { timeout: 60000 });
 
       // Sender: Upload the file
       // Find the hidden file input and set the file

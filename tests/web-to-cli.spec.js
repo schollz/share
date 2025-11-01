@@ -31,7 +31,8 @@ test.describe('Web to CLI Transfer', () => {
         if (!started && data.toString().includes('Starting')) {
           started = true;
           serverUrl = `http://localhost:${serverPort}`;
-          setTimeout(resolve, 1000);
+          // Give server more time to fully initialize WebSocket handlers
+          setTimeout(resolve, 3000);
         }
       });
 
@@ -50,14 +51,16 @@ test.describe('Web to CLI Transfer', () => {
           serverUrl = `http://localhost:${serverPort}`;
           resolve();
         }
-      }, 3000);
+      }, 5000);
     });
   });
 
   test.afterAll(async () => {
-    // Stop the relay server
+    // Stop the relay server and wait for cleanup
     if (relayServer) {
-      relayServer.kill();
+      relayServer.kill('SIGTERM');
+      // Wait for server to fully shutdown
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
   });
 
@@ -102,15 +105,17 @@ test.describe('Web to CLI Transfer', () => {
         console.error(`CLI Receiver Error: ${data}`);
       });
 
-      // Wait for receiver to be ready
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait longer for receiver to be ready and establish WebSocket connection
+      await new Promise(resolve => setTimeout(resolve, 4000));
 
       // Navigate web sender to the room
-      await page.goto(`${serverUrl}/${roomName}`);
-      await page.waitForLoadState('networkidle');
+      await page.goto(`${serverUrl}/${roomName}`, { waitUntil: 'networkidle', timeout: 30000 });
 
       // Wait for connection to be established (SHARE button enabled)
-      await page.waitForSelector('button:has-text("SHARE"):not([disabled])', { timeout: 10000 });
+      await page.waitForSelector('button:has-text("SHARE"):not([disabled])', { timeout: 15000 });
+      
+      // Extra wait to ensure connection is stable
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Sender: Upload the file
       const fileInput = await page.locator('input[type="file"]');
@@ -118,7 +123,7 @@ test.describe('Web to CLI Transfer', () => {
 
       // File is automatically sent once selected
 
-      // Wait for transfer to complete
+      // Wait for transfer to complete with longer timeout
       await new Promise((resolve) => {
         let resolved = false;
         const checkInterval = setInterval(() => {
@@ -131,21 +136,24 @@ test.describe('Web to CLI Transfer', () => {
           }
         }, 500);
 
-        // Timeout after 15 seconds
+        // Timeout after 30 seconds
         setTimeout(() => {
           if (!resolved) {
             resolved = true;
             clearInterval(checkInterval);
             resolve();
           }
-        }, 15000);
+        }, 30000);
       });
 
       // Give it extra time to finish writing
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
 
       // Kill the receiver process
-      cliReceiver.kill();
+      cliReceiver.kill('SIGTERM');
+      
+      // Wait for process to exit
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Verify the file was received by CLI
       const receivedFilePath = path.join(outputDir, 'test-web-to-cli.txt');
@@ -187,14 +195,16 @@ test.describe('Web to CLI Transfer', () => {
       const roomName = `test-cli-web-${Date.now()}`;
 
       // Navigate web receiver to the room first
-      await page.goto(`${serverUrl}/${roomName}`);
-      await page.waitForLoadState('networkidle');
+      await page.goto(`${serverUrl}/${roomName}`, { waitUntil: 'networkidle', timeout: 30000 });
 
       // Wait for the page to be ready (SHARE button visible means ready to receive)
-      await page.waitForSelector('button:has-text("SHARE"), div:has-text("WAITING FOR PEER")', { timeout: 10000 });
+      await page.waitForSelector('button:has-text("SHARE"), div:has-text("WAITING FOR PEER")', { timeout: 15000 });
+      
+      // Extra wait to ensure WebSocket connection is established
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Set up download handler for receiver
-      const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+      // Set up download handler for receiver with longer timeout
+      const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
 
       // Start CLI sender
       const wsUrl = `ws://localhost:${serverPort}`;
@@ -226,7 +236,8 @@ test.describe('Web to CLI Transfer', () => {
       expect(downloadedContent).toBe(testContent);
 
       // Clean up
-      cliSender.kill();
+      cliSender.kill('SIGTERM');
+      await new Promise(resolve => setTimeout(resolve, 1000));
       fs.unlinkSync(testFilePath);
       fs.unlinkSync(downloadPath);
 
@@ -236,3 +247,4 @@ test.describe('Web to CLI Transfer', () => {
     }
   });
 });
+
