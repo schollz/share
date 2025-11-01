@@ -172,7 +172,7 @@ test.describe('Web to CLI Transfer', () => {
         fs.unlinkSync(receivedFilePath);
       }
       if (fs.existsSync(outputDir)) {
-        fs.rmdirSync(outputDir, { recursive: true });
+        fs.rmSync(outputDir, { recursive: true });
       }
 
     } finally {
@@ -226,9 +226,13 @@ test.describe('Web to CLI Transfer', () => {
 
       // Wait for the download confirmation modal to appear
       await page.waitForSelector('text=DOWNLOAD FILE?', { timeout: 30000 });
-      
+
+      // Wait for the Download button to be visible and clickable
+      await page.waitForSelector('button.bg-black:has-text("Download")', { state: 'visible', timeout: 5000 });
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Click the Download button in the confirmation modal
-      await page.click('button:has-text("Download")');
+      await page.click('button.bg-black:has-text("Download")');
 
       // Wait for download to complete
       const download = await downloadPromise;
