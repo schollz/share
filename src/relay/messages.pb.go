@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v3.21.12
-// source: messages.proto
+// source: src/relay/messages.proto
 
 package relay
 
@@ -28,23 +28,25 @@ type PBIncomingMessage struct {
 	RoomId             string                 `protobuf:"bytes,2,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
 	ClientId           string                 `protobuf:"bytes,3,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	Pub                string                 `protobuf:"bytes,4,opt,name=pub,proto3" json:"pub,omitempty"`
-	Name               string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
-	Size               int64                  `protobuf:"varint,6,opt,name=size,proto3" json:"size,omitempty"`
+	Name               string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`  // DEPRECATED: Use encrypted_metadata instead
+	Size               int64                  `protobuf:"varint,6,opt,name=size,proto3" json:"size,omitempty"` // DEPRECATED: Use encrypted_metadata instead
 	IvB64              string                 `protobuf:"bytes,7,opt,name=iv_b64,json=ivB64,proto3" json:"iv_b64,omitempty"`
 	DataB64            string                 `protobuf:"bytes,8,opt,name=data_b64,json=dataB64,proto3" json:"data_b64,omitempty"`
 	ChunkData          string                 `protobuf:"bytes,9,opt,name=chunk_data,json=chunkData,proto3" json:"chunk_data,omitempty"`
 	ChunkNum           int32                  `protobuf:"varint,10,opt,name=chunk_num,json=chunkNum,proto3" json:"chunk_num,omitempty"`
-	TotalSize          int64                  `protobuf:"varint,11,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`
-	IsFolder           bool                   `protobuf:"varint,17,opt,name=is_folder,json=isFolder,proto3" json:"is_folder,omitempty"`                                // Indicates original input was a folder
-	OriginalFolderName string                 `protobuf:"bytes,18,opt,name=original_folder_name,json=originalFolderName,proto3" json:"original_folder_name,omitempty"` // Original folder name (before zipping)
-	IsMultipleFiles    bool                   `protobuf:"varint,19,opt,name=is_multiple_files,json=isMultipleFiles,proto3" json:"is_multiple_files,omitempty"`         // Indicates multiple individual files sent together
+	TotalSize          int64                  `protobuf:"varint,11,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`                             // DEPRECATED: Use encrypted_metadata instead
+	IsFolder           bool                   `protobuf:"varint,17,opt,name=is_folder,json=isFolder,proto3" json:"is_folder,omitempty"`                                // DEPRECATED: Use encrypted_metadata instead
+	OriginalFolderName string                 `protobuf:"bytes,18,opt,name=original_folder_name,json=originalFolderName,proto3" json:"original_folder_name,omitempty"` // DEPRECATED: Use encrypted_metadata instead
+	IsMultipleFiles    bool                   `protobuf:"varint,19,opt,name=is_multiple_files,json=isMultipleFiles,proto3" json:"is_multiple_files,omitempty"`         // DEPRECATED: Use encrypted_metadata instead
+	EncryptedMetadata  string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`      // Encrypted metadata (name, total_size, is_folder, etc.)
+	MetadataIv         string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                           // IV for encrypted_metadata
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *PBIncomingMessage) Reset() {
 	*x = PBIncomingMessage{}
-	mi := &file_messages_proto_msgTypes[0]
+	mi := &file_src_relay_messages_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -56,7 +58,7 @@ func (x *PBIncomingMessage) String() string {
 func (*PBIncomingMessage) ProtoMessage() {}
 
 func (x *PBIncomingMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[0]
+	mi := &file_src_relay_messages_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -69,7 +71,7 @@ func (x *PBIncomingMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PBIncomingMessage.ProtoReflect.Descriptor instead.
 func (*PBIncomingMessage) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{0}
+	return file_src_relay_messages_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *PBIncomingMessage) GetType() string {
@@ -170,6 +172,20 @@ func (x *PBIncomingMessage) GetIsMultipleFiles() bool {
 	return false
 }
 
+func (x *PBIncomingMessage) GetEncryptedMetadata() string {
+	if x != nil {
+		return x.EncryptedMetadata
+	}
+	return ""
+}
+
+func (x *PBIncomingMessage) GetMetadataIv() string {
+	if x != nil {
+		return x.MetadataIv
+	}
+	return ""
+}
+
 // PBOutgoingMessage represents messages sent by the relay server to clients
 type PBOutgoingMessage struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
@@ -178,27 +194,29 @@ type PBOutgoingMessage struct {
 	Mnemonic           string                 `protobuf:"bytes,3,opt,name=mnemonic,proto3" json:"mnemonic,omitempty"`
 	RoomId             string                 `protobuf:"bytes,4,opt,name=room_id,json=roomId,proto3" json:"room_id,omitempty"`
 	Pub                string                 `protobuf:"bytes,5,opt,name=pub,proto3" json:"pub,omitempty"`
-	Name               string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
-	Size               int64                  `protobuf:"varint,7,opt,name=size,proto3" json:"size,omitempty"`
+	Name               string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`  // DEPRECATED: Use encrypted_metadata instead
+	Size               int64                  `protobuf:"varint,7,opt,name=size,proto3" json:"size,omitempty"` // DEPRECATED: Use encrypted_metadata instead
 	IvB64              string                 `protobuf:"bytes,8,opt,name=iv_b64,json=ivB64,proto3" json:"iv_b64,omitempty"`
 	DataB64            string                 `protobuf:"bytes,9,opt,name=data_b64,json=dataB64,proto3" json:"data_b64,omitempty"`
 	ChunkData          string                 `protobuf:"bytes,10,opt,name=chunk_data,json=chunkData,proto3" json:"chunk_data,omitempty"`
 	ChunkNum           int32                  `protobuf:"varint,11,opt,name=chunk_num,json=chunkNum,proto3" json:"chunk_num,omitempty"`
-	TotalSize          int64                  `protobuf:"varint,12,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`
+	TotalSize          int64                  `protobuf:"varint,12,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"` // DEPRECATED: Use encrypted_metadata instead
 	SelfId             string                 `protobuf:"bytes,13,opt,name=self_id,json=selfId,proto3" json:"self_id,omitempty"`
 	Peers              []string               `protobuf:"bytes,14,rep,name=peers,proto3" json:"peers,omitempty"`
 	Count              int32                  `protobuf:"varint,15,opt,name=count,proto3" json:"count,omitempty"`
 	Error              string                 `protobuf:"bytes,16,opt,name=error,proto3" json:"error,omitempty"`
-	IsFolder           bool                   `protobuf:"varint,17,opt,name=is_folder,json=isFolder,proto3" json:"is_folder,omitempty"`                                // Indicates original input was a folder
-	OriginalFolderName string                 `protobuf:"bytes,18,opt,name=original_folder_name,json=originalFolderName,proto3" json:"original_folder_name,omitempty"` // Original folder name (before zipping)
-	IsMultipleFiles    bool                   `protobuf:"varint,19,opt,name=is_multiple_files,json=isMultipleFiles,proto3" json:"is_multiple_files,omitempty"`         // Indicates multiple individual files sent together
+	IsFolder           bool                   `protobuf:"varint,17,opt,name=is_folder,json=isFolder,proto3" json:"is_folder,omitempty"`                                // DEPRECATED: Use encrypted_metadata instead
+	OriginalFolderName string                 `protobuf:"bytes,18,opt,name=original_folder_name,json=originalFolderName,proto3" json:"original_folder_name,omitempty"` // DEPRECATED: Use encrypted_metadata instead
+	IsMultipleFiles    bool                   `protobuf:"varint,19,opt,name=is_multiple_files,json=isMultipleFiles,proto3" json:"is_multiple_files,omitempty"`         // DEPRECATED: Use encrypted_metadata instead
+	EncryptedMetadata  string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`      // Encrypted metadata (name, total_size, is_folder, etc.)
+	MetadataIv         string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                           // IV for encrypted_metadata
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *PBOutgoingMessage) Reset() {
 	*x = PBOutgoingMessage{}
-	mi := &file_messages_proto_msgTypes[1]
+	mi := &file_src_relay_messages_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -210,7 +228,7 @@ func (x *PBOutgoingMessage) String() string {
 func (*PBOutgoingMessage) ProtoMessage() {}
 
 func (x *PBOutgoingMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[1]
+	mi := &file_src_relay_messages_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -223,7 +241,7 @@ func (x *PBOutgoingMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PBOutgoingMessage.ProtoReflect.Descriptor instead.
 func (*PBOutgoingMessage) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{1}
+	return file_src_relay_messages_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *PBOutgoingMessage) GetType() string {
@@ -359,11 +377,25 @@ func (x *PBOutgoingMessage) GetIsMultipleFiles() bool {
 	return false
 }
 
-var File_messages_proto protoreflect.FileDescriptor
+func (x *PBOutgoingMessage) GetEncryptedMetadata() string {
+	if x != nil {
+		return x.EncryptedMetadata
+	}
+	return ""
+}
 
-const file_messages_proto_rawDesc = "" +
+func (x *PBOutgoingMessage) GetMetadataIv() string {
+	if x != nil {
+		return x.MetadataIv
+	}
+	return ""
+}
+
+var File_src_relay_messages_proto protoreflect.FileDescriptor
+
+const file_src_relay_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x0emessages.proto\x12\x05relay\"\x9f\x03\n" +
+	"\x18src/relay/messages.proto\x12\x05relay\"\xef\x03\n" +
 	"\x11PBIncomingMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x17\n" +
 	"\aroom_id\x18\x02 \x01(\tR\x06roomId\x12\x1b\n" +
@@ -381,7 +413,10 @@ const file_messages_proto_rawDesc = "" +
 	"total_size\x18\v \x01(\x03R\ttotalSize\x12\x1b\n" +
 	"\tis_folder\x18\x11 \x01(\bR\bisFolder\x120\n" +
 	"\x14original_folder_name\x18\x12 \x01(\tR\x12originalFolderName\x12*\n" +
-	"\x11is_multiple_files\x18\x13 \x01(\bR\x0fisMultipleFiles\"\x8d\x04\n" +
+	"\x11is_multiple_files\x18\x13 \x01(\bR\x0fisMultipleFiles\x12-\n" +
+	"\x12encrypted_metadata\x18\x14 \x01(\tR\x11encryptedMetadata\x12\x1f\n" +
+	"\vmetadata_iv\x18\x15 \x01(\tR\n" +
+	"metadataIv\"\xdd\x04\n" +
 	"\x11PBOutgoingMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x1a\n" +
@@ -404,26 +439,29 @@ const file_messages_proto_rawDesc = "" +
 	"\x05error\x18\x10 \x01(\tR\x05error\x12\x1b\n" +
 	"\tis_folder\x18\x11 \x01(\bR\bisFolder\x120\n" +
 	"\x14original_folder_name\x18\x12 \x01(\tR\x12originalFolderName\x12*\n" +
-	"\x11is_multiple_files\x18\x13 \x01(\bR\x0fisMultipleFilesB$Z\"github.com/schollz/share/src/relayb\x06proto3"
+	"\x11is_multiple_files\x18\x13 \x01(\bR\x0fisMultipleFiles\x12-\n" +
+	"\x12encrypted_metadata\x18\x14 \x01(\tR\x11encryptedMetadata\x12\x1f\n" +
+	"\vmetadata_iv\x18\x15 \x01(\tR\n" +
+	"metadataIvB$Z\"github.com/schollz/share/src/relayb\x06proto3"
 
 var (
-	file_messages_proto_rawDescOnce sync.Once
-	file_messages_proto_rawDescData []byte
+	file_src_relay_messages_proto_rawDescOnce sync.Once
+	file_src_relay_messages_proto_rawDescData []byte
 )
 
-func file_messages_proto_rawDescGZIP() []byte {
-	file_messages_proto_rawDescOnce.Do(func() {
-		file_messages_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_messages_proto_rawDesc), len(file_messages_proto_rawDesc)))
+func file_src_relay_messages_proto_rawDescGZIP() []byte {
+	file_src_relay_messages_proto_rawDescOnce.Do(func() {
+		file_src_relay_messages_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_src_relay_messages_proto_rawDesc), len(file_src_relay_messages_proto_rawDesc)))
 	})
-	return file_messages_proto_rawDescData
+	return file_src_relay_messages_proto_rawDescData
 }
 
-var file_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_messages_proto_goTypes = []any{
+var file_src_relay_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_src_relay_messages_proto_goTypes = []any{
 	(*PBIncomingMessage)(nil), // 0: relay.PBIncomingMessage
 	(*PBOutgoingMessage)(nil), // 1: relay.PBOutgoingMessage
 }
-var file_messages_proto_depIdxs = []int32{
+var file_src_relay_messages_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -431,26 +469,26 @@ var file_messages_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_messages_proto_init() }
-func file_messages_proto_init() {
-	if File_messages_proto != nil {
+func init() { file_src_relay_messages_proto_init() }
+func file_src_relay_messages_proto_init() {
+	if File_src_relay_messages_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_messages_proto_rawDesc), len(file_messages_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_src_relay_messages_proto_rawDesc), len(file_src_relay_messages_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_messages_proto_goTypes,
-		DependencyIndexes: file_messages_proto_depIdxs,
-		MessageInfos:      file_messages_proto_msgTypes,
+		GoTypes:           file_src_relay_messages_proto_goTypes,
+		DependencyIndexes: file_src_relay_messages_proto_depIdxs,
+		MessageInfos:      file_src_relay_messages_proto_msgTypes,
 	}.Build()
-	File_messages_proto = out.File
-	file_messages_proto_goTypes = nil
-	file_messages_proto_depIdxs = nil
+	File_src_relay_messages_proto = out.File
+	file_src_relay_messages_proto_goTypes = nil
+	file_src_relay_messages_proto_depIdxs = nil
 }

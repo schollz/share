@@ -53,6 +53,12 @@ func sendProtobufMessage(conn *websocket.Conn, msg map[string]interface{}) error
 	if v, ok := msg["is_multiple_files"].(bool); ok {
 		pbMsg.IsMultipleFiles = v
 	}
+	if v, ok := msg["encrypted_metadata"].(string); ok {
+		pbMsg.EncryptedMetadata = v
+	}
+	if v, ok := msg["metadata_iv"].(string); ok {
+		pbMsg.MetadataIv = v
+	}
 
 	data, err := proto.Marshal(pbMsg)
 	if err != nil {
@@ -97,6 +103,8 @@ func receiveProtobufMessage(conn *websocket.Conn) (*relay.OutgoingMessage, error
 			IsFolder:           pbMsg.IsFolder,
 			OriginalFolderName: pbMsg.OriginalFolderName,
 			IsMultipleFiles:    pbMsg.IsMultipleFiles,
+			EncryptedMetadata:  pbMsg.EncryptedMetadata,
+			MetadataIV:         pbMsg.MetadataIv,
 		}, nil
 	}
 

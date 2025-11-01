@@ -151,12 +151,38 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				continue
 			}
 
-			fileName = sanitizeFileName(msg.Name)
-			totalSize = msg.TotalSize
+			// Try to use encrypted metadata first (zero-knowledge)
+			if msg.EncryptedMetadata != "" && msg.MetadataIV != "" {
+				// Decrypt metadata
+				metadataIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
+				encryptedMeta, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
+
+				metadataJSON, err := crypto.DecryptAESGCM(sharedSecret, metadataIV, encryptedMeta)
+				if err != nil {
+					log.Fatalf("Failed to decrypt metadata: %v", err)
+				}
+
+				metadata, err := UnmarshalMetadata(metadataJSON)
+				if err != nil {
+					log.Fatalf("Failed to unmarshal metadata: %v", err)
+				}
+
+				// Use decrypted metadata
+				fileName = sanitizeFileName(metadata.Name)
+				totalSize = metadata.TotalSize
+				isFolder = metadata.IsFolder
+				isMultipleFiles = metadata.IsMultipleFiles
+				originalFolderName = metadata.OriginalFolderName
+			} else {
+				// Fallback to legacy plain text fields for backward compatibility
+				fileName = sanitizeFileName(msg.Name)
+				totalSize = msg.TotalSize
+				isFolder = msg.IsFolder
+				isMultipleFiles = msg.IsMultipleFiles
+				originalFolderName = msg.OriginalFolderName
+			}
+
 			receivedBytes = 0
-			isFolder = msg.IsFolder
-			isMultipleFiles = msg.IsMultipleFiles
-			originalFolderName = msg.OriginalFolderName
 
 			var outputPath string
 			if isFolder {

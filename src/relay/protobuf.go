@@ -21,6 +21,8 @@ func incomingToPB(msg *IncomingMessage) *PBIncomingMessage {
 		TotalSize:          msg.TotalSize,
 		IsFolder:           msg.IsFolder,
 		OriginalFolderName: msg.OriginalFolderName,
+		EncryptedMetadata:  msg.EncryptedMetadata,
+		MetadataIv:         msg.MetadataIV,
 	}
 }
 
@@ -41,6 +43,8 @@ func pbToIncoming(pb *PBIncomingMessage) *IncomingMessage {
 		IsFolder:           pb.IsFolder,
 		OriginalFolderName: pb.OriginalFolderName,
 		IsMultipleFiles:    pb.IsMultipleFiles,
+		EncryptedMetadata:  pb.EncryptedMetadata,
+		MetadataIV:         pb.MetadataIv,
 	}
 }
 
@@ -66,6 +70,8 @@ func outgoingToPB(msg *OutgoingMessage) *PBOutgoingMessage {
 		IsFolder:           msg.IsFolder,
 		OriginalFolderName: msg.OriginalFolderName,
 		IsMultipleFiles:    msg.IsMultipleFiles,
+		EncryptedMetadata:  msg.EncryptedMetadata,
+		MetadataIv:         msg.MetadataIV,
 	}
 }
 
@@ -91,6 +97,8 @@ func pbToOutgoing(pb *PBOutgoingMessage) *OutgoingMessage {
 		IsFolder:           pb.IsFolder,
 		OriginalFolderName: pb.OriginalFolderName,
 		IsMultipleFiles:    pb.IsMultipleFiles,
+		EncryptedMetadata:  pb.EncryptedMetadata,
+		MetadataIV:         pb.MetadataIv,
 	}
 }
 

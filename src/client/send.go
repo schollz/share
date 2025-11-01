@@ -190,15 +190,32 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 				defer file.Close()
 
-				// Send file_start message with folder metadata
-				fileStartMsg := map[string]interface{}{
-					"type":       "file_start",
-					"name":       fileName,
-					"total_size": fileSize,
+				// Create encrypted metadata
+				metadata := FileMetadata{
+					Name:      fileName,
+					TotalSize: fileSize,
 				}
 				if isFolder {
-					fileStartMsg["is_folder"] = true
-					fileStartMsg["original_folder_name"] = originalFolderName
+					metadata.IsFolder = true
+					metadata.OriginalFolderName = originalFolderName
+				}
+
+				// Marshal and encrypt metadata
+				metadataJSON, err := MarshalMetadata(metadata)
+				if err != nil {
+					log.Fatalf("Failed to marshal metadata: %v", err)
+				}
+
+				metadataIV, encryptedMetadata, err := crypto.EncryptAESGCM(sharedSecret, metadataJSON)
+				if err != nil {
+					log.Fatalf("Failed to encrypt metadata: %v", err)
+				}
+
+				// Send file_start message with encrypted metadata only
+				fileStartMsg := map[string]interface{}{
+					"type":               "file_start",
+					"encrypted_metadata": base64.StdEncoding.EncodeToString(encryptedMetadata),
+					"metadata_iv":        base64.StdEncoding.EncodeToString(metadataIV),
 				}
 				sendProtobufMessage(conn, fileStartMsg)
 

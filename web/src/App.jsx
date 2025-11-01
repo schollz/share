@@ -102,6 +102,8 @@ message PBIncomingMessage {
   bool is_folder = 17;
   string original_folder_name = 18;
   bool is_multiple_files = 19;
+  string encrypted_metadata = 20;
+  string metadata_iv = 21;
 }
 
 message PBOutgoingMessage {
@@ -124,6 +126,8 @@ message PBOutgoingMessage {
   bool is_folder = 17;
   string original_folder_name = 18;
   bool is_multiple_files = 19;
+  string encrypted_metadata = 20;
+  string metadata_iv = 21;
 }
 `;
 
@@ -181,6 +185,12 @@ function encodeProtobuf(obj) {
     if (obj.is_multiple_files !== undefined && obj.is_multiple_files !== null) {
         pbMessage.isMultipleFiles = obj.is_multiple_files;
     }
+    if (obj.encrypted_metadata !== undefined && obj.encrypted_metadata !== null && obj.encrypted_metadata !== "") {
+        pbMessage.encryptedMetadata = obj.encrypted_metadata;
+    }
+    if (obj.metadata_iv !== undefined && obj.metadata_iv !== null && obj.metadata_iv !== "") {
+        pbMessage.metadataIv = obj.metadata_iv;
+    }
 
     const message = pbIncomingMessage.create(pbMessage);
     return pbIncomingMessage.encode(message).finish();
@@ -209,7 +219,9 @@ function decodeProtobuf(buffer) {
         error: message.error,
         is_folder: message.isFolder || false,
         original_folder_name: message.originalFolderName || null,
-        is_multiple_files: message.isMultipleFiles || false
+        is_multiple_files: message.isMultipleFiles || false,
+        encrypted_metadata: message.encryptedMetadata || null,
+        metadata_iv: message.metadataIv || null
     };
 }
 
@@ -593,17 +605,49 @@ export default function App() {
                     return;
                 }
 
-                fileNameRef.current = msg.name;
-                fileTotalSizeRef.current = msg.total_size;
+                // Try to use encrypted metadata first (zero-knowledge)
+                let fileName, totalSize, isFolder, originalFolderName, isMultipleFiles;
+                
+                if (msg.encrypted_metadata && msg.metadata_iv) {
+                    try {
+                        // Decrypt metadata
+                        const metadataIV = base64ToUint8(msg.metadata_iv);
+                        const encryptedMetadata = base64ToUint8(msg.encrypted_metadata);
+                        const metadataBytes = await decryptBytes(aesKeyRef.current, metadataIV, encryptedMetadata);
+                        const metadataJSON = new TextDecoder().decode(metadataBytes);
+                        const metadata = JSON.parse(metadataJSON);
+
+                        // Use decrypted metadata
+                        fileName = metadata.name;
+                        totalSize = metadata.total_size;
+                        isFolder = metadata.is_folder || false;
+                        originalFolderName = metadata.original_folder_name || null;
+                        isMultipleFiles = metadata.is_multiple_files || false;
+                    } catch (err) {
+                        console.error("Failed to decrypt metadata:", err);
+                        log("Failed to decrypt metadata");
+                        return;
+                    }
+                } else {
+                    // Fallback to legacy plain text fields for backward compatibility
+                    fileName = msg.name;
+                    totalSize = msg.total_size;
+                    isFolder = msg.is_folder || false;
+                    originalFolderName = msg.original_folder_name || null;
+                    isMultipleFiles = msg.is_multiple_files || false;
+                }
+
+                fileNameRef.current = fileName;
+                fileTotalSizeRef.current = totalSize;
                 fileChunksRef.current = [];
                 receivedBytesRef.current = 0;
                 downloadStartTimeRef.current = Date.now();
-                isFolderRef.current = msg.is_folder || false;
-                originalFolderNameRef.current = msg.original_folder_name || null;
+                isFolderRef.current = isFolder;
+                originalFolderNameRef.current = originalFolderName;
 
-                const displayName = isFolderRef.current ? originalFolderNameRef.current : msg.name;
+                const displayName = isFolderRef.current ? originalFolderNameRef.current : fileName;
                 const typeLabel = isFolderRef.current ? "folder" : "file";
-                log(`Incoming encrypted ${typeLabel}: ${displayName} (${formatBytes(msg.total_size)})`);
+                log(`Incoming encrypted ${typeLabel}: ${displayName} (${formatBytes(totalSize)})`);
                 setDownloadProgress({ percent: 0, speed: 0, eta: 0, startTime: downloadStartTimeRef.current, fileName: displayName });
                 return;
             }
@@ -842,19 +886,30 @@ export default function App() {
             const typeLabel = isFolder ? "folder" : isMultipleFiles ? "files" : "file";
             log(`Streaming ${typeLabel} "${displayName}" (${formatBytes(fileToSend.size)})`);
 
-            // Send file_start message with metadata
-            const fileStartMsg = {
-                type: "file_start",
+            // Create metadata object
+            const metadata = {
                 name: fileToSend.name,
                 total_size: fileToSend.size
             };
 
             if (isFolder) {
-                fileStartMsg.is_folder = true;
-                fileStartMsg.original_folder_name = originalFolderName;
+                metadata.is_folder = true;
+                metadata.original_folder_name = originalFolderName;
             } else if (isMultipleFiles) {
-                fileStartMsg.is_multiple_files = true;
+                metadata.is_multiple_files = true;
             }
+
+            // Encrypt metadata
+            const metadataJSON = JSON.stringify(metadata);
+            const metadataBytes = new TextEncoder().encode(metadataJSON);
+            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } = await encryptBytes(aesKeyRef.current, metadataBytes);
+
+            // Send file_start message with encrypted metadata only
+            const fileStartMsg = {
+                type: "file_start",
+                encrypted_metadata: uint8ToBase64(encryptedMetadataBytes),
+                metadata_iv: uint8ToBase64(metadataIV)
+            };
 
             sendMsg(fileStartMsg);
 
