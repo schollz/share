@@ -424,6 +424,8 @@ export default function App() {
     const [downloadProgress, setDownloadProgress] = useState(null);
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
+    const [showDownloadConfirmModal, setShowDownloadConfirmModal] = useState(false);
+    const [pendingDownload, setPendingDownload] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [roomIdError, setRoomIdError] = useState(null);
 
@@ -787,18 +789,18 @@ export default function App() {
 
                     const blob = new Blob([plainBytes], { type: isFolderRef.current ? "application/zip" : "application/octet-stream" });
                     const url = URL.createObjectURL(blob);
-                    setDownloadUrl(url);
-                    setDownloadName(downloadFileName);
-
-                    // auto trigger browser download
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = downloadFileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-
+                    
                     const typeLabel = isFolderRef.current ? "folder" : "file";
+                    
+                    // Store pending download and show confirmation modal
+                    setPendingDownload({
+                        url: url,
+                        name: downloadFileName,
+                        size: formatBytes(totalLen),
+                        type: typeLabel
+                    });
+                    setShowDownloadConfirmModal(true);
+                    
                     log(`Decrypted and prepared download "${downloadFileName}" (${typeLabel})`);
                 } catch (err) {
                     console.error(err);
@@ -1218,6 +1220,37 @@ export default function App() {
         });
     }
 
+    // Handler to confirm and trigger file download
+    function handleConfirmDownload() {
+        if (!pendingDownload) return;
+        
+        // Trigger browser download
+        const a = document.createElement("a");
+        a.href = pendingDownload.url;
+        a.download = pendingDownload.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        // Update state
+        setDownloadUrl(pendingDownload.url);
+        setDownloadName(pendingDownload.name);
+        setShowDownloadConfirmModal(false);
+        
+        log(`Download started: "${pendingDownload.name}"`);
+    }
+    
+    // Handler to cancel file download
+    function handleCancelDownload() {
+        if (pendingDownload) {
+            // Clean up the blob URL to free memory
+            URL.revokeObjectURL(pendingDownload.url);
+            setPendingDownload(null);
+        }
+        setShowDownloadConfirmModal(false);
+        log("Download cancelled");
+    }
+
     useEffect(() => {
         return () => {
             if (wsRef.current && wsRef.current.readyState === 1) {
@@ -1475,6 +1508,48 @@ export default function App() {
                         >
                             Close
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Download Confirmation Modal */}
+            {showDownloadConfirmModal && pendingDownload && (
+                <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] flex items-center justify-center z-50 p-4">
+                    <div
+                        className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-4 text-center">DOWNLOAD FILE?</h2>
+                        <div className="bg-gray-200 border-2 sm:border-4 border-black p-4 mb-4">
+                            <p className="text-sm sm:text-base font-bold mb-2">
+                                <span className="uppercase">Name:</span> {pendingDownload.name}
+                            </p>
+                            <p className="text-sm sm:text-base font-bold mb-2">
+                                <span className="uppercase">Type:</span> {pendingDownload.type}
+                            </p>
+                            <p className="text-sm sm:text-base font-bold">
+                                <span className="uppercase">Size:</span> {pendingDownload.size}
+                            </p>
+                        </div>
+                        <p className="text-sm sm:text-base font-bold mb-6 text-center">
+                            Do you want to download this {pendingDownload.type}?
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                            <button
+                                type="button"
+                                onClick={handleCancelDownload}
+                                className="flex-1 border-2 sm:border-4 border-black bg-white text-black px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-200 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDownload}
+                                className="flex-1 border-2 sm:border-4 border-black bg-black text-white px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-900 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                            >
+                                Download
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
