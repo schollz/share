@@ -99,6 +99,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 	var bar *progressbar.ProgressBar
 	var outputFile *os.File
 	var isFolder bool
+	var isMultipleFiles bool
 	var originalFolderName string
 	var tempZipPath string
 
@@ -154,6 +155,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			totalSize = msg.TotalSize
 			receivedBytes = 0
 			isFolder = msg.IsFolder
+			isMultipleFiles = msg.IsMultipleFiles
 			originalFolderName = msg.OriginalFolderName
 
 			var outputPath string
@@ -223,41 +225,106 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			bar.Finish()
 			outputFile.Close()
 
-			if isFolder {
-				// Extract the folder
-				fmt.Println("Extracting folder...")
+			// Check if this is a zip file (folder, multiple files, or ends with .zip)
+			isZipFile := isFolder || isMultipleFiles || strings.HasSuffix(strings.ToLower(fileName), ".zip")
 
-				// Create target directory
-				extractDir := filepath.Join(outputDir, sanitizeFileName(originalFolderName))
+			if isZipFile {
+				// Extract the zip file
+				if isFolder {
+					fmt.Println("Extracting folder...")
+				} else if isMultipleFiles {
+					fmt.Println("Extracting files...")
+				} else {
+					fmt.Println("Extracting zip file...")
+				}
 
-				// Check if directory exists
-				if _, err := os.Stat(extractDir); err == nil {
-					if !forceOverwrite {
-						fmt.Printf("Directory '%s' already exists. Overwrite? (Y/n): ", extractDir)
-						reader := bufio.NewReader(os.Stdin)
-						response, err := reader.ReadString('\n')
-						if err != nil || strings.TrimSpace(response) != "Y" {
-							fmt.Println("Folder extraction cancelled.")
-							os.Remove(tempZipPath) // Clean up zip file
-							return
-						}
+				zipPath := filepath.Join(outputDir, fileName)
+
+				// Determine where to extract
+				var extractDir string
+				if isMultipleFiles {
+					// Extract directly to outputDir for multiple files
+					extractDir = outputDir
+				} else {
+					// Determine extraction directory name
+					var extractDirName string
+					if isFolder && originalFolderName != "" {
+						extractDirName = sanitizeFileName(originalFolderName)
+					} else {
+						// Remove .zip extension from filename
+						extractDirName = strings.TrimSuffix(fileName, ".zip")
+						extractDirName = sanitizeFileName(extractDirName)
 					}
-					// Remove existing directory
-					os.RemoveAll(extractDir)
+					extractDir = filepath.Join(outputDir, extractDirName)
+
+					// Check if directory exists
+					if _, err := os.Stat(extractDir); err == nil {
+						if !forceOverwrite {
+							fmt.Printf("Directory '%s' already exists. Overwrite? (Y/n): ", extractDir)
+							reader := bufio.NewReader(os.Stdin)
+							response, err := reader.ReadString('\n')
+							if err != nil || strings.TrimSpace(response) != "Y" {
+								fmt.Println("Extraction cancelled.")
+								fmt.Printf("Zip file saved as: %s\n", zipPath)
+								return
+							}
+						}
+						// Remove existing directory
+						os.RemoveAll(extractDir)
+					}
 				}
 
-				// Extract the zip
-				err := ExtractZipToDirectory(tempZipPath, outputDir)
+				// Extract the zip and get list of extracted files
+				// For multiple files, strip the root folder from the zip
+				var extractedFiles []string
+				var err error
+				if isMultipleFiles {
+					extractedFiles, err = ExtractZipToDirectoryWithOptions(zipPath, outputDir, true)
+				} else {
+					extractedFiles, err = ExtractZipToDirectory(zipPath, outputDir)
+				}
 				if err != nil {
-					log.Fatalf("Failed to extract folder: %v", err)
+					log.Fatalf("Failed to extract zip: %v", err)
 				}
 
-				// Delete temp zip file
-				os.Remove(tempZipPath)
+				// Delete zip file after successful extraction
+				os.Remove(zipPath)
 
-				// Count extracted files
-				fileCount, _ := CountFilesInDirectory(extractDir)
-				fmt.Printf("Folder received: %s (%d files, %s)\n", extractDir, fileCount, formatBytes(totalSize))
+				// Show appropriate message based on type
+				if isFolder {
+					// For folders, just show simple message
+					fileCount, _ := CountFilesInDirectory(extractDir)
+					fmt.Printf("Folder received: %s (%d files, %s)\n", extractDir, fileCount, formatBytes(totalSize))
+				} else if isMultipleFiles {
+					// For multiple files, list the extracted files
+					if len(extractedFiles) > 0 {
+						fmt.Printf("\nExtracted %d file(s):\n", len(extractedFiles))
+						for _, file := range extractedFiles {
+							// Show relative path from output directory
+							relPath, err := filepath.Rel(outputDir, file)
+							if err != nil || relPath == "" {
+								// Fallback to just the basename if relative path fails
+								relPath = filepath.Base(file)
+							}
+							fmt.Printf("  - %s\n", relPath)
+						}
+					} else {
+						fmt.Printf("Extracted %d files (%s)\n", len(extractedFiles), formatBytes(totalSize))
+					}
+				} else {
+					// For other .zip files, list extracted files with subdirectory
+					if len(extractedFiles) > 0 {
+						fmt.Printf("\nExtracted %d file(s) to %s:\n", len(extractedFiles), extractDir)
+						for _, file := range extractedFiles {
+							// Show relative path from extract directory
+							relPath, _ := filepath.Rel(extractDir, file)
+							fmt.Printf("  - %s\n", relPath)
+						}
+					} else {
+						fileCount, _ := CountFilesInDirectory(extractDir)
+						fmt.Printf("Extracted: %s (%d files, %s)\n", extractDir, fileCount, formatBytes(totalSize))
+					}
+				}
 			} else {
 				outputPath := filepath.Join(outputDir, fileName)
 				fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(totalSize))

@@ -19,6 +19,7 @@ message PBIncomingMessage {
   int64 total_size = 11;
   bool is_folder = 17;              // Indicates original input was a folder
   string original_folder_name = 18; // Original folder name (before zipping)
+  bool is_multiple_files = 19;      // Indicates multiple individual files sent together
 }
 
 // PBOutgoingMessage represents messages sent by the relay server to clients
@@ -41,4 +42,5 @@ message PBOutgoingMessage {
   string error = 16;
   bool is_folder = 17;              // Indicates original input was a folder
   string original_folder_name = 18; // Original folder name (before zipping)
+  bool is_multiple_files = 19;      // Indicates multiple individual files sent together
 }

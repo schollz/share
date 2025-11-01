@@ -40,6 +40,7 @@ func pbToIncoming(pb *PBIncomingMessage) *IncomingMessage {
 		TotalSize:          pb.TotalSize,
 		IsFolder:           pb.IsFolder,
 		OriginalFolderName: pb.OriginalFolderName,
+		IsMultipleFiles:    pb.IsMultipleFiles,
 	}
 }
 
@@ -64,6 +65,7 @@ func outgoingToPB(msg *OutgoingMessage) *PBOutgoingMessage {
 		Error:              msg.Error,
 		IsFolder:           msg.IsFolder,
 		OriginalFolderName: msg.OriginalFolderName,
+		IsMultipleFiles:    msg.IsMultipleFiles,
 	}
 }
 
@@ -88,6 +90,7 @@ func pbToOutgoing(pb *PBOutgoingMessage) *OutgoingMessage {
 		Error:              pb.Error,
 		IsFolder:           pb.IsFolder,
 		OriginalFolderName: pb.OriginalFolderName,
+		IsMultipleFiles:    pb.IsMultipleFiles,
 	}
 }
 
