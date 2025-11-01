@@ -149,3 +149,10 @@ tmp.zip
 *.wav
 *.deb
 
+# Playwright
+playwright-report/
+test-results/
+tests/**/test-*.txt
+tests/**/downloaded-*.txt
+tests/cli-output/
+

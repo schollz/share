@@ -16,6 +16,7 @@
         "react-dom": "^19.2.0"
     },
     "devDependencies": {
+        "@playwright/test": "^1.56.1",
         "@tailwindcss/postcss": "^4.1.16",
         "@vitejs/plugin-react": "^5.1.0",
         "postcss": "^8.5.6",
