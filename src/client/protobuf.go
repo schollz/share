@@ -41,9 +41,6 @@ func sendProtobufMessage(conn *websocket.Conn, msg map[string]interface{}) error
 	if v, ok := msg["metadata_iv"].(string); ok {
 		pbMsg.MetadataIv = v
 	}
-	if v, ok := msg["file_hash"].(string); ok {
-		pbMsg.FileHash = v
-	}
 
 	data, err := proto.Marshal(pbMsg)
 	if err != nil {
@@ -84,7 +81,6 @@ func receiveProtobufMessage(conn *websocket.Conn) (*relay.OutgoingMessage, error
 			Error:             pbMsg.Error,
 			EncryptedMetadata: pbMsg.EncryptedMetadata,
 			MetadataIV:        pbMsg.MetadataIv,
-			FileHash:          pbMsg.FileHash,
 		}, nil
 	}
 

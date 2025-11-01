@@ -42,7 +42,6 @@ type IncomingMessage struct {
 	ChunkNum          int    `json:"chunk_num,omitempty"`
 	EncryptedMetadata string `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
 	MetadataIV        string `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
-	FileHash          string `json:"file_hash,omitempty"`          // SHA256 hash (reserved for future use)
 }
 
 type OutgoingMessage struct {
@@ -61,7 +60,6 @@ type OutgoingMessage struct {
 	Error             string   `json:"error,omitempty"`
 	EncryptedMetadata string   `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
 	MetadataIV        string   `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
-	FileHash          string   `json:"file_hash,omitempty"`          // SHA256 hash (reserved for future use)
 }
 
 var (

@@ -34,7 +34,6 @@ type PBIncomingMessage struct {
 	ChunkNum          int32                  `protobuf:"varint,10,opt,name=chunk_num,json=chunkNum,proto3" json:"chunk_num,omitempty"`
 	EncryptedMetadata string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"` // Encrypted metadata (name, total_size, is_folder, etc.)
 	MetadataIv        string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                      // IV for encrypted_metadata
-	FileHash          string                 `protobuf:"bytes,22,opt,name=file_hash,json=fileHash,proto3" json:"file_hash,omitempty"`                            // SHA256 hash of the file
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -139,13 +138,6 @@ func (x *PBIncomingMessage) GetMetadataIv() string {
 	return ""
 }
 
-func (x *PBIncomingMessage) GetFileHash() string {
-	if x != nil {
-		return x.FileHash
-	}
-	return ""
-}
-
 // PBOutgoingMessage represents messages sent by the relay server to clients
 type PBOutgoingMessage struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
@@ -164,7 +156,6 @@ type PBOutgoingMessage struct {
 	Error             string                 `protobuf:"bytes,16,opt,name=error,proto3" json:"error,omitempty"`
 	EncryptedMetadata string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"` // Encrypted metadata (name, total_size, is_folder, etc.)
 	MetadataIv        string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                      // IV for encrypted_metadata
-	FileHash          string                 `protobuf:"bytes,22,opt,name=file_hash,json=fileHash,proto3" json:"file_hash,omitempty"`                            // SHA256 hash of the file
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -304,18 +295,11 @@ func (x *PBOutgoingMessage) GetMetadataIv() string {
 	return ""
 }
 
-func (x *PBOutgoingMessage) GetFileHash() string {
-	if x != nil {
-		return x.FileHash
-	}
-	return ""
-}
-
 var File_src_relay_messages_proto protoreflect.FileDescriptor
 
 const file_src_relay_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x18src/relay/messages.proto\x12\x05relay\"\xca\x02\n" +
+	"\x18src/relay/messages.proto\x12\x05relay\"\xad\x02\n" +
 	"\x11PBIncomingMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x17\n" +
 	"\aroom_id\x18\x02 \x01(\tR\x06roomId\x12\x1b\n" +
@@ -329,8 +313,7 @@ const file_src_relay_messages_proto_rawDesc = "" +
 	" \x01(\x05R\bchunkNum\x12-\n" +
 	"\x12encrypted_metadata\x18\x14 \x01(\tR\x11encryptedMetadata\x12\x1f\n" +
 	"\vmetadata_iv\x18\x15 \x01(\tR\n" +
-	"metadataIv\x12\x1b\n" +
-	"\tfile_hash\x18\x16 \x01(\tR\bfileHash\"\xb8\x03\n" +
+	"metadataIv\"\x9b\x03\n" +
 	"\x11PBOutgoingMessage\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
 	"\x04from\x18\x02 \x01(\tR\x04from\x12\x1a\n" +
@@ -349,8 +332,7 @@ const file_src_relay_messages_proto_rawDesc = "" +
 	"\x05error\x18\x10 \x01(\tR\x05error\x12-\n" +
 	"\x12encrypted_metadata\x18\x14 \x01(\tR\x11encryptedMetadata\x12\x1f\n" +
 	"\vmetadata_iv\x18\x15 \x01(\tR\n" +
-	"metadataIv\x12\x1b\n" +
-	"\tfile_hash\x18\x16 \x01(\tR\bfileHashB$Z\"github.com/schollz/share/src/relayb\x06proto3"
+	"metadataIvB$Z\"github.com/schollz/share/src/relayb\x06proto3"
 
 var (
 	file_src_relay_messages_proto_rawDescOnce sync.Once

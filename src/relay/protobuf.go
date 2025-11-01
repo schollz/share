@@ -18,7 +18,6 @@ func incomingToPB(msg *IncomingMessage) *PBIncomingMessage {
 		ChunkNum:          int32(msg.ChunkNum),
 		EncryptedMetadata: msg.EncryptedMetadata,
 		MetadataIv:        msg.MetadataIV,
-		FileHash:          msg.FileHash,
 	}
 }
 
@@ -35,7 +34,6 @@ func pbToIncoming(pb *PBIncomingMessage) *IncomingMessage {
 		ChunkNum:          int(pb.ChunkNum),
 		EncryptedMetadata: pb.EncryptedMetadata,
 		MetadataIV:        pb.MetadataIv,
-		FileHash:          pb.FileHash,
 	}
 }
 
@@ -57,7 +55,6 @@ func outgoingToPB(msg *OutgoingMessage) *PBOutgoingMessage {
 		Error:             msg.Error,
 		EncryptedMetadata: msg.EncryptedMetadata,
 		MetadataIv:        msg.MetadataIV,
-		FileHash:          msg.FileHash,
 	}
 }
 
@@ -79,7 +76,6 @@ func pbToOutgoing(pb *PBOutgoingMessage) *OutgoingMessage {
 		Error:             pb.Error,
 		EncryptedMetadata: pb.EncryptedMetadata,
 		MetadataIV:        pb.MetadataIv,
-		FileHash:          pb.FileHash,
 	}
 }
 

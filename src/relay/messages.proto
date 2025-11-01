@@ -16,7 +16,6 @@ message PBIncomingMessage {
   int32 chunk_num = 10;
   string encrypted_metadata = 20;    // Encrypted metadata (name, total_size, is_folder, etc.)
   string metadata_iv = 21;           // IV for encrypted_metadata
-  string file_hash = 22;             // SHA256 hash of the file
 }
 
 // PBOutgoingMessage represents messages sent by the relay server to clients
@@ -36,5 +35,4 @@ message PBOutgoingMessage {
   string error = 16;
   string encrypted_metadata = 20;    // Encrypted metadata (name, total_size, is_folder, etc.)
   string metadata_iv = 21;           // IV for encrypted_metadata
-  string file_hash = 22;             // SHA256 hash of the file
 }
