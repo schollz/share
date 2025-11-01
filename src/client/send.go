@@ -183,6 +183,17 @@ func SendFile(filePath, roomID, serverURL string) {
 					log.Fatalf("Failed to derive shared secret: %v", err)
 				}
 
+				// Calculate file hash before sending
+				hashFile, err := os.Open(actualFilePath)
+				if err != nil {
+					log.Fatalf("Failed to open file for hashing: %v", err)
+				}
+				fileHash, err := crypto.CalculateFileHash(hashFile)
+				hashFile.Close()
+				if err != nil {
+					log.Fatalf("Failed to calculate file hash: %v", err)
+				}
+
 				// Open file for streaming
 				file, err := os.Open(actualFilePath)
 				if err != nil {
@@ -194,6 +205,7 @@ func SendFile(filePath, roomID, serverURL string) {
 				metadata := FileMetadata{
 					Name:      fileName,
 					TotalSize: fileSize,
+					Hash:      fileHash,
 				}
 				if isFolder {
 					metadata.IsFolder = true
