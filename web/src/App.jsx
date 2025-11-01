@@ -447,6 +447,17 @@ export default function App() {
     const isFolderRef = useRef(false);
     const originalFolderNameRef = useRef(null);
     const expectedHashRef = useRef(null);
+    
+    // For chunk ordering and ACK tracking
+    const receivedChunksRef = useRef(new Set());
+    const chunkBufferRef = useRef(new Map());
+    const nextExpectedChunkRef = useRef(0);
+    const lastActivityTimeRef = useRef(Date.now());
+    
+    // For sending with ACK/retransmission
+    const pendingChunksRef = useRef(new Map());
+    const ackReceivedRef = useRef(new Set());
+    const retransmitTimerRef = useRef(null);
 
     const myIconClass = mnemonicToIcon(myMnemonic);
     const peerIconClass = mnemonicToIcon(peerMnemonic);
@@ -561,6 +572,15 @@ export default function App() {
                 );
                 return;
             }
+            
+            if (msg.type === "chunk_ack") {
+                // Sender: mark chunk as acknowledged
+                const chunkNum = msg.chunk_num;
+                ackReceivedRef.current.add(chunkNum);
+                pendingChunksRef.current.delete(chunkNum);
+                lastActivityTimeRef.current = Date.now();
+                return;
+            }
 
             if (msg.type === "pubkey") {
                 const peerName = msg.mnemonic || msg.from;
@@ -616,6 +636,12 @@ export default function App() {
                 isFolderRef.current = isFolder;
                 originalFolderNameRef.current = originalFolderName;
                 expectedHashRef.current = expectedHash;
+                
+                // Reset chunk tracking
+                receivedChunksRef.current = new Set();
+                chunkBufferRef.current = new Map();
+                nextExpectedChunkRef.current = 0;
+                lastActivityTimeRef.current = Date.now();
 
                 const displayName = isFolderRef.current ? originalFolderNameRef.current : fileName;
                 const typeLabel = isFolderRef.current ? "folder" : "file";
@@ -626,15 +652,45 @@ export default function App() {
 
             if (msg.type === "file_chunk") {
                 try {
+                    const chunkNum = msg.chunk_num;
+                    
+                    // Check for duplicate chunk
+                    if (receivedChunksRef.current.has(chunkNum)) {
+                        // Send ACK again for idempotency
+                        sendMsg({ type: "chunk_ack", chunk_num: chunkNum });
+                        return;
+                    }
+                    
                     // Decrypt chunk immediately with its own IV
                     const chunkIV = base64ToUint8(msg.iv_b64);
                     const cipherChunk = base64ToUint8(msg.chunk_data);
 
                     const plainChunk = await decryptBytes(aesKeyRef.current, chunkIV, cipherChunk);
-
-                    // Store decrypted chunk
-                    fileChunksRef.current.push(plainChunk);
-                    receivedBytesRef.current += plainChunk.length;
+                    
+                    // Mark as received
+                    receivedChunksRef.current.add(chunkNum);
+                    lastActivityTimeRef.current = Date.now();
+                    
+                    // Handle chunk ordering
+                    if (chunkNum === nextExpectedChunkRef.current) {
+                        // This is the next expected chunk - add it
+                        fileChunksRef.current.push(plainChunk);
+                        receivedBytesRef.current += plainChunk.length;
+                        nextExpectedChunkRef.current++;
+                        
+                        // Check if we have buffered chunks that can now be added
+                        while (chunkBufferRef.current.has(nextExpectedChunkRef.current)) {
+                            const bufferedChunk = chunkBufferRef.current.get(nextExpectedChunkRef.current);
+                            fileChunksRef.current.push(bufferedChunk);
+                            receivedBytesRef.current += bufferedChunk.length;
+                            chunkBufferRef.current.delete(nextExpectedChunkRef.current);
+                            nextExpectedChunkRef.current++;
+                        }
+                    } else if (chunkNum > nextExpectedChunkRef.current) {
+                        // Out-of-order chunk - buffer it
+                        chunkBufferRef.current.set(chunkNum, plainChunk);
+                    }
+                    // If chunkNum < nextExpectedChunkRef.current, it's a duplicate
 
                     const elapsed = (Date.now() - downloadStartTimeRef.current) / 1000;
                     const speed = elapsed > 0 ? receivedBytesRef.current / elapsed : 0;
@@ -652,6 +708,9 @@ export default function App() {
                         startTime: downloadStartTimeRef.current,
                         fileName: fileNameRef.current
                     });
+                    
+                    // Send ACK for this chunk
+                    sendMsg({ type: "chunk_ack", chunk_num: chunkNum });
                 } catch (err) {
                     console.error("Chunk decryption failed:", err);
                     log("Chunk decryption failed");
@@ -858,6 +917,55 @@ export default function App() {
             };
 
             sendMsg(fileStartMsg);
+            
+            // Reset ACK tracking
+            pendingChunksRef.current = new Map();
+            ackReceivedRef.current = new Set();
+            lastActivityTimeRef.current = Date.now();
+            
+            // Setup retransmission logic
+            const maxRetries = 3;
+            const ackTimeout = 5000; // 5 seconds
+            const transferTimeout = 30000; // 30 seconds
+            let sendingComplete = false;
+            
+            // Start retransmission checker
+            retransmitTimerRef.current = setInterval(() => {
+                const now = Date.now();
+                
+                // Check for transfer timeout
+                if (now - lastActivityTimeRef.current > transferTimeout) {
+                    clearInterval(retransmitTimerRef.current);
+                    retransmitTimerRef.current = null;
+                    log("Transfer timeout: no activity for 30 seconds");
+                    setUploadProgress(null);
+                    return;
+                }
+                
+                // Check pending chunks for retransmission
+                for (const [chunkNum, chunkInfo] of pendingChunksRef.current.entries()) {
+                    if (now - chunkInfo.sentTime > ackTimeout) {
+                        if (chunkInfo.retries >= maxRetries) {
+                            clearInterval(retransmitTimerRef.current);
+                            retransmitTimerRef.current = null;
+                            log(`Failed to send chunk ${chunkNum} after ${maxRetries} retries`);
+                            setUploadProgress(null);
+                            return;
+                        }
+                        
+                        // Resend chunk
+                        sendMsg({
+                            type: "file_chunk",
+                            chunk_num: chunkNum,
+                            chunk_data: chunkInfo.chunkData,
+                            iv_b64: chunkInfo.ivB64
+                        });
+                        chunkInfo.sentTime = now;
+                        chunkInfo.retries++;
+                        lastActivityTimeRef.current = now;
+                    }
+                }
+            }, 500);
 
             // Stream file in chunks, encrypting each chunk individually
             const chunkSize = 256 * 1024;
@@ -875,13 +983,24 @@ export default function App() {
 
                     // Encrypt this chunk with its own IV
                     const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, value);
+                    
+                    const chunkData = uint8ToBase64(ciphertext);
+                    const ivB64 = uint8ToBase64(iv);
+                    
+                    // Track this chunk for potential retransmission
+                    pendingChunksRef.current.set(chunkNum, {
+                        chunkData: chunkData,
+                        ivB64: ivB64,
+                        sentTime: Date.now(),
+                        retries: 0
+                    });
 
                     // Send chunk with its IV
                     sendMsg({
                         type: "file_chunk",
                         chunk_num: chunkNum,
-                        chunk_data: uint8ToBase64(ciphertext),
-                        iv_b64: uint8ToBase64(iv)
+                        chunk_data: chunkData,
+                        iv_b64: ivB64
                     });
 
                     sentBytes += value.length;
@@ -895,6 +1014,7 @@ export default function App() {
                     setUploadProgress({ percent, speed, eta, startTime, fileName: displayName });
 
                     chunkNum++;
+                    lastActivityTimeRef.current = Date.now();
 
                     // Small delay to allow UI updates
                     await new Promise(resolve => setTimeout(resolve, 10));
@@ -902,9 +1022,25 @@ export default function App() {
             } finally {
                 reader.releaseLock();
             }
-
-            // Add a delay to ensure all chunks are transmitted before file_end
-            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            sendingComplete = true;
+            
+            // Wait for all chunks to be acknowledged
+            const waitStart = Date.now();
+            while (pendingChunksRef.current.size > 0) {
+                if (Date.now() - waitStart > 30000) {
+                    clearInterval(retransmitTimerRef.current);
+                    retransmitTimerRef.current = null;
+                    log("Timeout waiting for chunk acknowledgments");
+                    setUploadProgress(null);
+                    return;
+                }
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            // Stop retransmission checker
+            clearInterval(retransmitTimerRef.current);
+            retransmitTimerRef.current = null;
 
             // Send file_end message
             sendMsg({

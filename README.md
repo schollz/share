@@ -62,6 +62,19 @@ This project is created and maintained by [Zack](https://schollz.com). If you fi
 
 It works by using a simple peer-to-peer connection through a knowledge-free websocket-based relay server. All data transferred is encrypted using end-to-end encryption with ECDH P-256 key exchange and AES-GCM authenticated encryption, meaning the relay server does not have access to the data being transferred.
 
+### Reliability Features
+
+Share implements several features to ensure reliable file transfers:
+
+- **Chunk Acknowledgments**: Each data chunk is acknowledged by the receiver
+- **Automatic Retransmission**: Lost chunks are automatically retried (up to 3 attempts)
+- **Chunk Ordering**: Out-of-order chunks are buffered and reordered correctly
+- **Timeout Detection**: Transfers that stall for 30+ seconds are automatically aborted
+- **Hash Verification**: File integrity is verified using SHA-256 checksums
+- **Thread-Safe**: Concurrent operations are protected with mutexes
+
+These features ensure that transfers complete successfully even over unreliable network connections.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
