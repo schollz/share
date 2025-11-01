@@ -85,13 +85,21 @@ func SendFile(filePath, roomID, serverURL string) {
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer conn.Close()
+	
+	// Mutex to protect websocket writes
+	var connMutex sync.Mutex
+	safeSend := func(msg map[string]interface{}) {
+		connMutex.Lock()
+		defer connMutex.Unlock()
+		sendProtobufMessage(conn, msg)
+	}
 
 	joinMsg := map[string]interface{}{
 		"type":     "join",
 		"roomId":   roomID,
 		"clientId": clientID,
 	}
-	sendProtobufMessage(conn, joinMsg)
+	safeSend(joinMsg)
 
 	var sharedSecret []byte
 	var peerMnemonic string
@@ -102,7 +110,7 @@ func SendFile(filePath, roomID, serverURL string) {
 			"type": "pubkey",
 			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
 		}
-		sendProtobufMessage(conn, pubKeyMsg)
+		safeSend(pubKeyMsg)
 	}
 
 	done := make(chan bool)
@@ -238,7 +246,7 @@ func SendFile(filePath, roomID, serverURL string) {
 						"encrypted_metadata": base64.StdEncoding.EncodeToString(encryptedMetadata),
 						"metadata_iv":        base64.StdEncoding.EncodeToString(metadataIV),
 					}
-					sendProtobufMessage(conn, fileStartMsg)
+					safeSend(fileStartMsg)
 
 					// Create progress bar
 					bar := progressbar.NewOptions64(
@@ -319,7 +327,7 @@ func SendFile(filePath, roomID, serverURL string) {
 											"chunk_data": base64.StdEncoding.EncodeToString(chunk.data),
 											"iv_b64":     base64.StdEncoding.EncodeToString(chunk.iv),
 										}
-										sendProtobufMessage(conn, chunkMsg)
+										safeSend(chunkMsg)
 										chunk.sentTime = now
 										chunk.retries++
 										lastActivityTime = now
@@ -361,7 +369,7 @@ func SendFile(filePath, roomID, serverURL string) {
 								"chunk_data": base64.StdEncoding.EncodeToString(cipherChunk),
 								"iv_b64":     base64.StdEncoding.EncodeToString(iv),
 							}
-							sendProtobufMessage(conn, chunkMsg)
+							safeSend(chunkMsg)
 							bar.Add(n)
 							chunkNum++
 
@@ -403,7 +411,7 @@ func SendFile(filePath, roomID, serverURL string) {
 					fileEndMsg := map[string]interface{}{
 						"type": "file_end",
 					}
-					sendProtobufMessage(conn, fileEndMsg)
+					safeSend(fileEndMsg)
 
 					if isFolder {
 						fmt.Printf("Sent encrypted folder '%s' to %s (%s)\n", originalFolderName, peerMnemonic, formatBytes(fileSize))

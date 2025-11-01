@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
@@ -92,13 +93,21 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer conn.Close()
+	
+	// Mutex to protect websocket writes
+	var connMutex sync.Mutex
+	safeSend := func(msg map[string]interface{}) {
+		connMutex.Lock()
+		defer connMutex.Unlock()
+		sendProtobufMessage(conn, msg)
+	}
 
 	joinMsg := map[string]interface{}{
 		"type":     "join",
 		"roomId":   roomID,
 		"clientId": clientID,
 	}
-	sendProtobufMessage(conn, joinMsg)
+	safeSend(joinMsg)
 
 	var sharedSecret []byte
 	var fileName string
@@ -147,7 +156,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			"type": "pubkey",
 			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
 		}
-		sendProtobufMessage(conn, pubKeyMsg)
+		safeSend(pubKeyMsg)
 	}
 	
 	sendChunkAck := func(chunkNum int) {
@@ -155,7 +164,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			"type":      "chunk_ack",
 			"chunk_num": chunkNum,
 		}
-		sendProtobufMessage(conn, ackMsg)
+		safeSend(ackMsg)
 	}
 	
 	writeChunkToFile := func(plainChunk []byte) error {
