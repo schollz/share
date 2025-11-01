@@ -77,6 +77,14 @@ function base64ToUint8(b64) {
     return out;
 }
 
+// Calculate SHA256 hash of data
+async function calculateSHA256(data) {
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+}
+
 /* ------------------- Protobuf Message Handling ------------------- */
 
 // Protobuf schema definition
@@ -438,6 +446,7 @@ export default function App() {
     const downloadStartTimeRef = useRef(null);
     const isFolderRef = useRef(false);
     const originalFolderNameRef = useRef(null);
+    const expectedHashRef = useRef(null);
 
     const myIconClass = mnemonicToIcon(myMnemonic);
     const peerIconClass = mnemonicToIcon(peerMnemonic);
@@ -592,6 +601,7 @@ export default function App() {
                     isFolder = metadata.is_folder || false;
                     originalFolderName = metadata.original_folder_name || null;
                     isMultipleFiles = metadata.is_multiple_files || false;
+                    const expectedHash = metadata.hash || null;
                 } catch (err) {
                     console.error("Failed to decrypt metadata:", err);
                     log("Failed to decrypt metadata");
@@ -605,6 +615,7 @@ export default function App() {
                 downloadStartTimeRef.current = Date.now();
                 isFolderRef.current = isFolder;
                 originalFolderNameRef.current = originalFolderName;
+                expectedHashRef.current = expectedHash;
 
                 const displayName = isFolderRef.current ? originalFolderNameRef.current : fileName;
                 const typeLabel = isFolderRef.current ? "folder" : "file";
@@ -663,6 +674,21 @@ export default function App() {
                     for (const chunk of fileChunksRef.current) {
                         plainBytes.set(chunk, offset);
                         offset += chunk.length;
+                    }
+
+                    // Verify file hash if provided
+                    if (expectedHashRef.current) {
+                        const actualHash = await calculateSHA256(plainBytes);
+                        if (actualHash !== expectedHashRef.current) {
+                            log(`⚠️  WARNING: File hash mismatch!`);
+                            log(`   Expected: ${expectedHashRef.current}`);
+                            log(`   Received: ${actualHash}`);
+                            log(`   The file may be corrupted or tampered with.`);
+                        } else {
+                            const hashPrefix = expectedHashRef.current.substring(0, 8);
+                            const hashSuffix = expectedHashRef.current.substring(expectedHashRef.current.length - 8);
+                            log(`✓ File integrity verified (hash: ${hashPrefix}...${hashSuffix})`);
+                        }
                     }
 
                     const elapsed = (Date.now() - downloadStartTimeRef.current) / 1000;
@@ -800,10 +826,16 @@ export default function App() {
             const typeLabel = isFolder ? "folder" : isMultipleFiles ? "files" : "file";
             log(`Streaming ${typeLabel} "${displayName}" (${formatBytes(fileToSend.size)})`);
 
+            // Calculate SHA256 hash of the file
+            const fileBuffer = await fileToSend.arrayBuffer();
+            const fileHash = await calculateSHA256(fileBuffer);
+            log(`Calculated hash: ${fileHash.substring(0, 8)}...${fileHash.substring(fileHash.length - 8)}`);
+
             // Create metadata object
             const metadata = {
                 name: fileToSend.name,
-                total_size: fileToSend.size
+                total_size: fileToSend.size,
+                hash: fileHash
             };
 
             if (isFolder) {
