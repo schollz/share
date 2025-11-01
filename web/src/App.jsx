@@ -425,6 +425,7 @@ export default function App() {
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [roomIdError, setRoomIdError] = useState(null);
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -500,11 +501,32 @@ export default function App() {
         log("Derived shared AES key (E2EE ready)");
     }
 
+    function generateRandomRoomId() {
+        const adjectives = ['swift', 'bold', 'calm', 'bright', 'dark', 'warm', 'cool', 'wise', 'neat', 'wild'];
+        const nouns = ['tiger', 'eagle', 'ocean', 'mountain', 'forest', 'river', 'storm', 'star', 'moon', 'sun'];
+        const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+        const randomNumber = Math.floor(Math.random() * 100);
+        return `${randomAdjective}-${randomNoun}-${randomNumber}`;
+    }
+
     const connectToRoom = useCallback(async () => {
-        const room = roomId.trim().toLowerCase();
+        let room = roomId.trim().toLowerCase();
+
+        // Generate random room ID if empty
         if (!room) {
+            room = generateRandomRoomId();
+            setRoomId(room);
+        }
+
+        // Validate room ID length (minimum 4 characters)
+        if (room.length < 4) {
+            setRoomIdError("Room ID must be at least 4 characters. Please enter a longer room name.");
             return;
         }
+
+        // Clear any previous errors
+        setRoomIdError(null);
         setRoomId(room);
         await initKeys();
 
@@ -1287,9 +1309,12 @@ export default function App() {
                                 placeholder="ENTER ROOM ID"
                                 value={roomId}
                                 disabled={connected}
-                                onChange={(e) => setRoomId(e.target.value)}
+                                onChange={(e) => {
+                                    setRoomId(e.target.value);
+                                    setRoomIdError(null);
+                                }}
                                 onKeyDown={(e) => e.key === "Enter" && !connected && connectToRoom()}
-                                className="flex-1 border-2 sm:border-4 border-black p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 focus:ring-black"
+                                className={`flex-1 border-2 sm:border-4 p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 ${roomIdError ? 'border-red-600 focus:ring-red-600' : 'border-black focus:ring-black'}`}
                             />
                             <button
                                 onClick={connectToRoom}
@@ -1302,8 +1327,10 @@ export default function App() {
                                 {connected ? "CONNECTED" : "CONNECT"}
                             </button>
                         </div>
-                        <div className="bg-black text-white border-2 sm:border-4 border-black p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words">
-                            {connected && myMnemonic ? (
+                        <div className={`border-2 sm:border-4 border-black p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words ${roomIdError ? 'bg-red-600 text-white' : 'bg-black text-white'}`}>
+                            {roomIdError ? (
+                                <>ERROR: {roomIdError.toUpperCase()}</>
+                            ) : connected && myMnemonic ? (
                                 peerMnemonic ? (
                                     <>
                                         CONNECTED AS {myMnemonic.toUpperCase()} (
