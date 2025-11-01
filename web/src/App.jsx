@@ -891,6 +891,9 @@ export default function App() {
                 reader.releaseLock();
             }
 
+            // Add a delay to ensure all chunks are transmitted before file_end
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             // Send file_end message
             sendMsg({
                 type: "file_end"
