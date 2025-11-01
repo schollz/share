@@ -188,8 +188,16 @@ func TestSanitizeExtractPath(t *testing.T) {
 					t.Errorf("Unexpected error for path %s: %v", tt.filePath, err)
 				}
 				// Verify the result is within baseDir
-				if !strings.HasPrefix(result, baseDir) {
-					t.Errorf("Result path %s is not within base directory %s", result, baseDir)
+				// Normalize both paths to absolute for comparison
+				absBase, err := filepath.Abs(baseDir)
+				if err != nil {
+					t.Fatalf("Failed to get absolute path for baseDir: %v", err)
+				}
+				absResult := filepath.Clean(result)
+
+				// Check if result starts with base (both now absolute)
+				if !strings.HasPrefix(absResult, absBase) {
+					t.Errorf("Result path %s is not within base directory %s", absResult, absBase)
 				}
 			}
 		})
