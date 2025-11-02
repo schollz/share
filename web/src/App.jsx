@@ -1438,7 +1438,7 @@ export default function App() {
                                     </>
                                 )
                             ) : (
-                                <div className="font-black uppercase text-sm sm:text-base text-gray-600">
+                                <div className="font-black uppercase text-sm sm:text-base text-gray-900">
                                     {`WAITING FOR PEER TO JOIN ${window.location.host}/${roomId}`.toUpperCase()}
                                 </div>
                             )}

@@ -397,7 +397,9 @@ type spaHandler struct {
 func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ua := strings.ToLower(r.UserAgent())
 	logger.Info("Request received", "path", r.URL.Path, "user_agent", ua)
-	if strings.Contains(ua, "curl") && len(h.installScript) > 0 {
+	
+	// Serve install script for curl requests to root, but not for specific files like robots.txt
+	if r.URL.Path == "/" && strings.Contains(ua, "curl") && len(h.installScript) > 0 {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write(h.installScript)
 		return

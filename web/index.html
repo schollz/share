@@ -16,7 +16,23 @@
         content="file sharing, secure file transfer, end-to-end encryption, E2E encryption, peer-to-peer, P2P, encrypted file sharing, privacy, secure sharing, file transfer, AES-GCM, ECDH, zero-knowledge, CLI file transfer" />
     <meta name="author" content="Zack Scholl" />
     <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://e2ecp.com/" />
+    <link rel="canonical" href="https://e2ecp.com/" id="canonical-link" />
+    <script>
+        // Set canonical URL dynamically based on current page
+        (function() {
+            var canonicalLink = document.getElementById('canonical-link');
+            var currentPath = window.location.pathname;
+            var currentHost = window.location.protocol + '//' + window.location.host;
+            
+            // If we're on a room page (not root), set canonical to current page
+            if (currentPath !== '/' && currentPath !== '') {
+                canonicalLink.href = currentHost + currentPath;
+            } else {
+                // For root page, use the configured domain
+                canonicalLink.href = 'https://e2ecp.com/';
+            }
+        })();
+    </script>
 
     <!-- Theme Color -->
     <meta name="theme-color" content="#1a1a1a" />
