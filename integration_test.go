@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/schollz/share/src/client"
-	"github.com/schollz/share/src/relay"
+	"github.com/schollz/e2ecp/src/client"
+	"github.com/schollz/e2ecp/src/relay"
 )
 
 func TestIntegrationFileTransfer(t *testing.T) {

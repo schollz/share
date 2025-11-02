@@ -13,7 +13,7 @@ web: web/node_modules
 	touch web/dist/.keep
 
 server: web
-	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS) -extldflags '-static'" -o share .
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS) -extldflags '-static'" -o e2ecp .
 
 build: server
 
@@ -21,7 +21,7 @@ install: build
 	go install
 
 clean:
-	rm -f share
+	rm -f e2ecp
 	rm -rf web/dist
 
 test: all

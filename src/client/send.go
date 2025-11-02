@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/schollz/progressbar/v3"
-	"github.com/schollz/share/src/crypto"
-	"github.com/schollz/share/src/qrcode"
+	"github.com/schollz/e2ecp/src/crypto"
+	"github.com/schollz/e2ecp/src/qrcode"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"

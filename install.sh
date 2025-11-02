@@ -20,34 +20,34 @@ if ! command -v unzip >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "Downloading share for $OS $ARCH..."
+echo "Downloading e2ecp for $OS $ARCH..."
 
-DOWNLOAD_URL=$(curl -s https://api.github.com/repos/schollz/share/releases/latest | \
+DOWNLOAD_URL=$(curl -s https://api.github.com/repos/schollz/e2ecp/releases/latest | \
     grep 'browser_download_url' | \
-    grep "share_${OS}.zip" | \
+    grep "e2ecp_${OS}.zip" | \
     cut -d '"' -f 4 | head -n 1)
 
 if [ -z "$DOWNLOAD_URL" ]; then
-    echo "Failed to locate a release asset for share ($OS $ARCH)."
+    echo "Failed to locate a release asset for e2ecp ($OS $ARCH)."
     exit 1
 fi
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
-if ! curl -L "$DOWNLOAD_URL" -o "$TMPDIR/share.zip" --progress-bar; then
-    echo "Failed to download share."
+if ! curl -L "$DOWNLOAD_URL" -o "$TMPDIR/e2ecp.zip" --progress-bar; then
+    echo "Failed to download e2ecp."
     exit 1
 fi
 
-if ! unzip -o "$TMPDIR/share.zip" -d "$TMPDIR" >/dev/null; then
-    echo "Failed to extract share."
+if ! unzip -o "$TMPDIR/e2ecp.zip" -d "$TMPDIR" >/dev/null; then
+    echo "Failed to extract e2ecp."
     exit 1
 fi
 
-BINARY_PATH="$TMPDIR/share"
+BINARY_PATH="$TMPDIR/e2ecp"
 if [ ! -f "$BINARY_PATH" ]; then
-    echo "share binary was not found in the downloaded archive."
+    echo "e2ecp binary was not found in the downloaded archive."
     exit 1
 fi
 
@@ -64,10 +64,10 @@ else
     SUDO=""
 fi
 
-if ! $SUDO mv "$BINARY_PATH" /usr/local/bin/share; then
-    echo "Failed to install share to /usr/local/bin."
+if ! $SUDO mv "$BINARY_PATH" /usr/local/bin/e2ecp; then
+    echo "Failed to install e2ecp to /usr/local/bin."
     exit 1
 fi
 
-echo "Installed share to /usr/local/bin/share"
-/usr/local/bin/share --version || true
+echo "Installed e2ecp to /usr/local/bin/e2ecp"
+/usr/local/bin/e2ecp --version || true
