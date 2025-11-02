@@ -13,6 +13,14 @@ type gzipFileHandler struct {
 }
 
 func (g gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Check if this is a curl request - if so, let spaHandler handle it
+	// to serve the install script instead of the web UI
+	ua := strings.ToLower(r.UserAgent())
+	if strings.Contains(ua, "curl") {
+		g.handler.ServeHTTP(w, r)
+		return
+	}
+
 	// Get the path
 	path := r.URL.Path
 	if path == "/" {
