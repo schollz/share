@@ -5,7 +5,10 @@ LDFLAGS ?=
 all: build
 	@echo "Build completed at $(shell date)"
 
-web:
+web/node_modules:
+	cd web && npm install
+
+web: web/node_modules
 	cd web && npm run build
 	touch web/dist/.keep
 
@@ -20,3 +23,7 @@ install: build
 clean:
 	rm -f share
 	rm -rf web/dist
+
+test: all
+	go test -v ./...
+	cd tests && ./run-tests.sh
