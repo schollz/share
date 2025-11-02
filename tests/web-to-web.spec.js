@@ -91,8 +91,8 @@ test.describe('Web to Web Transfer', () => {
       await senderPage.goto(`${serverUrl}/${roomName}`, { waitUntil: 'networkidle', timeout: 30000 });
 
       // Wait for WebSocket connections to be established (both peers need to be connected)
-      // Look for the "SHARE" button to be enabled on sender (indicates peer connection)
-      await senderPage.waitForSelector('button:has-text("SHARE"):not([disabled])', { timeout: 15000 });
+      // Look for the "CLICK OR DROP FILES HERE" button to be enabled on sender (indicates peer connection)
+      await senderPage.waitForSelector('button:has-text("CLICK OR DROP FILES HERE"):not([disabled])', { timeout: 15000 });
       
       // Extra wait to ensure connection is stable
       await new Promise(resolve => setTimeout(resolve, 1000));

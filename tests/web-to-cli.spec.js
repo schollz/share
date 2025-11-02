@@ -111,8 +111,8 @@ test.describe('Web to CLI Transfer', () => {
       // Navigate web sender to the room
       await page.goto(`${serverUrl}/${roomName}`, { waitUntil: 'networkidle', timeout: 30000 });
 
-      // Wait for connection to be established (SHARE button enabled)
-      await page.waitForSelector('button:has-text("SHARE"):not([disabled])', { timeout: 15000 });
+      // Wait for connection to be established (CLICK OR DROP FILES HERE button enabled)
+      await page.waitForSelector('button:has-text("CLICK OR DROP FILES HERE"):not([disabled])', { timeout: 15000 });
       
       // Extra wait to ensure connection is stable
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -197,8 +197,8 @@ test.describe('Web to CLI Transfer', () => {
       // Navigate web receiver to the room first
       await page.goto(`${serverUrl}/${roomName}`, { waitUntil: 'networkidle', timeout: 30000 });
 
-      // Wait for the page to be ready (SHARE button visible means ready to receive)
-      await page.waitForSelector('button:has-text("SHARE"), div:has-text("WAITING FOR PEER")', { timeout: 15000 });
+      // Wait for the page to be ready (CLICK OR DROP FILES HERE button visible means ready to receive)
+      await page.waitForSelector('button:has-text("CLICK OR DROP FILES HERE"), div:has-text("WAITING FOR PEER")', { timeout: 15000 });
       
       // Extra wait to ensure WebSocket connection is established
       await new Promise(resolve => setTimeout(resolve, 2000));
