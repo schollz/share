@@ -20,4 +20,30 @@
   ::file-selector-button {
     border-color: var(--color-gray-200, currentcolor);
   }
+  
+  /* Override FontAwesome font-display from block to swap for better performance
+     This prevents FOIT (Flash of Invisible Text) and improves FCP/LCP metrics */
+  @font-face {
+    font-family: "Font Awesome 7 Brands";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2) format("woff2");
+  }
+  
+  @font-face {
+    font-family: "Font Awesome 7 Free";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2) format("woff2");
+  }
+  
+  @font-face {
+    font-family: "Font Awesome 7 Free";
+    font-style: normal;
+    font-weight: 900;
+    font-display: swap;
+    src: url(@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2) format("woff2");
+  }
 }
