@@ -460,7 +460,8 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 		logger.Error("Failed to access embedded files", "error", err)
 		return
 	}
-	mux.Handle("/", spaHandler{staticFS: http.FS(distFS), installScript: installScript})
+	spaHandlerInstance := spaHandler{staticFS: http.FS(distFS), installScript: installScript}
+	mux.Handle("/", newGzipFileHandler(spaHandlerInstance))
 
 	handler := cors.AllowAll().Handler(mux)
 	addr := fmt.Sprintf(":%d", port)
