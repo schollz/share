@@ -24,11 +24,15 @@
             var currentPath = window.location.pathname;
             var currentHost = window.location.protocol + '//' + window.location.host;
             
-            // If we're on a room page (not root), set canonical to current page
-            if (currentPath !== '/' && currentPath !== '') {
+            // Validate pathname - only allow alphanumeric, hyphens, and underscores
+            // This prevents injection of malicious URLs
+            var isValidPath = /^\/[a-zA-Z0-9\-_]*$/.test(currentPath);
+            
+            // If we're on a room page (not root) and path is valid, set canonical to current page
+            if (currentPath !== '/' && currentPath !== '' && isValidPath) {
                 canonicalLink.href = currentHost + currentPath;
             } else {
-                // For root page, use the configured domain
+                // For root page or invalid paths, use the configured domain
                 canonicalLink.href = 'https://e2ecp.com/';
             }
         })();
