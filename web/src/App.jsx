@@ -1499,6 +1499,17 @@ export default function App() {
                             <br />
                             <code>curl https://e2ecp.com | bash</code>
                         </p>
+                        <div className="mb-4 text-center">
+                            <a
+                                href="https://github.com/schollz/e2ecp"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-black hover:text-gray-700 transition-colors font-bold text-lg sm:text-xl"
+                                aria-label="View on GitHub"
+                            >
+                                <i className="fab fa-github text-2xl sm:text-3xl" aria-hidden="true"></i>
+                            </a>
+                        </div>
                         <button
                             type="button"
                             onClick={() => setShowAboutModal(false)}
