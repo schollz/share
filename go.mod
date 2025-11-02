@@ -1,4 +1,4 @@
-module github.com/schollz/share
+module github.com/schollz/e2ecp
 
 go 1.25
 

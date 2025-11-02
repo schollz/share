@@ -2,7 +2,7 @@ package client
 
 import (
 	"github.com/gorilla/websocket"
-	"github.com/schollz/share/src/relay"
+	"github.com/schollz/e2ecp/src/relay"
 	"google.golang.org/protobuf/proto"
 )
 

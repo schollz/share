@@ -42,16 +42,16 @@ jobs:
         run: go test -v -cover ./...
 
       - name: Verify binary
-        run: ./share --help || ./share -h || echo "Binary created successfully"
+        run: ./e2ecp --help || ./e2ecp -h || echo "Binary created successfully"
 
       - name: Zip binary (macOS)
-        run: zip -9 share_macos.zip share
+        run: zip -9 e2ecp_macos.zip e2ecp
 
       - name: Upload artifact (macOS)
         uses: actions/upload-artifact@v4
         with:
-          name: share_macos.zip
-          path: share_macos.zip
+          name: e2ecp_macos.zip
+          path: e2ecp_macos.zip
           if-no-files-found: error
 
   linux:
@@ -82,16 +82,16 @@ jobs:
         run: go test -v -cover ./...
 
       - name: Verify binary
-        run: ./share --help || ./share -h || echo "Binary created successfully"
+        run: ./e2ecp --help || ./e2ecp -h || echo "Binary created successfully"
 
       - name: Zip binary (Linux)
-        run: zip -9 share_linux.zip share
+        run: zip -9 e2ecp_linux.zip e2ecp
 
       - name: Upload artifact (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: share_linux.zip
-          path: share_linux.zip
+          name: e2ecp_linux.zip
+          path: e2ecp_linux.zip
           if-no-files-found: error
 
   windows:
@@ -128,12 +128,12 @@ jobs:
             $VERSION = 'dev'
           }
           $env:CGO_ENABLED = '0'
-          go build -ldflags "-X main.Version=$VERSION -extldflags '-static'" -o share.exe .
+          go build -ldflags "-X main.Version=$VERSION -extldflags '-static'" -o e2ecp.exe .
 
       - name: Verify binary
         shell: pwsh
         run: |
-          if (Test-Path share.exe) {
+          if (Test-Path e2ecp.exe) {
             Write-Output "Binary created successfully"
           } else {
             Write-Error "Binary not found"
@@ -142,13 +142,13 @@ jobs:
 
       - name: Zip binary (Windows)
         shell: pwsh
-        run: Compress-Archive -Path share.exe -DestinationPath share_windows.zip -Force
+        run: Compress-Archive -Path e2ecp.exe -DestinationPath e2ecp_windows.zip -Force
 
       - name: Upload artifact (Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: share_windows.zip
-          path: share_windows.zip
+          name: e2ecp_windows.zip
+          path: e2ecp_windows.zip
           if-no-files-found: error
 
   e2e-tests:
@@ -210,8 +210,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/share_macos.zip
-            dist/share_linux.zip
-            dist/share_windows.zip
+            dist/e2ecp_macos.zip
+            dist/e2ecp_linux.zip
+            dist/e2ecp_windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

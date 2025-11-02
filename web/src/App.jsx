@@ -1264,7 +1264,7 @@ export default function App() {
 
     // Update page title based on room
     useEffect(() => {
-        document.title = roomId ? `SHARE · ${roomId.toUpperCase()}` : "SHARE";
+        document.title = roomId ? `e2ecp · ${roomId.toUpperCase()}` : "e2ecp";
     }, [roomId]);
 
     // Auto-focus room input on page load if no room in URL
@@ -1280,19 +1280,21 @@ export default function App() {
                 {/* Header */}
                 <div className="bg-black text-white border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 flex items-start justify-between gap-4" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)', boxShadow: '4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black' }}>
                     <div className="flex-1">
-                        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black mb-2 sm:mb-4 uppercase tracking-tight">
-                            <a href="/" className="text-white no-underline cursor-pointer hover:text-white hover:underline">SHARE</a>
-                        </h1>
-                        <p className="flex items-center gap-2 text-sm sm:text-lg md:text-xl font-bold leading-tight">
-                            <a href="https://github.com/schollz/share" target="_blank" rel="noopener noreferrer" className="text-white no-underline cursor-pointer hover:text-white hover:underline">E2EE FILE TRANSFER</a>
+                        <div className="flex items-start gap-3 mb-2 sm:mb-3">
+                            <h1 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight">
+                                <a href="/" className="text-white no-underline cursor-pointer hover:text-white hover:underline">e2ecp</a>
+                            </h1>
                             <button
                                 type="button"
                                 onClick={() => setShowAboutModal(true)}
-                                className="inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer"
-                                aria-label="About Share"
+                                className="inline-flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer text-base sm:text-lg font-bold flex-shrink-0 mt-0.5 sm:mt-1"
+                                aria-label="About e2ecp"
                             >
                                 ?
                             </button>
+                        </div>
+                        <p className="text-sm sm:text-lg md:text-xl font-bold leading-tight mb-2 sm:mb-3">
+                            TRANSFER FILES OR FOLDERS BETWEEN MACHINES
                         </p>
                         {myMnemonic && (
                             <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
@@ -1335,7 +1337,7 @@ export default function App() {
                             <input
                                 ref={roomInputRef}
                                 type="text"
-                                placeholder="ENTER ROOM ID"
+                                placeholder="ENTER ROOM ID OR PRESS CONNECT"
                                 value={roomId}
                                 disabled={connected}
                                 onChange={(e) => {
@@ -1429,9 +1431,9 @@ export default function App() {
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={!hasAesKey}
-                                            className="block w-full border-2 border-black p-4 font-black uppercase cursor-pointer hover:bg-gray-100 transition-colors text-base sm:text-lg disabled:cursor-not-allowed disabled:bg-gray-400"
+                                            className="block w-full border-2 border-black p-4 font-black uppercase cursor-pointer hover:bg-gray-100 transition-colors text-sm sm:text-base md:text-lg disabled:cursor-not-allowed disabled:bg-gray-400"
                                         >
-                                            SHARE
+                                            CLICK OR DROP FILES HERE
                                         </button>
                                     </>
                                 )
@@ -1488,14 +1490,14 @@ export default function App() {
                         className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-3 text-center">WHAT IS SHARE?</h2>
+                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-3 text-center">WHAT IS e2ecp?</h2>
                         <p className="text-sm sm:text-base font-bold mb-3 text-center">
-                            Share allows two computers to share files with end-to-end encryption via a zero-knowledge relay.
+                            e2ecp allows two computers to transfer files with end-to-end encryption via a zero-knowledge relay.
                         </p>
                         <p className="text-sm sm:text-base font-bold mb-4 text-center">
-                            Use the CLI to swap files between web or terminals:
+                            Use the CLI to transfer files between web or terminals:
                             <br />
-                            <code>curl https://share.schollz.com | bash</code>
+                            <code>curl https://e2ecp.com | bash</code>
                         </p>
                         <button
                             type="button"

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/schollz/share/src/crypto"
+	"github.com/schollz/e2ecp/src/crypto"
 )
 
 func TestMetadataEncryptionDecryption(t *testing.T) {

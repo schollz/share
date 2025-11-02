@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/schollz/share/src/client"
-	"github.com/schollz/share/src/relay"
+	"github.com/schollz/e2ecp/src/client"
+	"github.com/schollz/e2ecp/src/relay"
 
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
@@ -27,7 +27,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "share",
+	Use:     "e2ecp",
 	Short:   "Secure E2E encrypted file transfer",
 	Long:    "Zero-knowledge relay for end-to-end encrypted file transfers using ECDH + AES-GCM",
 	Version: Version,
@@ -167,7 +167,7 @@ func createLogger(level string) *slog.Logger {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
-	rootCmd.PersistentFlags().StringVar(&domain, "domain", "https://share.schollz.com", "Domain name for the server")
+	rootCmd.PersistentFlags().StringVar(&domain, "domain", "https://e2ecp.com", "Domain name for the server")
 
 	serveCmd.Flags().IntP("port", "p", 3001, "Port to listen on")
 	serveCmd.Flags().Int("max-rooms", 10, "Maximum number of concurrent rooms allowed on the server")

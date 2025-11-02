@@ -3,32 +3,32 @@
     <img width="600" alt="share-screenshot" src="https://github.com/user-attachments/assets/5c16e293-ce95-4f97-98a3-edae69a8c825" />
   </a>
   <br>
-  <a href="https://github.com/schollz/share/releases/latest">
-    <img src="https://img.shields.io/github/v/release/schollz/share" alt="Version">
+  <a href="https://github.com/schollz/e2ecp/releases/latest">
+    <img src="https://img.shields.io/github/v/release/schollz/e2ecp" alt="Version">
   </a>
-  <a href="https://github.com/schollz/share/actions/workflows/build.yml">
-    <img src="https://github.com/schollz/share/actions/workflows/build.yml/badge.svg" alt="Build Status">
+  <a href="https://github.com/schollz/e2ecp/actions/workflows/build.yml">
+    <img src="https://github.com/schollz/e2ecp/actions/workflows/build.yml/badge.svg" alt="Build Status">
   </a>
   <a href="https://github.com/sponsors/schollz">
     <img src="https://img.shields.io/github/sponsors/schollz" alt="GitHub Sponsors">
   </a>
 </p>
 
-Share files between machines through the web, through a CLI, or both.
+Transfer files between machines through the web, through a CLI, or both.
 
 
 ## Usage
 
-Goto https://share.schollz.com and enter a room. Have another peer enter the same room to share files between the two.
+Goto https://e2ecp.com and enter a room. Have another peer enter the same room to transfer files between the two.
 
 ### Command-line Interface
 
 Optionally, you can also transfer files via the command-line between machines (through website or direct CLI-to-CLI).
 
-Either download the [latest release](https://github.com/schollz/share/releases/latest) or install with:
+Either download the [latest release](https://github.com/schollz/e2ecp/releases/latest) or install with:
 
 ```bash
-curl https://share.schollz.com | bash
+curl https://e2ecp.com | bash
 ```
 
 Or build from source with `make server`.
@@ -38,13 +38,13 @@ Then you can also send and receive files from the command-line between other com
 **Sending a file:**
 
 ```bash
-share send <file>
+e2ecp send <file>
 ```
 
 **Receiving a file:**
 
-```bash 
-share receive
+```bash
+e2ecp receive
 ```
 
 ### Run your own relay server
@@ -52,7 +52,7 @@ share receive
 You can run your own relay server if you want to self-host.
 
 ```bash
-share serve --port 8080
+e2ecp serve --port 8080
 ```
 
 
@@ -64,7 +64,7 @@ It works by using a simple peer-to-peer connection through a knowledge-free webs
 
 ### Reliability Features
 
-Share implements several features to ensure reliable file transfers:
+e2ecp implements several features to ensure reliable file transfers:
 
 - **Chunk Acknowledgments**: Each data chunk is acknowledged by the receiver
 - **Automatic Retransmission**: Lost chunks are automatically retried (up to 3 attempts)
@@ -77,7 +77,7 @@ These features ensure that transfers complete successfully even over unreliable 
 
 ## Testing
 
-Share includes comprehensive test suites to ensure reliability:
+e2ecp includes comprehensive test suites to ensure reliability:
 
 ### Unit and Integration Tests
 Run Go tests for the core functionality:
