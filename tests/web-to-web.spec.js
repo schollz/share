@@ -20,7 +20,7 @@ test.describe('Web to Web Transfer', () => {
     serverPort = 8080 + Math.floor(Math.random() * 1000); // Random port to avoid conflicts
     
     return new Promise((resolve, reject) => {
-      relayServer = spawn('./share', ['serve', '--port', serverPort.toString()], {
+      relayServer = spawn('./e2ecp', ['serve', '--port', serverPort.toString()], {
         cwd: path.join(__dirname, '..'),
       });
 

@@ -6,7 +6,7 @@ This directory contains Playwright tests for the Share application, testing both
 
 1. **Build the Share binary**: 
    ```bash
-   cd /path/to/share
+   cd /path/to/e2ecp
    cd web && npm install
    make build
    ```
@@ -46,7 +46,7 @@ cd tests
 ```
 
 This script will:
-- Check if the share binary exists (and build it if needed)
+- Check if the e2ecp binary exists (and build it if needed)
 - Install test dependencies
 - Install Playwright browsers if needed
 - Run all Playwright tests
@@ -116,9 +116,9 @@ npx playwright install chromium
 Tests use random ports (8080+ range) to avoid conflicts. If you still have issues, ensure no other services are using these ports.
 
 ### Server not starting
-Make sure the `share` binary exists in the root directory:
+Make sure the `e2ecp` binary exists in the root directory:
 ```bash
-ls -la ../share
+ls -la ../e2ecp
 ```
 
 If it doesn't exist, build it:

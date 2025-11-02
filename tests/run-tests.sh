@@ -11,8 +11,8 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 echo "=== Share Playwright Test Runner ==="
 echo ""
 
-# Step 1: Check if share binary exists
-if [ ! -f "$ROOT_DIR/share" ]; then
+# Step 1: Check if e2ecp binary exists
+if [ ! -f "$ROOT_DIR/e2ecp" ]; then
     echo "❌ Share binary not found. Building..."
     cd "$ROOT_DIR"
     if [ -d "web/node_modules" ]; then
@@ -21,7 +21,7 @@ if [ ! -f "$ROOT_DIR/share" ]; then
         echo "Installing web dependencies..."
         cd web && npm install && cd ..
     fi
-    echo "Building share binary..."
+    echo "Building e2ecp binary..."
     make build
     echo "✓ Share binary built successfully"
 else

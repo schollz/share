@@ -20,7 +20,7 @@ test.describe('Web to CLI Transfer', () => {
     serverPort = 8081 + Math.floor(Math.random() * 1000); // Random port to avoid conflicts
     
     return new Promise((resolve, reject) => {
-      relayServer = spawn('./share', ['serve', '--port', serverPort.toString()], {
+      relayServer = spawn('./e2ecp', ['serve', '--port', serverPort.toString()], {
         cwd: path.join(__dirname, '..'),
       });
 
@@ -85,7 +85,7 @@ test.describe('Web to CLI Transfer', () => {
 
       // Start CLI receiver in background
       const wsUrl = `ws://localhost:${serverPort}`;
-      const cliReceiver = spawn('./share', ['receive', roomName, '--server', wsUrl, '--output', outputDir, '--force'], {
+      const cliReceiver = spawn('./e2ecp', ['receive', roomName, '--server', wsUrl, '--output', outputDir, '--force'], {
         cwd: path.join(__dirname, '..'),
       });
 
@@ -208,7 +208,7 @@ test.describe('Web to CLI Transfer', () => {
 
       // Start CLI sender
       const wsUrl = `ws://localhost:${serverPort}`;
-      const cliSender = spawn('./share', ['send', testFilePath, roomName, '--server', wsUrl], {
+      const cliSender = spawn('./e2ecp', ['send', testFilePath, roomName, '--server', wsUrl], {
         cwd: path.join(__dirname, '..'),
       });
 
