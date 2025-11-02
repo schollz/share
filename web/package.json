@@ -1,5 +1,5 @@
 {
-    "name": "secure-drop-client",
+    "name": "e2ecp-client",
     "version": "1.0.0",
     "private": true,
     "scripts": {
