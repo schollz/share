@@ -31,6 +31,23 @@ var rootCmd = &cobra.Command{
 	Short:   "Secure E2E encrypted file transfer",
 	Long:    "Zero-knowledge relay for end-to-end encrypted file transfers using ECDH + AES-GCM",
 	Version: Version,
+	Example: `  # Send a file (generates random room name)
+  e2ecp send myfile.txt
+
+  # Send a file to a specific room
+  e2ecp send myfile.txt cool-room
+
+  # Send a folder (automatically zipped)
+  e2ecp send ./my-folder
+
+  # Receive a file from a room
+  e2ecp receive cool-room
+
+  # Receive to a specific directory
+  e2ecp receive cool-room -o ~/Downloads
+
+  # Start your own relay server
+  e2ecp serve -p 3001`,
 }
 
 var serveCmd = &cobra.Command{
