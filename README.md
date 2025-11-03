@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://www.youtube.com/watch?v=zViMACW6VbQ">
-    <img width="600" alt="share-screenshot" src="https://github.com/user-attachments/assets/5c16e293-ce95-4f97-98a3-edae69a8c825" />
+    <img width="600" alt="share-screenshot" src="https://github.com/user-attachments/assets/cf57fe62-329e-4d04-b9a1-af8ec3516b3e" />
   </a>
   <br>
   <a href="https://github.com/schollz/e2ecp/releases/latest">
