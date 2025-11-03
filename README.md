@@ -16,16 +16,25 @@
 
 Transfer files between machines through the web, through a CLI, or both.
 
-
 ## Usage
 
-Goto https://e2ecp.com and enter a room. Have another peer enter the same room to transfer files between the two.
+Goto <https://e2ecp.com> and enter a room. Have another peer enter the same room to transfer files between the two.
 
 ### Command-line Interface
 
 Optionally, you can also transfer files via the command-line between machines (through website or direct CLI-to-CLI).
 
 Either download the [latest release](https://github.com/schollz/e2ecp/releases/latest) or install with:
+
+### Arch Linux
+
+```bash
+paru -S e2ecp
+# or
+yay -S e2ecp
+```
+
+### other distros
 
 ```bash
 curl https://e2ecp.com | bash
@@ -55,7 +64,6 @@ You can run your own relay server if you want to self-host.
 e2ecp serve --port 8080
 ```
 
-
 ## About
 
 This project is created and maintained by [Zack](https://schollz.com). If you find it useful, please consider sponsoring me on [GitHub Sponsors](https://github.com/sponsors/schollz).
@@ -80,13 +88,17 @@ These features ensure that transfers complete successfully even over unreliable 
 e2ecp includes comprehensive test suites to ensure reliability:
 
 ### Unit and Integration Tests
+
 Run Go tests for the core functionality:
+
 ```bash
 go test -v ./...
 ```
 
 ### End-to-End Tests
+
 Playwright tests verify web-to-web and web-to-CLI file transfers:
+
 ```bash
 cd tests
 ./run-tests.sh
