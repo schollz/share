@@ -1,14 +1,17 @@
 package relay
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
@@ -30,16 +33,18 @@ type Room struct {
 }
 
 type IncomingMessage struct {
-	Type              string `json:"type"`
-	RoomID            string `json:"roomId,omitempty"`
-	ClientID          string `json:"clientId,omitempty"`
-	Pub               string `json:"pub,omitempty"`
-	IvB64             string `json:"iv_b64,omitempty"`
-	DataB64           string `json:"data_b64,omitempty"`
-	ChunkData         string `json:"chunk_data,omitempty"`
-	ChunkNum          int    `json:"chunk_num,omitempty"`
-	EncryptedMetadata string `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
-	MetadataIV        string `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
+	Type              string   `json:"type"`
+	RoomID            string   `json:"roomId,omitempty"`
+	ClientID          string   `json:"clientId,omitempty"`
+	Pub               string   `json:"pub,omitempty"`
+	IvB64             string   `json:"iv_b64,omitempty"`
+	DataB64           string   `json:"data_b64,omitempty"`
+	ChunkData         string   `json:"chunk_data,omitempty"`
+	ChunkNum          int      `json:"chunk_num,omitempty"`
+	EncryptedMetadata string   `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
+	MetadataIV        string   `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
+	LocalIPs          []string `json:"local_ips,omitempty"`          // Local IP addresses for local relay
+	LocalPort         int      `json:"local_port,omitempty"`         // Local relay port
 }
 
 type OutgoingMessage struct {
@@ -59,6 +64,8 @@ type OutgoingMessage struct {
 	EncryptedMetadata string   `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
 	MetadataIV        string   `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
 	PeerID            string   `json:"peerId,omitempty"`             // ID of disconnected peer
+	LocalIPs          []string `json:"local_ips,omitempty"`          // Local IP addresses for local relay
+	LocalPort         int      `json:"local_port,omitempty"`         // Local relay port
 }
 
 var (
@@ -367,6 +374,8 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				ChunkNum:          in.ChunkNum,
 				EncryptedMetadata: in.EncryptedMetadata, // Zero-knowledge metadata
 				MetadataIV:        in.MetadataIV,        // IV for encrypted metadata
+				LocalIPs:          in.LocalIPs,          // Local relay info
+				LocalPort:         in.LocalPort,         // Local relay port
 			}
 
 			room.Mutex.Lock()
@@ -472,4 +481,47 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		logger.Error("Server failed", "error", err)
 	}
+}
+
+// StartLocal starts a minimal local relay server on a random available port
+// Returns the port number and a function to shut it down
+func StartLocal(log *slog.Logger) (int, *http.Server, error) {
+	logger = log
+	maxRooms = 0        // No room limit for local relay
+	maxRoomsPerIP = 0   // No per-IP limit for local relay
+	
+	// Create a listener on a random port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to start local relay: %v", err)
+	}
+	
+	port := listener.Addr().(*net.TCPAddr).Port
+	
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws", wsHandler)
+	mux.HandleFunc("/health", healthHandler)
+	
+	handler := cors.AllowAll().Handler(mux)
+	server := &http.Server{Handler: handler}
+	
+	// Start server in background
+	go func() {
+		logger.Debug("Local relay starting", "port", port)
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+			logger.Error("Local relay failed", "error", err)
+		}
+	}()
+	
+	return port, server, nil
+}
+
+// ShutdownLocal gracefully shuts down a local relay server
+func ShutdownLocal(server *http.Server) error {
+	if server == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return server.Shutdown(ctx)
 }

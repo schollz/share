@@ -16,6 +16,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/e2ecp/src/crypto"
+	"github.com/schollz/e2ecp/src/relay"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -85,6 +86,24 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 	if err != nil {
 		log.Fatalf("Failed to generate key pair: %v", err)
 	}
+	
+	// Start local relay server for potential CLI-to-CLI direct transfer
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	localPort, localServer, err := relay.StartLocal(logger)
+	if err != nil {
+		slog.Debug("Failed to start local relay, using global only", "error", err)
+		localPort = 0
+	}
+	if localServer != nil {
+		defer relay.ShutdownLocal(localServer)
+	}
+	
+	// Get local IP addresses
+	localIPs, err := GetLocalIPAddresses()
+	if err != nil {
+		slog.Debug("Failed to get local IPs", "error", err)
+		localIPs = nil
+	}
 
 	u, _ := url.Parse(serverURL)
 	u.Path = "/ws"
@@ -108,6 +127,38 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 		"clientId": clientID,
 	}
 	safeSend(joinMsg)
+	
+	// If we have a local relay, join the same room on the local relay
+	var localConn *websocket.Conn
+	var localConnMutex sync.Mutex
+	var localSafeSend func(msg map[string]interface{})
+	
+	if localPort > 0 {
+		// Connect to local relay
+		localURL := fmt.Sprintf("ws://127.0.0.1:%d/ws", localPort)
+		localConn, _, err = websocket.DefaultDialer.Dial(localURL, nil)
+		if err != nil {
+			slog.Debug("Failed to connect to local relay", "error", err)
+			localConn = nil
+		} else {
+			defer localConn.Close()
+			
+			localSafeSend = func(msg map[string]interface{}) {
+				localConnMutex.Lock()
+				defer localConnMutex.Unlock()
+				sendProtobufMessage(localConn, msg)
+			}
+			
+			// Join the same room on local relay
+			localJoinMsg := map[string]interface{}{
+				"type":     "join",
+				"roomId":   roomID,
+				"clientId": clientID,
+			}
+			localSafeSend(localJoinMsg)
+			slog.Debug("Joined local relay", "room", roomID)
+		}
+	}
 
 	var sharedSecret []byte
 	var fileName string
@@ -163,7 +214,11 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			"type":      "chunk_ack",
 			"chunk_num": chunkNum,
 		}
+		// Send ACK to both connections if local is available
 		safeSend(ackMsg)
+		if localConn != nil && localSafeSend != nil {
+			localSafeSend(ackMsg)
+		}
 	}
 	
 	writeChunkToFile := func(plainChunk []byte) error {
@@ -176,346 +231,401 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 		lastActivityTime = time.Now()
 		return nil
 	}
-
-	for {
-		msg, err := receiveProtobufMessage(conn)
-		if err != nil {
-			log.Fatalf("Connection closed: %v", err)
-		}
-
-		switch msg.Type {
-		case "error":
-			if msg.Error != "" {
-				log.Fatalf("Server error: %s", msg.Error)
-			}
-			return
-		
-		case "peer_disconnected":
-			disconnectedPeerName := msg.Mnemonic
-			if disconnectedPeerName == "" {
-				disconnectedPeerName = "Peer"
-			}
-			fmt.Printf("\n%s disconnected. Exiting to prevent new connections.\n", disconnectedPeerName)
-			return
-
-		case "joined":
-			myMnemonic := msg.Mnemonic
-			if myMnemonic != "" {
-				fmt.Printf("You are: %s\n", myMnemonic)
-			}
-			sendPublicKey()
-
-		case "peers":
-			// When a new peer joins, re-send our public key
-			if msg.Count == 2 {
-				sendPublicKey()
-			}
-
-		case "pubkey":
-			// Skip if we already have a shared secret to prevent duplicate processing
-			if sharedSecret != nil {
-				continue
-			}
-
-			peerPubBytes, _ := base64.StdEncoding.DecodeString(msg.Pub)
-			peerPubKey, err := ecdh.P256().NewPublicKey(peerPubBytes)
+	
+	// Channel to receive messages from both global and local relay
+	msgChan := make(chan *relay.OutgoingMessage, 10)
+	errChan := make(chan error, 2)
+	
+	// Start goroutine to read from global relay
+	go func() {
+		for {
+			msg, err := receiveProtobufMessage(conn)
 			if err != nil {
-				log.Fatalf("Failed to parse peer public key: %v", err)
-			}
-
-			sharedSecret, err = crypto.DeriveSharedSecret(privKey, peerPubKey)
-			if err != nil {
-				log.Fatalf("Failed to derive shared secret: %v", err)
-			}
-
-			// Show connection message
-			peerMnemonic := msg.Mnemonic
-			if peerMnemonic == "" {
-				peerMnemonic = "peer"
-			}
-			fmt.Printf("Connected to %s\n", peerMnemonic)
-
-		case "file_start":
-			if sharedSecret == nil {
-				continue
-			}
-
-			// Decrypt metadata
-			if msg.EncryptedMetadata == "" || msg.MetadataIV == "" {
-				log.Fatal("Missing encrypted metadata")
-			}
-
-			metadataIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
-			encryptedMeta, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
-
-			metadataJSON, err := crypto.DecryptAESGCM(sharedSecret, metadataIV, encryptedMeta)
-			if err != nil {
-				log.Fatalf("Failed to decrypt metadata: %v", err)
-			}
-
-			metadata, err := UnmarshalMetadata(metadataJSON)
-			if err != nil {
-				log.Fatalf("Failed to unmarshal metadata: %v", err)
-			}
-
-			// Use decrypted metadata
-			fileName = sanitizeFileName(metadata.Name)
-			totalSize = metadata.TotalSize
-			isFolder = metadata.IsFolder
-			isMultipleFiles = metadata.IsMultipleFiles
-			originalFolderName = metadata.OriginalFolderName
-			expectedHash = metadata.Hash
-
-			receivedBytes = 0
-
-			var outputPath string
-			if isFolder {
-				// Save to temp zip file first
-				tempZipPath = filepath.Join(outputDir, fileName)
-				outputPath = tempZipPath
-				fmt.Printf("Receiving folder '%s' (%s, zipped)\n", originalFolderName, formatBytes(totalSize))
-			} else {
-				outputPath = filepath.Join(outputDir, fileName)
-			}
-
-			// Check if file exists and prompt for overwrite if needed
-			if !checkFileOverwrite(outputPath, forceOverwrite) {
+				errChan <- err
 				return
 			}
-
-			outputFile, err = os.Create(outputPath)
-			if err != nil {
-				log.Fatalf("Failed to create output file: %v", err)
+			select {
+			case msgChan <- msg:
+			case <-time.After(5 * time.Second):
+				// Prevent deadlock
+				return
 			}
-
-			// Create progress bar for receiving
-			// Reset chunk tracking for new file
-			receivedChunks = make(map[int]bool)
-			chunkBuffer = make(map[int][]byte)
-			nextExpectedChunk = 0
-			lastActivityTime = time.Now()
-
-			bar = progressbar.NewOptions64(
-				totalSize,
-				progressbar.OptionSetDescription("Receiving"),
-				progressbar.OptionSetWriter(os.Stderr),
-				progressbar.OptionShowBytes(true),
-				progressbar.OptionSetWidth(10),
-				progressbar.OptionThrottle(65*time.Millisecond),
-				progressbar.OptionShowCount(),
-				progressbar.OptionOnCompletion(func() {
-					fmt.Fprint(os.Stderr, "\n")
-				}),
-				progressbar.OptionSpinnerType(14),
-				progressbar.OptionFullWidth(),
-			)
-
-		case "file_chunk":
-			if bar == nil || outputFile == nil {
-				continue
-			}
-
-			chunkNum := msg.ChunkNum
-			
-			// Check for duplicate chunk (already received and processed)
-			if receivedChunks[chunkNum] {
-				// Send ACK again for idempotency
-				sendChunkAck(chunkNum)
-				continue
-			}
-
-			// Decrypt this chunk with its own IV
-			chunkIV, _ := base64.StdEncoding.DecodeString(msg.IvB64)
-			cipherChunk, _ := base64.StdEncoding.DecodeString(msg.ChunkData)
-
-			plainChunk, err := crypto.DecryptAESGCM(sharedSecret, chunkIV, cipherChunk)
-			if err != nil {
-				log.Fatalf("Failed to decrypt chunk: %v", err)
-			}
-			
-			// Check if this is the next expected chunk
-			if chunkNum == nextExpectedChunk {
-				// Write this chunk
-				if err := writeChunkToFile(plainChunk); err != nil {
-					log.Fatalf("%v", err)
+		}
+	}()
+	
+	// Start goroutine to read from local relay if available
+	if localConn != nil {
+		go func() {
+			for {
+				msg, err := receiveProtobufMessage(localConn)
+				if err != nil {
+					// Local relay disconnected, just stop reading from it
+					slog.Debug("Local relay disconnected", "error", err)
+					return
 				}
-				receivedChunks[chunkNum] = true
-				nextExpectedChunk++
-				
-				// Check if we have buffered chunks that can now be written
-				for {
-					bufferedChunk, exists := chunkBuffer[nextExpectedChunk]
-					if !exists {
-						break
+				// Only forward file transfer messages from local relay
+				if msg.Type == "file_start" || msg.Type == "file_chunk" || msg.Type == "file_end" {
+					select {
+					case msgChan <- msg:
+					case <-time.After(5 * time.Second):
+						// Prevent deadlock
+						return
 					}
-					
-					if err := writeChunkToFile(bufferedChunk); err != nil {
+				}
+			}
+		}()
+	}
+
+	for {
+		select {
+		case msg := <-msgChan:
+			switch msg.Type {
+			case "error":
+				if msg.Error != "" {
+					log.Fatalf("Server error: %s", msg.Error)
+				}
+				return
+			
+			case "peer_disconnected":
+				disconnectedPeerName := msg.Mnemonic
+				if disconnectedPeerName == "" {
+					disconnectedPeerName = "Peer"
+				}
+				fmt.Printf("\n%s disconnected. Exiting to prevent new connections.\n", disconnectedPeerName)
+				return
+
+			case "joined":
+				myMnemonic := msg.Mnemonic
+				if myMnemonic != "" {
+					fmt.Printf("You are: %s\n", myMnemonic)
+				}
+				sendPublicKey()
+
+			case "peers":
+				// When a new peer joins, re-send our public key
+				if msg.Count == 2 {
+					sendPublicKey()
+				}
+
+			case "pubkey":
+				// Skip if we already have a shared secret to prevent duplicate processing
+				if sharedSecret != nil {
+					continue
+				}
+
+				peerPubBytes, _ := base64.StdEncoding.DecodeString(msg.Pub)
+				peerPubKey, err := ecdh.P256().NewPublicKey(peerPubBytes)
+				if err != nil {
+					log.Fatalf("Failed to parse peer public key: %v", err)
+				}
+
+				sharedSecret, err = crypto.DeriveSharedSecret(privKey, peerPubKey)
+				if err != nil {
+					log.Fatalf("Failed to derive shared secret: %v", err)
+				}
+
+				// Show connection message
+				peerMnemonic := msg.Mnemonic
+				if peerMnemonic == "" {
+					peerMnemonic = "peer"
+				}
+				fmt.Printf("Connected to %s\n", peerMnemonic)
+				
+				// Send local relay info if available
+				if localPort > 0 && len(localIPs) > 0 {
+					slog.Debug("Sending local relay info", "port", localPort, "ips", localIPs)
+					localRelayMsg := map[string]interface{}{
+						"type":       "local_relay_info",
+						"local_ips":  localIPs,
+						"local_port": localPort,
+					}
+					safeSend(localRelayMsg)
+				}
+
+			case "file_start":
+				if sharedSecret == nil {
+					continue
+				}
+
+				// Decrypt metadata
+				if msg.EncryptedMetadata == "" || msg.MetadataIV == "" {
+					log.Fatal("Missing encrypted metadata")
+				}
+
+				metadataIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
+				encryptedMeta, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
+
+				metadataJSON, err := crypto.DecryptAESGCM(sharedSecret, metadataIV, encryptedMeta)
+				if err != nil {
+					log.Fatalf("Failed to decrypt metadata: %v", err)
+				}
+
+				metadata, err := UnmarshalMetadata(metadataJSON)
+				if err != nil {
+					log.Fatalf("Failed to unmarshal metadata: %v", err)
+				}
+
+				// Use decrypted metadata
+				fileName = sanitizeFileName(metadata.Name)
+				totalSize = metadata.TotalSize
+				isFolder = metadata.IsFolder
+				isMultipleFiles = metadata.IsMultipleFiles
+				originalFolderName = metadata.OriginalFolderName
+				expectedHash = metadata.Hash
+
+				receivedBytes = 0
+
+				var outputPath string
+				if isFolder {
+					// Save to temp zip file first
+					tempZipPath = filepath.Join(outputDir, fileName)
+					outputPath = tempZipPath
+					fmt.Printf("Receiving folder '%s' (%s, zipped)\n", originalFolderName, formatBytes(totalSize))
+				} else {
+					outputPath = filepath.Join(outputDir, fileName)
+				}
+
+				// Check if file exists and prompt for overwrite if needed
+				if !checkFileOverwrite(outputPath, forceOverwrite) {
+					return
+				}
+
+				outputFile, err = os.Create(outputPath)
+				if err != nil {
+					log.Fatalf("Failed to create output file: %v", err)
+				}
+
+				// Create progress bar for receiving
+				// Reset chunk tracking for new file
+				receivedChunks = make(map[int]bool)
+				chunkBuffer = make(map[int][]byte)
+				nextExpectedChunk = 0
+				lastActivityTime = time.Now()
+
+				bar = progressbar.NewOptions64(
+					totalSize,
+					progressbar.OptionSetDescription("Receiving"),
+					progressbar.OptionSetWriter(os.Stderr),
+					progressbar.OptionShowBytes(true),
+					progressbar.OptionSetWidth(10),
+					progressbar.OptionThrottle(65*time.Millisecond),
+					progressbar.OptionShowCount(),
+					progressbar.OptionOnCompletion(func() {
+						fmt.Fprint(os.Stderr, "\n")
+					}),
+					progressbar.OptionSpinnerType(14),
+					progressbar.OptionFullWidth(),
+				)
+
+			case "file_chunk":
+				if bar == nil || outputFile == nil {
+					continue
+				}
+
+				chunkNum := msg.ChunkNum
+				
+				// Check for duplicate chunk (already received and processed)
+				if receivedChunks[chunkNum] {
+					// Send ACK again for idempotency
+					sendChunkAck(chunkNum)
+					continue
+				}
+
+				// Decrypt this chunk with its own IV
+				chunkIV, _ := base64.StdEncoding.DecodeString(msg.IvB64)
+				cipherChunk, _ := base64.StdEncoding.DecodeString(msg.ChunkData)
+
+				plainChunk, err := crypto.DecryptAESGCM(sharedSecret, chunkIV, cipherChunk)
+				if err != nil {
+					log.Fatalf("Failed to decrypt chunk: %v", err)
+				}
+				
+				// Check if this is the next expected chunk
+				if chunkNum == nextExpectedChunk {
+					// Write this chunk
+					if err := writeChunkToFile(plainChunk); err != nil {
 						log.Fatalf("%v", err)
 					}
-					receivedChunks[nextExpectedChunk] = true
-					delete(chunkBuffer, nextExpectedChunk)
+					receivedChunks[chunkNum] = true
 					nextExpectedChunk++
-				}
-			} else if chunkNum > nextExpectedChunk {
-				// Out-of-order chunk - buffer it
-				chunkBuffer[chunkNum] = plainChunk
-				receivedChunks[chunkNum] = true
-			}
-			// If chunkNum < nextExpectedChunk, it's a duplicate of an already-processed chunk
-			
-			// Send ACK for this chunk
-			sendChunkAck(chunkNum)
-
-		case "file_end":
-			if bar == nil || outputFile == nil {
-				continue
-			}
-
-			bar.Finish()
-			outputFile.Close()
-
-			// Verify file hash if provided
-			if expectedHash != "" {
-				// Calculate hash of received file
-				// Note: fileName is already sanitized using sanitizeFileName() on line 181
-				outputPath := filepath.Join(outputDir, fileName)
-
-				receivedFile, err := os.Open(outputPath)
-				if err != nil {
-					log.Fatalf("Failed to open received file for verification: %v", err)
-				}
-				actualHash, err := crypto.CalculateFileHash(receivedFile)
-				receivedFile.Close()
-				if err != nil {
-					log.Fatalf("Failed to calculate received file hash: %v", err)
-				}
-
-				// Compare hashes
-				if actualHash != expectedHash {
-					fmt.Printf("\n⚠️  WARNING: File hash mismatch!\n")
-					fmt.Printf("   Expected: %s\n", expectedHash)
-					fmt.Printf("   Received: %s\n", actualHash)
-					fmt.Printf("   The file may be corrupted or tampered with.\n\n")
-					// Continue with extraction anyway, but user is warned
-				} else {
-					// Log debug info with truncated hash
-					slog.Debug("File hash verified", "hash", actualHash)
-				}
-			}
-
-			// Check if this is a zip file (folder, multiple files, or ends with .zip)
-			isZipFile := isFolder || isMultipleFiles || strings.HasSuffix(strings.ToLower(fileName), ".zip")
-
-			if isZipFile {
-				// Extract the zip file
-				if isFolder {
-					fmt.Println("Extracting folder...")
-				} else if isMultipleFiles {
-					fmt.Println("Extracting files...")
-				} else {
-					fmt.Println("Extracting zip file...")
-				}
-
-				zipPath := filepath.Join(outputDir, fileName)
-
-				// Determine where to extract
-				var extractDir string
-				if isMultipleFiles {
-					// Extract directly to outputDir for multiple files
-					extractDir = outputDir
-				} else {
-					// Determine extraction directory name
-					var extractDirName string
-					if isFolder && originalFolderName != "" {
-						extractDirName = sanitizeFileName(originalFolderName)
-					} else {
-						// Remove .zip extension from filename
-						extractDirName = strings.TrimSuffix(fileName, ".zip")
-						extractDirName = sanitizeFileName(extractDirName)
+					
+					// Check if we have buffered chunks that can now be written
+					for {
+						bufferedChunk, exists := chunkBuffer[nextExpectedChunk]
+						if !exists {
+							break
+						}
+						
+						if err := writeChunkToFile(bufferedChunk); err != nil {
+							log.Fatalf("%v", err)
+						}
+						receivedChunks[nextExpectedChunk] = true
+						delete(chunkBuffer, nextExpectedChunk)
+						nextExpectedChunk++
 					}
-					extractDir = filepath.Join(outputDir, extractDirName)
+				} else if chunkNum > nextExpectedChunk {
+					// Out-of-order chunk - buffer it
+					chunkBuffer[chunkNum] = plainChunk
+					receivedChunks[chunkNum] = true
+				}
+				// If chunkNum < nextExpectedChunk, it's a duplicate of an already-processed chunk
+				
+				// Send ACK for this chunk
+				sendChunkAck(chunkNum)
 
-					// Check if directory exists
-					if _, err := os.Stat(extractDir); err == nil {
-						if !forceOverwrite {
-							fmt.Printf("Directory '%s' already exists. Overwrite? (Y/n): ", extractDir)
-							reader := bufio.NewReader(os.Stdin)
-							response, err := reader.ReadString('\n')
-							if err != nil || strings.TrimSpace(response) != "Y" {
-								fmt.Println("Extraction cancelled.")
-								fmt.Printf("Zip file saved as: %s\n", zipPath)
-								return
+			case "file_end":
+				if bar == nil || outputFile == nil {
+					continue
+				}
+
+				bar.Finish()
+				outputFile.Close()
+
+				// Verify file hash if provided
+				if expectedHash != "" {
+					// Calculate hash of received file
+					// Note: fileName is already sanitized using sanitizeFileName() on line 181
+					outputPath := filepath.Join(outputDir, fileName)
+
+					receivedFile, err := os.Open(outputPath)
+					if err != nil {
+						log.Fatalf("Failed to open received file for verification: %v", err)
+					}
+					actualHash, err := crypto.CalculateFileHash(receivedFile)
+					receivedFile.Close()
+					if err != nil {
+						log.Fatalf("Failed to calculate received file hash: %v", err)
+					}
+
+					// Compare hashes
+					if actualHash != expectedHash {
+						fmt.Printf("\n⚠️  WARNING: File hash mismatch!\n")
+						fmt.Printf("   Expected: %s\n", expectedHash)
+						fmt.Printf("   Received: %s\n", actualHash)
+						fmt.Printf("   The file may be corrupted or tampered with.\n\n")
+						// Continue with extraction anyway, but user is warned
+					} else {
+						// Log debug info with truncated hash
+						slog.Debug("File hash verified", "hash", actualHash)
+					}
+				}
+
+				// Check if this is a zip file (folder, multiple files, or ends with .zip)
+				isZipFile := isFolder || isMultipleFiles || strings.HasSuffix(strings.ToLower(fileName), ".zip")
+
+				if isZipFile {
+					// Extract the zip file
+					if isFolder {
+						fmt.Println("Extracting folder...")
+					} else if isMultipleFiles {
+						fmt.Println("Extracting files...")
+					} else {
+						fmt.Println("Extracting zip file...")
+					}
+
+					zipPath := filepath.Join(outputDir, fileName)
+
+					// Determine where to extract
+					var extractDir string
+					if isMultipleFiles {
+						// Extract directly to outputDir for multiple files
+						extractDir = outputDir
+					} else {
+						// Determine extraction directory name
+						var extractDirName string
+						if isFolder && originalFolderName != "" {
+							extractDirName = sanitizeFileName(originalFolderName)
+						} else {
+							// Remove .zip extension from filename
+							extractDirName = strings.TrimSuffix(fileName, ".zip")
+							extractDirName = sanitizeFileName(extractDirName)
+						}
+						extractDir = filepath.Join(outputDir, extractDirName)
+
+						// Check if directory exists
+						if _, err := os.Stat(extractDir); err == nil {
+							if !forceOverwrite {
+								fmt.Printf("Directory '%s' already exists. Overwrite? (Y/n): ", extractDir)
+								reader := bufio.NewReader(os.Stdin)
+								response, err := reader.ReadString('\n')
+								if err != nil || strings.TrimSpace(response) != "Y" {
+									fmt.Println("Extraction cancelled.")
+									fmt.Printf("Zip file saved as: %s\n", zipPath)
+									return
+								}
 							}
+							// Remove existing directory
+							os.RemoveAll(extractDir)
 						}
-						// Remove existing directory
-						os.RemoveAll(extractDir)
 					}
-				}
 
-				// Extract the zip and get list of extracted files
-				// For multiple files, strip the root folder from the zip
-				var extractedFiles []string
-				var err error
-				if isMultipleFiles {
-					extractedFiles, err = ExtractZipToDirectoryWithOptions(zipPath, outputDir, true)
-				} else {
-					extractedFiles, err = ExtractZipToDirectory(zipPath, outputDir)
-				}
-				if err != nil {
-					log.Fatalf("Failed to extract zip: %v", err)
-				}
-
-				// Delete zip file after successful extraction
-				os.Remove(zipPath)
-
-				// Show appropriate message based on type
-				if isFolder {
-					// For folders, just show simple message
-					fileCount, _ := CountFilesInDirectory(extractDir)
-					fmt.Printf("Folder received: %s (%d files, %s)\n", extractDir, fileCount, formatBytes(totalSize))
-				} else if isMultipleFiles {
-					// For multiple files, list the extracted files
-					if len(extractedFiles) > 0 {
-						fmt.Printf("\nExtracted %d file(s):\n", len(extractedFiles))
-						for _, file := range extractedFiles {
-							// Show relative path from output directory
-							relPath, err := filepath.Rel(outputDir, file)
-							if err != nil || relPath == "" {
-								// Fallback to just the basename if relative path fails
-								relPath = filepath.Base(file)
-							}
-							fmt.Printf("  - %s\n", relPath)
-						}
+					// Extract the zip and get list of extracted files
+					// For multiple files, strip the root folder from the zip
+					var extractedFiles []string
+					var err error
+					if isMultipleFiles {
+						extractedFiles, err = ExtractZipToDirectoryWithOptions(zipPath, outputDir, true)
 					} else {
-						fmt.Printf("Extracted %d files (%s)\n", len(extractedFiles), formatBytes(totalSize))
+						extractedFiles, err = ExtractZipToDirectory(zipPath, outputDir)
 					}
-				} else {
-					// For other .zip files, list extracted files with subdirectory
-					if len(extractedFiles) > 0 {
-						fmt.Printf("\nExtracted %d file(s) to %s:\n", len(extractedFiles), extractDir)
-						for _, file := range extractedFiles {
-							// Show relative path from extract directory
-							relPath, _ := filepath.Rel(extractDir, file)
-							fmt.Printf("  - %s\n", relPath)
-						}
-					} else {
+					if err != nil {
+						log.Fatalf("Failed to extract zip: %v", err)
+					}
+
+					// Delete zip file after successful extraction
+					os.Remove(zipPath)
+
+					// Show appropriate message based on type
+					if isFolder {
+						// For folders, just show simple message
 						fileCount, _ := CountFilesInDirectory(extractDir)
-						fmt.Printf("Extracted: %s (%d files, %s)\n", extractDir, fileCount, formatBytes(totalSize))
+						fmt.Printf("Folder received: %s (%d files, %s)\n", extractDir, fileCount, formatBytes(totalSize))
+					} else if isMultipleFiles {
+						// For multiple files, list the extracted files
+						if len(extractedFiles) > 0 {
+							fmt.Printf("\nExtracted %d file(s):\n", len(extractedFiles))
+							for _, file := range extractedFiles {
+								// Show relative path from output directory
+								relPath, err := filepath.Rel(outputDir, file)
+								if err != nil || relPath == "" {
+									// Fallback to just the basename if relative path fails
+									relPath = filepath.Base(file)
+								}
+								fmt.Printf("  - %s\n", relPath)
+							}
+						} else {
+							fmt.Printf("Extracted %d files (%s)\n", len(extractedFiles), formatBytes(totalSize))
+						}
+					} else {
+						// For other .zip files, list extracted files with subdirectory
+						if len(extractedFiles) > 0 {
+							fmt.Printf("\nExtracted %d file(s) to %s:\n", len(extractedFiles), extractDir)
+							for _, file := range extractedFiles {
+								// Show relative path from extract directory
+								relPath, _ := filepath.Rel(extractDir, file)
+								fmt.Printf("  - %s\n", relPath)
+							}
+						} else {
+							fileCount, _ := CountFilesInDirectory(extractDir)
+							fmt.Printf("Extracted: %s (%d files, %s)\n", extractDir, fileCount, formatBytes(totalSize))
+						}
 					}
+				} else {
+					outputPath := filepath.Join(outputDir, fileName)
+					fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(totalSize))
 				}
-			} else {
-				outputPath := filepath.Join(outputDir, fileName)
-				fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(totalSize))
+				
+				// Send transfer received confirmation to sender
+				transferReceivedMsg := map[string]interface{}{
+					"type": "transfer_received",
+				}
+				safeSend(transferReceivedMsg)
+				
+				return
 			}
-			
-			// Send transfer received confirmation to sender
-			transferReceivedMsg := map[string]interface{}{
-				"type": "transfer_received",
-			}
-			safeSend(transferReceivedMsg)
-			
-			return
-
+		
+		case err := <-errChan:
+			log.Fatalf("Connection closed: %v", err)
 		}
 	}
 }

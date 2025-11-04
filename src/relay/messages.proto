@@ -16,6 +16,8 @@ message PBIncomingMessage {
   int32 chunk_num = 10;
   string encrypted_metadata = 20;    // Encrypted metadata (name, total_size, is_folder, etc.)
   string metadata_iv = 21;           // IV for encrypted_metadata
+  repeated string local_ips = 23;    // Local IP addresses for local relay
+  int32 local_port = 24;             // Local relay port
 }
 
 // PBOutgoingMessage represents messages sent by the relay server to clients
@@ -36,4 +38,6 @@ message PBOutgoingMessage {
   string encrypted_metadata = 20;    // Encrypted metadata (name, total_size, is_folder, etc.)
   string metadata_iv = 21;           // IV for encrypted_metadata
   string peer_id = 22;               // ID of disconnected peer
+  repeated string local_ips = 23;    // Local IP addresses for local relay
+  int32 local_port = 24;             // Local relay port
 }
