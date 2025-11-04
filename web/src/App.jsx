@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import protobuf from "protobufjs";
 import { QRCodeSVG } from "qrcode.react";
 import JSZip from "jszip";
+import toast, { Toaster } from "react-hot-toast";
 
 /* ---------- Crypto helpers (ECDH + AES-GCM) ---------- */
 
@@ -607,6 +608,19 @@ export default function App() {
                 setPeerMnemonic(peerName);
                 log(`Received peer public key from ${peerName}`);
                 const hadPeerPub = havePeerPubRef.current;
+
+                // Show connection notification with peer's icon
+                if (!hadPeerPub) {
+                    const peerIcon = mnemonicToIcon(peerName);
+                    toast.success(
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <i className={`fas ${peerIcon}`} aria-hidden="true" style={{ fontSize: '16px' }}></i>
+                            <span>{peerName.toUpperCase()} CONNECTED</span>
+                        </div>,
+                        { duration: 3000 }
+                    );
+                }
+
                 await handlePeerPubKey(msg.pub);
                 if (!hadPeerPub) await announcePublicKey();
                 return;
@@ -1276,6 +1290,28 @@ export default function App() {
 
     return (
         <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8 font-mono flex flex-col items-center justify-center">
+            <Toaster
+                position="bottom-right"
+                toastOptions={{
+                    duration: 2000,
+                    style: {
+                        background: '#fff',
+                        color: '#000',
+                        border: '2px solid #000',
+                        fontFamily: 'monospace',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        fontSize: '14px',
+                        padding: '12px 16px',
+                    },
+                    success: {
+                        iconTheme: {
+                            primary: '#000',
+                            secondary: '#fff',
+                        },
+                    },
+                }}
+            />
             <div className="max-w-4xl w-full flex-grow flex flex-col justify-center">
                 {/* Header */}
                 <div className="bg-black text-white border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 flex items-start justify-between gap-4" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)', boxShadow: '4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black' }}>
@@ -1438,8 +1474,27 @@ export default function App() {
                                     </>
                                 )
                             ) : (
-                                <div className="font-black uppercase text-sm sm:text-base text-gray-900">
-                                    {`WAITING FOR PEER TO JOIN ${window.location.host}/${roomId}`.toUpperCase()}
+                                <div className="flex items-center justify-center gap-2 font-black uppercase text-sm sm:text-base text-gray-900">
+                                    <span>
+                                        {`WAITING FOR PEER TO JOIN ${window.location.host}/${roomId}`.toUpperCase()}
+                                    </span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const url = `${window.location.protocol}//${window.location.host}/${roomId}`;
+                                            navigator.clipboard.writeText(url).then(() => {
+                                                toast.success('Copied to clipboard');
+                                            }).catch(err => {
+                                                toast.error('Failed to copy');
+                                                console.error('Failed to copy:', err);
+                                            });
+                                        }}
+                                        className="text-black hover:opacity-70 transition-opacity cursor-pointer"
+                                        title="Copy URL to clipboard"
+                                        type="button"
+                                    >
+                                        <i className="fas fa-copy" aria-hidden="true"></i>
+                                    </button>
                                 </div>
                             )}
                         </div>
