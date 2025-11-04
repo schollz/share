@@ -1,8 +1,8 @@
-# Share - Copilot Agent Instructions
+# e2ecp - Copilot Agent Instructions
 
 ## Repository Overview
 
-**Share** is a secure, end-to-end encrypted file transfer application that enables peer-to-peer file sharing through a web interface or command-line interface. The application uses ECDH P-256 key exchange and AES-GCM authenticated encryption, with a knowledge-free websocket-based relay server that cannot access transferred data.
+**e2ecp** is a secure, end-to-end encrypted file transfer application that enables peer-to-peer file sharing through a web interface or command-line interface. The application uses ECDH P-256 key exchange and AES-GCM authenticated encryption, with a knowledge-free websocket-based relay server that cannot access transferred data.
 
 **Repository Stats:**
 - **Type:** Go application with React web frontend
@@ -76,14 +76,14 @@ cd web && npm install
    ```
    - Takes ~2-3 seconds total
    - Automatically runs `make web` first
-   - Produces: `share` binary in root directory
+   - Produces: `e2ecp` binary in root directory
    - Binary embeds web assets via `//go:embed all:web/dist`
 
 4. **Clean build artifacts:**
    ```bash
    make clean
    ```
-   - Removes `share` binary and `web/dist/` directory
+   - Removes `e2ecp` binary and `web/dist/` directory
    - Does NOT remove `web/node_modules/`
 
 ### Testing
@@ -127,13 +127,13 @@ air
 - Uses `.air.toml` configuration
 - Automatically rebuilds on Go file changes
 - Runs `make server` on changes
-- Starts server with `./share serve`
+- Starts server with `./e2ecp serve`
 
 ### Running the Application
 
 **Start relay server:**
 ```bash
-./share serve --port 8080
+./e2ecp serve --port 8080
 # Optional flags:
 # --max-rooms <n>         # Maximum number of rooms (default: unlimited)
 # --max-rooms-per-ip <n>  # Maximum rooms per IP address (prevents abuse)
@@ -141,14 +141,14 @@ air
 
 **Send a file or folder:**
 ```bash
-./share send <file-or-folder> [room-name]
+./e2ecp send <file-or-folder> [room-name]
 # Folders are automatically zipped for transfer
 # Displays QR code in terminal for easy room sharing
 ```
 
 **Receive a file or folder:**
 ```bash
-./share receive [room-name]
+./e2ecp receive [room-name]
 # Folders are automatically extracted
 # Optional flags:
 # --output <path>   # Specify output location
@@ -157,10 +157,10 @@ air
 
 **View help:**
 ```bash
-./share --help
-./share serve --help
-./share send --help
-./share receive --help
+./e2ecp --help
+./e2ecp serve --help
+./e2ecp send --help
+./e2ecp receive --help
 ```
 
 ## Project Structure
@@ -186,7 +186,7 @@ integration_test.go   # End-to-end integration tests
 - `relay.go` - Server implementation, room management, WebSocket handling (protobuf-only)
 - `relay_test.go` - Server tests including room limits
 - `protobuf.go` - Protobuf message serialization
-- `messages.proto` - Protocol buffer definitions (shared with web client)
+- `messages.proto` - Protocol buffer definitions (e2ecpd with web client)
 - `messages.pb.go` - Generated protobuf code (DO NOT EDIT)
 - `compatibility_test.go` - Protobuf messaging tests
 - `benchmark_test.go` - Performance benchmarks
@@ -227,7 +227,7 @@ integration_test.go   # End-to-end integration tests
 2. **Client** (`src/client/`): CLI for sending/receiving files with E2E encryption, folder support via automatic zip/unzip
 3. **Crypto** (`src/crypto/`): ECDH P-256 + AES-GCM implementation
 4. **Web UI** (`web/src/`): React-based browser interface with drag-and-drop, QR codes, and folder support
-5. **Protobuf Protocol**: Shared message format between Go and JavaScript clients
+5. **Protobuf Protocol**: e2ecpd message format between Go and JavaScript clients
 6. **QR Code Display** (`src/qrcode/`): Terminal-based QR code generation for easy room sharing
 7. **Encrypted Metadata**: File names, sizes, and SHA256 hashes encrypted before relay transmission
 
@@ -255,7 +255,7 @@ The CI runs three parallel jobs (macos, linux, windows) on every push to main an
 4. `cd web; npm install` (PowerShell)
 5. `cd web; npm run build` (PowerShell)
 6. `go test -v -cover ./...`
-7. `go build -ldflags "-X main.Version=$VERSION" -o share.exe .`
+7. `go build -ldflags "-X main.Version=$VERSION" -o e2ecp.exe .`
 8. Verify binary exists
 9. Create zip
 10. Upload artifact
@@ -274,7 +274,7 @@ make server LDFLAGS="-X main.Version=dev"
 go test -v -cover ./...
 
 # Verify
-./share --help
+./e2ecp --help
 ```
 
 ## Common Issues & Solutions
@@ -299,7 +299,7 @@ go test -v -cover ./...
 ### File Paths
 
 - **ALWAYS** use absolute paths in commands when working programmatically
-- Repository is cloned to: `/home/runner/work/share/share` (in CI)
+- Repository is cloned to: `/home/runner/work/e2ecp/e2ecp` (in CI)
 - Use `$(pwd)` or `${PWD}` for relative operations
 
 ## Configuration Files
@@ -308,7 +308,7 @@ go test -v -cover ./...
 - **Air config:** `.air.toml` (hot-reload for development)
 - **Vite config:** `web/vite.config.js` (React build, port 5173)
 - **Tailwind:** `web/postcss.config.js` (@tailwindcss/postcss)
-- **Git ignore:** `.gitignore` (excludes node_modules, share binary, web/dist/*)
+- **Git ignore:** `.gitignore` (excludes node_modules, e2ecp binary, web/dist/*)
 
 **Note on web/dist/:** The `.gitignore` includes `web/dist/*` but has a `.keep` file. Build artifacts in `web/dist/` are generated and should not be committed except for the `.keep` marker.
 
@@ -354,7 +354,7 @@ When modifying this repository:
    - Run `gofmt -w .` on changed Go files
    - Run full test suite: `go test -v -cover ./...`
    - Ensure `make clean && make build` works
-5. **Remember:** The share binary embeds web/dist via go:embed, so web changes require rebuilding the Go binary
+5. **Remember:** The e2ecp binary embeds web/dist via go:embed, so web changes require rebuilding the Go binary
 
 ## Important Notes
 
