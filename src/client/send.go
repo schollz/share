@@ -211,16 +211,38 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 			
 			case "local_relay_info":
-				// Receiver sent us local relay information - try to connect
-				if len(msg.LocalIPs) == 0 || msg.LocalPort == 0 {
+				// Receiver sent us encrypted local relay information - decrypt and try to connect
+				if msg.EncryptedMetadata == "" || msg.MetadataIV == "" {
+					slog.Debug("Received local_relay_info without encrypted metadata")
 					continue
 				}
 				
-				slog.Debug("Received local relay info", "ips", msg.LocalIPs, "port", msg.LocalPort)
+				// Decrypt local relay info
+				relayInfoIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
+				encryptedRelayInfo, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
+				
+				relayInfoJSON, err := crypto.DecryptAESGCM(sharedSecret, relayInfoIV, encryptedRelayInfo)
+				if err != nil {
+					slog.Debug("Failed to decrypt local relay info", "error", err)
+					continue
+				}
+				
+				relayInfo, err := UnmarshalLocalRelayInfo(relayInfoJSON)
+				if err != nil {
+					slog.Debug("Failed to unmarshal local relay info", "error", err)
+					continue
+				}
+				
+				if len(relayInfo.IPs) == 0 || relayInfo.Port == 0 {
+					slog.Debug("Invalid local relay info", "num_ips", len(relayInfo.IPs), "port", relayInfo.Port)
+					continue
+				}
+				
+				slog.Debug("Received encrypted local relay info", "num_ips", len(relayInfo.IPs), "port", relayInfo.Port)
 				
 				// Try to connect to local relay using each IP address
-				for _, ip := range msg.LocalIPs {
-					localURL := fmt.Sprintf("ws://%s:%d/ws", ip, msg.LocalPort)
+				for _, ip := range relayInfo.IPs {
+					localURL := fmt.Sprintf("ws://%s:%d/ws", ip, relayInfo.Port)
 					lconn, _, err := websocket.DefaultDialer.Dial(localURL, nil)
 					if err != nil {
 						slog.Debug("Failed to connect to local relay", "url", localURL, "error", err)
@@ -247,6 +269,7 @@ func SendFile(filePath, roomID, serverURL string) {
 					time.Sleep(100 * time.Millisecond)
 					
 					useLocalRelay = true
+					slog.Debug("Connected to local relay for file transfer", "url", localURL)
 					fmt.Printf("Connected to local relay at %s (faster transfer)\n", localURL)
 					
 					// Start reading from local relay connection
@@ -254,6 +277,7 @@ func SendFile(filePath, roomID, serverURL string) {
 						for {
 							lmsg, err := receiveProtobufMessage(localConn)
 							if err != nil {
+								slog.Debug("Local relay connection closed", "error", err)
 								return
 							}
 							
@@ -265,6 +289,10 @@ func SendFile(filePath, roomID, serverURL string) {
 					}()
 					
 					break
+				}
+				
+				if !useLocalRelay {
+					slog.Debug("Failed to connect to any local relay IP, will use global relay")
 				}
 
 			case "pubkey":
@@ -305,6 +333,8 @@ func SendFile(filePath, roomID, serverURL string) {
 					if useLocalRelay && localSafeSend != nil {
 						transferSend = localSafeSend
 						slog.Debug("Using local relay for file transfer")
+					} else {
+						slog.Debug("Using global relay for file transfer")
 					}
 					
 					// Calculate file hash before sending

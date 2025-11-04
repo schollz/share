@@ -254,15 +254,37 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			}
 			fmt.Printf("Connected to %s\n", peerMnemonic)
 			
-			// Send local relay info if available
+			// Send encrypted local relay info if available
 			if localPort > 0 && len(localIPs) > 0 {
-				slog.Debug("Sending local relay info", "port", localPort, "ips", localIPs)
+				slog.Debug("Preparing local relay info", "port", localPort, "num_ips", len(localIPs))
+				
+				// Create local relay info structure
+				relayInfo := LocalRelayInfo{
+					IPs:  localIPs,
+					Port: localPort,
+				}
+				
+				// Marshal and encrypt local relay info
+				relayInfoJSON, err := MarshalLocalRelayInfo(relayInfo)
+				if err != nil {
+					slog.Debug("Failed to marshal local relay info", "error", err)
+					continue
+				}
+				
+				relayInfoIV, encryptedRelayInfo, err := crypto.EncryptAESGCM(sharedSecret, relayInfoJSON)
+				if err != nil {
+					slog.Debug("Failed to encrypt local relay info", "error", err)
+					continue
+				}
+				
+				// Send encrypted local relay info via global relay
 				localRelayMsg := map[string]interface{}{
-					"type":       "local_relay_info",
-					"local_ips":  localIPs,
-					"local_port": localPort,
+					"type":               "local_relay_info",
+					"encrypted_metadata": base64.StdEncoding.EncodeToString(encryptedRelayInfo),
+					"metadata_iv":        base64.StdEncoding.EncodeToString(relayInfoIV),
 				}
 				safeSend(localRelayMsg)
+				slog.Debug("Sent encrypted local relay info via global relay")
 			}
 
 		case "file_start":
