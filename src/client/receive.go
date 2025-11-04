@@ -190,13 +190,13 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 		safeSend(pubKeyMsg)
 	}
 	
-	sendChunkAck := func(chunkNum int) {
+	sendChunkAck := func(chunkNum int, useLocal bool) {
 		ackMsg := map[string]interface{}{
 			"type":      "chunk_ack",
 			"chunk_num": chunkNum,
 		}
-		// Send ACK via local relay if available, otherwise use global relay
-		if useLocalRelay && localSafeSend != nil {
+		// Send ACK via the same relay that the chunk came from
+		if useLocal && localSafeSend != nil {
 			localSafeSend(ackMsg)
 		} else {
 			safeSend(ackMsg)
@@ -458,8 +458,8 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 
 								// Check for duplicate chunk (already received and processed)
 								if receivedChunks[chunkNum] {
-									// Send ACK again for idempotency
-									sendChunkAck(chunkNum)
+									// Send ACK again for idempotency (via local relay)
+									sendChunkAck(chunkNum, true)
 									continue
 								}
 
@@ -502,8 +502,8 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 								}
 								// If chunkNum < nextExpectedChunk, it's a duplicate of an already-processed chunk
 
-								// Send ACK for this chunk
-								sendChunkAck(chunkNum)
+								// Send ACK for this chunk (via local relay)
+								sendChunkAck(chunkNum, true)
 
 							case "file_end":
 								if bar == nil || outputFile == nil {
@@ -740,8 +740,8 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 			
 			// Check for duplicate chunk (already received and processed)
 			if receivedChunks[chunkNum] {
-				// Send ACK again for idempotency
-				sendChunkAck(chunkNum)
+				// Send ACK again for idempotency (via global relay)
+				sendChunkAck(chunkNum, false)
 				continue
 			}
 
@@ -783,9 +783,9 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 				receivedChunks[chunkNum] = true
 			}
 			// If chunkNum < nextExpectedChunk, it's a duplicate of an already-processed chunk
-			
-			// Send ACK for this chunk
-			sendChunkAck(chunkNum)
+
+			// Send ACK for this chunk (via global relay)
+			sendChunkAck(chunkNum, false)
 
 		case "file_end":
 			if bar == nil || outputFile == nil {
