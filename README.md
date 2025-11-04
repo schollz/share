@@ -30,6 +30,12 @@ e2ecp receive
 
 The command-line tool, e2ecp, is available as a single binary for Windows, Mac OS, or Linux. Simply download the [latest release](https://github.com/schollz/e2ecp/releases/latest) or install with:
 
+### Homebrew
+
+```bash
+brew install schollz/tap/e2ecp
+```
+
 ### Arch Linux
 
 ```bash
