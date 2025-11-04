@@ -916,6 +916,26 @@ export default function App() {
         };
     }, [roomId]);
 
+    // Handler for the connect button - redirects to the room page
+    function handleConnect() {
+        let room = roomId.trim().toLowerCase();
+
+        // Generate random room ID if empty
+        if (!room) {
+            room = generateRandomRoomId();
+        }
+
+        // Validate room ID length (minimum 4 characters)
+        if (room.length < 4) {
+            setRoomIdError("Room ID must be at least 4 characters. Please enter a longer room name.");
+            return;
+        }
+
+        // Clear any previous errors and redirect to the room page
+        setRoomIdError(null);
+        window.location.href = `/${room}`;
+    }
+
     // Helper function to zip a folder
     async function zipFolder(files, folderName) {
         const zip = new JSZip();
@@ -1457,8 +1477,8 @@ export default function App() {
                     )}
                 </div>
 
-                {/* Connection Panel */}
-                {!connected && (
+                {/* Connection Panel - only show on home page */}
+                {!pathRoom && (
                     <div className="bg-gray-200 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         {/* <h2 className="text-2xl sm:text-3xl font-black mb-3 sm:mb-4 uppercase">ROOM</h2> */}
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -1472,11 +1492,11 @@ export default function App() {
                                     setRoomId(e.target.value);
                                     setRoomIdError(null);
                                 }}
-                                onKeyDown={(e) => e.key === "Enter" && !connected && connectToRoom()}
+                                onKeyDown={(e) => e.key === "Enter" && !connected && handleConnect()}
                                 className={`flex-1 border-2 sm:border-4 p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 ${roomIdError ? 'border-red-600 focus:ring-red-600' : 'border-black focus:ring-black'}`}
                             />
                             <button
-                                onClick={connectToRoom}
+                                onClick={handleConnect}
                                 disabled={connected}
                                 className={`border-2 sm:border-4 border-black px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-xl font-black uppercase transition-all whitespace-nowrap ${connected
                                     ? "bg-gray-400 cursor-not-allowed"
