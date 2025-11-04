@@ -742,8 +742,13 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 
 				// Check for duplicate chunk (already received and processed)
 				if receivedChunks[chunkNum] {
-					// Send ACK again for idempotency
-					sendChunkAck(chunkNum)
+					// Send ACK again for idempotency via global relay
+					ackMsg := map[string]interface{}{
+						"type":      "chunk_ack",
+						"chunk_num": chunkNum,
+					}
+					safeSend(ackMsg)
+					lastActivityTime = time.Now()
 					continue
 				}
 
@@ -786,8 +791,13 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 				}
 				// If chunkNum < nextExpectedChunk, it's a duplicate of an already-processed chunk
 
-				// Send ACK for this chunk
-				sendChunkAck(chunkNum)
+				// Send ACK for this chunk via global relay (since chunk came via global relay)
+				ackMsg := map[string]interface{}{
+					"type":      "chunk_ack",
+					"chunk_num": chunkNum,
+				}
+				safeSend(ackMsg)
+				lastActivityTime = time.Now()
 
 			case "file_end":
 				if bar == nil || outputFile == nil {
