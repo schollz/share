@@ -146,6 +146,14 @@ func SendFile(filePath, roomID, serverURL string) {
 				fmt.Printf("\n%s disconnected. Exiting to prevent new connections.\n", disconnectedPeerName)
 				return
 			
+			case "transfer_received":
+				// Receiver confirmed they successfully received the file
+				receiverName := msg.Mnemonic
+				if receiverName == "" {
+					receiverName = "Receiver"
+				}
+				fmt.Printf("%s confirmed receipt of the file.\n", receiverName)
+			
 			case "chunk_ack":
 				// Receiver acknowledged receiving a chunk
 				ackChan <- msg.ChunkNum

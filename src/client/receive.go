@@ -507,6 +507,13 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				outputPath := filepath.Join(outputDir, fileName)
 				fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(totalSize))
 			}
+			
+			// Send transfer received confirmation to sender
+			transferReceivedMsg := map[string]interface{}{
+				"type": "transfer_received",
+			}
+			safeSend(transferReceivedMsg)
+			
 			return
 
 		}
