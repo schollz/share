@@ -201,7 +201,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 		} else {
 			safeSend(ackMsg)
 		}
-		// Update activity time to prevent timeout while waiting for file_end
+		// Update activity time to reset the 30s timeout while waiting for file_end from sender
 		lastActivityTime = time.Now()
 	}
 
