@@ -233,7 +233,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 	}
 	
 	// Channel to receive messages from both global and local relay
-	msgChan := make(chan *relay.OutgoingMessage, 10)
+	msgChan := make(chan *relay.OutgoingMessage, 100) // Large buffer to prevent blocking
 	errChan := make(chan error, 2)
 	
 	// Start goroutine to read from global relay
@@ -244,12 +244,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				errChan <- err
 				return
 			}
-			select {
-			case msgChan <- msg:
-			case <-time.After(5 * time.Second):
-				// Prevent deadlock
-				return
-			}
+			msgChan <- msg
 		}
 	}()
 	
@@ -265,12 +260,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				}
 				// Only forward file transfer messages from local relay
 				if msg.Type == "file_start" || msg.Type == "file_chunk" || msg.Type == "file_end" {
-					select {
-					case msgChan <- msg:
-					case <-time.After(5 * time.Second):
-						// Prevent deadlock
-						return
-					}
+					msgChan <- msg
 				}
 			}
 		}()
