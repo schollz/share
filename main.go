@@ -78,7 +78,8 @@ var sendCmd = &cobra.Command{
 		if server == "" {
 			server = getWebSocketURL(domain)
 		}
-		client.SendFile(filePath, roomID, server)
+		logger := createLogger(logLevel)
+		client.SendFile(filePath, roomID, server, logger)
 	},
 }
 
@@ -100,7 +101,8 @@ var receiveCmd = &cobra.Command{
 		}
 		output, _ := cmd.Flags().GetString("output")
 		force, _ := cmd.Flags().GetBool("force")
-		client.ReceiveFile(roomID, server, output, force)
+		logger := createLogger(logLevel)
+		client.ReceiveFile(roomID, server, output, force, logger)
 	},
 }
 

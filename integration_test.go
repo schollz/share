@@ -77,7 +77,7 @@ func TestIntegrationFileTransfer(t *testing.T) {
 				receiveDone <- fmt.Errorf("receiver panic: %v", r)
 			}
 		}()
-		client.ReceiveFile(roomID, serverURL, receiveDir, true) // Force overwrite in test
+		client.ReceiveFile(roomID, serverURL, receiveDir, true, logger) // Force overwrite in test
 		receiveDone <- nil
 	}()
 
@@ -92,7 +92,7 @@ func TestIntegrationFileTransfer(t *testing.T) {
 				sendDone <- fmt.Errorf("sender panic: %v", r)
 			}
 		}()
-		client.SendFile(sendFilePath, roomID, serverURL)
+		client.SendFile(sendFilePath, roomID, serverURL, logger)
 		sendDone <- nil
 	}()
 
@@ -220,7 +220,7 @@ func TestIntegrationFolderTransfer(t *testing.T) {
 				receiveDone <- fmt.Errorf("receiver panic: %v", r)
 			}
 		}()
-		client.ReceiveFile(roomID, serverURL, receiveDir, true) // Force overwrite in test
+		client.ReceiveFile(roomID, serverURL, receiveDir, true, logger) // Force overwrite in test
 		receiveDone <- nil
 	}()
 
@@ -235,7 +235,7 @@ func TestIntegrationFolderTransfer(t *testing.T) {
 				sendDone <- fmt.Errorf("sender panic: %v", r)
 			}
 		}()
-		client.SendFile(testFolder, roomID, serverURL)
+		client.SendFile(testFolder, roomID, serverURL, logger)
 		sendDone <- nil
 	}()
 
@@ -369,7 +369,7 @@ func TestIntegrationHashVerification(t *testing.T) {
 				receiveDone <- fmt.Errorf("receiver panic: %v", r)
 			}
 		}()
-		client.ReceiveFile(roomID, serverURL, receiveDir, true)
+		client.ReceiveFile(roomID, serverURL, receiveDir, true, logger)
 		receiveDone <- nil
 	}()
 
@@ -384,7 +384,7 @@ func TestIntegrationHashVerification(t *testing.T) {
 				sendDone <- fmt.Errorf("sender panic: %v", r)
 			}
 		}()
-		client.SendFile(sendFilePath, roomID, serverURL)
+		client.SendFile(sendFilePath, roomID, serverURL, logger)
 		sendDone <- nil
 	}()
 

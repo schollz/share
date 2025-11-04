@@ -13,16 +13,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/e2ecp/src/crypto"
 	"github.com/schollz/e2ecp/src/qrcode"
+	"github.com/schollz/progressbar/v3"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
 // SendFile sends a file to the specified room via the relay server
-func SendFile(filePath, roomID, serverURL string) {
+func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		log.Fatalf("Failed to stat file: %v", err)
@@ -86,7 +86,7 @@ func SendFile(filePath, roomID, serverURL string) {
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer conn.Close()
-	
+
 	// Mutex to protect websocket writes
 	var connMutex sync.Mutex
 	safeSend := func(msg map[string]interface{}) {
@@ -106,7 +106,7 @@ func SendFile(filePath, roomID, serverURL string) {
 	var peerMnemonic string
 	var transferStarted bool
 	var transferMutex sync.Mutex
-	
+
 	// Local relay connection tracking
 	var useLocalRelay bool
 	var localConn *websocket.Conn
@@ -124,7 +124,7 @@ func SendFile(filePath, roomID, serverURL string) {
 
 	done := make(chan bool)
 	ackChan := make(chan int, 100) // Channel for receiving chunk ACKs
-	
+
 	go func() {
 		defer func() {
 			select {
@@ -144,7 +144,7 @@ func SendFile(filePath, roomID, serverURL string) {
 					log.Fatalf("Server error: %s", msg.Error)
 				}
 				return
-			
+
 			case "peer_disconnected":
 				disconnectedPeerName := msg.Mnemonic
 				if disconnectedPeerName == "" {
@@ -152,7 +152,15 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 				fmt.Printf("\n%s disconnected. Exiting to prevent new connections.\n", disconnectedPeerName)
 				return
-			
+
+			case "transfer_cancelled":
+				receiverName := msg.Mnemonic
+				if receiverName == "" {
+					receiverName = "Receiver"
+				}
+				fmt.Printf("\n%s cancelled the transfer.\n", receiverName)
+				return
+
 			case "transfer_received":
 				// Receiver confirmed they successfully received the file
 				receiverName := msg.Mnemonic
@@ -160,7 +168,7 @@ func SendFile(filePath, roomID, serverURL string) {
 					receiverName = "Receiver"
 				}
 				fmt.Printf("%s confirmed receipt of the file.\n", receiverName)
-			
+
 			case "chunk_ack":
 				// Receiver acknowledged receiving a chunk
 				ackChan <- msg.ChunkNum
@@ -185,7 +193,7 @@ func SendFile(filePath, roomID, serverURL string) {
 					fmt.Printf("Sending file '%s' (%s).\n",
 						fileName, formatBytes(fileSize))
 				}
-				fmt.Printf("Receive via CLI with\n\n\tshare receive %s\n\nor online at\n\n\t%s\n\n",
+				fmt.Printf("Receive via CLI with\n\n\te2ecp receive %s\n\nor online at\n\n\t%s\n\n",
 					roomID, fullURL)
 
 				// Generate compact QR code (strip protocol for shorter code)
@@ -209,46 +217,46 @@ func SendFile(filePath, roomID, serverURL string) {
 				if msg.Count == 2 {
 					sendPublicKey()
 				}
-			
+
 			case "local_relay_info":
 				// Receiver sent us encrypted local relay information - decrypt and try to connect
 				if msg.EncryptedMetadata == "" || msg.MetadataIV == "" {
-					slog.Debug("Received local_relay_info without encrypted metadata")
+					logger.Debug("Received local_relay_info without encrypted metadata")
 					continue
 				}
-				
+
 				// Decrypt local relay info
 				relayInfoIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
 				encryptedRelayInfo, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
-				
+
 				relayInfoJSON, err := crypto.DecryptAESGCM(sharedSecret, relayInfoIV, encryptedRelayInfo)
 				if err != nil {
-					slog.Debug("Failed to decrypt local relay info", "error", err)
+					logger.Debug("Failed to decrypt local relay info", "error", err)
 					continue
 				}
-				
+
 				relayInfo, err := UnmarshalLocalRelayInfo(relayInfoJSON)
 				if err != nil {
-					slog.Debug("Failed to unmarshal local relay info", "error", err)
+					logger.Debug("Failed to unmarshal local relay info", "error", err)
 					continue
 				}
-				
+
 				if len(relayInfo.IPs) == 0 || relayInfo.Port == 0 {
-					slog.Debug("Invalid local relay info", "num_ips", len(relayInfo.IPs), "port", relayInfo.Port)
+					logger.Debug("Invalid local relay info", "num_ips", len(relayInfo.IPs), "port", relayInfo.Port)
 					continue
 				}
-				
-				slog.Debug("Received encrypted local relay info", "num_ips", len(relayInfo.IPs), "port", relayInfo.Port)
-				
+
+				logger.Debug("Received encrypted local relay info", "num_ips", len(relayInfo.IPs), "port", relayInfo.Port)
+
 				// Try to connect to local relay using each IP address
 				for _, ip := range relayInfo.IPs {
 					localURL := fmt.Sprintf("ws://%s:%d/ws", ip, relayInfo.Port)
 					lconn, _, err := websocket.DefaultDialer.Dial(localURL, nil)
 					if err != nil {
-						slog.Debug("Failed to connect to local relay", "url", localURL, "error", err)
+						logger.Debug("Failed to connect to local relay", "url", localURL, "error", err)
 						continue
 					}
-					
+
 					// Successfully connected to local relay
 					localConn = lconn
 					localSafeSend = func(msg map[string]interface{}) {
@@ -256,7 +264,7 @@ func SendFile(filePath, roomID, serverURL string) {
 						defer localConnMutex.Unlock()
 						sendProtobufMessage(localConn, msg)
 					}
-					
+
 					// Join the same room on local relay
 					localJoinMsg := map[string]interface{}{
 						"type":     "join",
@@ -264,35 +272,44 @@ func SendFile(filePath, roomID, serverURL string) {
 						"clientId": clientID,
 					}
 					localSafeSend(localJoinMsg)
-					
+
 					// Wait a bit for join to complete
 					time.Sleep(100 * time.Millisecond)
-					
+
 					useLocalRelay = true
-					slog.Debug("Connected to local relay for file transfer", "url", localURL)
+					logger.Debug("Connected to local relay for file transfer", "url", localURL)
 					fmt.Printf("Connected to local relay at %s (faster transfer)\n", localURL)
-					
+
 					// Start reading from local relay connection
 					go func() {
 						for {
 							lmsg, err := receiveProtobufMessage(localConn)
 							if err != nil {
-								slog.Debug("Local relay connection closed", "error", err)
+								logger.Debug("Local relay connection closed", "error", err)
 								return
 							}
-							
-							// Handle chunk ACKs from local relay
-							if lmsg.Type == "chunk_ack" {
+
+							// Handle messages from local relay
+							switch lmsg.Type {
+							case "chunk_ack":
 								ackChan <- lmsg.ChunkNum
+							case "transfer_cancelled":
+								receiverName := lmsg.Mnemonic
+								if receiverName == "" {
+									receiverName = "Receiver"
+								}
+								fmt.Printf("\n%s cancelled the transfer.\n", receiverName)
+								done <- true
+								return
 							}
 						}
 					}()
-					
+
 					break
 				}
-				
+
 				if !useLocalRelay {
-					slog.Debug("Failed to connect to any local relay IP, will use global relay")
+					logger.Debug("Failed to connect to any local relay IP, will use global relay")
 				}
 
 			case "pubkey":
@@ -324,19 +341,19 @@ func SendFile(filePath, roomID, serverURL string) {
 							log.Fatalf("Panic during file transfer: %v", r)
 						}
 					}()
-					
+
 					// Give local relay connection time to establish if it's being set up
 					time.Sleep(200 * time.Millisecond)
-					
+
 					// Use local relay for file transfer if available, otherwise use global relay
 					transferSend := safeSend
 					if useLocalRelay && localSafeSend != nil {
 						transferSend = localSafeSend
-						slog.Debug("Using local relay for file transfer")
+						logger.Debug("Using local relay for file transfer")
 					} else {
-						slog.Debug("Using global relay for file transfer")
+						logger.Debug("Using global relay for file transfer")
 					}
-					
+
 					// Calculate file hash before sending
 					hashFile, err := os.Open(actualFilePath)
 					if err != nil {
@@ -405,14 +422,14 @@ func SendFile(filePath, roomID, serverURL string) {
 					chunkSize := 256 * 1024
 					buffer := make([]byte, chunkSize)
 					chunkNum := 0
-					
+
 					// Track chunks for retransmission
 					type ChunkInfo struct {
-						data      []byte
-						iv        []byte
-						num       int
-						sentTime  time.Time
-						retries   int
+						data     []byte
+						iv       []byte
+						num      int
+						sentTime time.Time
+						retries  int
 					}
 					pendingChunks := make(map[int]*ChunkInfo)
 					var pendingMutex sync.Mutex
@@ -420,13 +437,13 @@ func SendFile(filePath, roomID, serverURL string) {
 					ackTimeout := 5 * time.Second
 					lastActivityTime := time.Now()
 					transferTimeout := 30 * time.Second
-					
+
 					// Goroutine to handle ACKs and retransmissions
 					stopRetransmitter := make(chan bool)
 					go func() {
 						ticker := time.NewTicker(500 * time.Millisecond)
 						defer ticker.Stop()
-						
+
 						for {
 							select {
 							case <-stopRetransmitter:
@@ -441,20 +458,20 @@ func SendFile(filePath, roomID, serverURL string) {
 								// Check for chunks that need retransmission
 								pendingMutex.Lock()
 								now := time.Now()
-								
+
 								// Check for transfer timeout
 								if now.Sub(lastActivityTime) > transferTimeout {
 									pendingMutex.Unlock()
 									log.Fatalf("Transfer timeout: no activity for %v", transferTimeout)
 								}
-								
+
 								for _, chunk := range pendingChunks {
 									if now.Sub(chunk.sentTime) > ackTimeout {
 										if chunk.retries >= maxRetries {
 											pendingMutex.Unlock()
 											log.Fatalf("Failed to send chunk %d after %d retries", chunk.num, maxRetries)
 										}
-										
+
 										// Resend chunk
 										chunkMsg := map[string]interface{}{
 											"type":       "file_chunk",
@@ -518,28 +535,28 @@ func SendFile(filePath, roomID, serverURL string) {
 							log.Fatalf("Failed to read file: %v", err)
 						}
 					}
-					
+
 					// Wait for all chunks to be acknowledged
 					waitStart := time.Now()
 					for {
 						pendingMutex.Lock()
 						pendingCount := len(pendingChunks)
 						pendingMutex.Unlock()
-						
+
 						if pendingCount == 0 {
 							break
 						}
-						
+
 						if time.Since(waitStart) > 30*time.Second {
 							stopRetransmitter <- true
 							log.Fatalf("Timeout waiting for chunk acknowledgments")
 						}
-						
+
 						time.Sleep(100 * time.Millisecond)
 					}
-					
+
 					stopRetransmitter <- true
-					
+
 					// Send file_end message
 					fileEndMsg := map[string]interface{}{
 						"type": "file_end",

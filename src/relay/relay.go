@@ -485,9 +485,9 @@ func StartLocal(log *slog.Logger) (int, *http.Server, error) {
 	logger = log
 	maxRooms = 0        // No room limit for local relay
 	maxRoomsPerIP = 0   // No per-IP limit for local relay
-	
-	// Create a listener on a random port
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+
+	// Create a listener on all interfaces on a random port
+	listener, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to start local relay: %v", err)
 	}
