@@ -1,0 +1,40 @@
+# Multi-stage build for e2ecp relay server
+# This Dockerfile builds the entire application from source
+#
+# Build with: docker build -f Dockerfile.build -t e2ecp-relay:latest .
+# Run with: docker run -p 3001:3001 e2ecp-relay:latest
+
+# Stage 1: Build the web assets
+FROM node:24-alpine AS web-builder
+
+WORKDIR /build/web
+COPY web/ ./
+RUN npm install && npm run build
+
+# Stage 2: Build the Go binary
+FROM golang:1.25-alpine AS go-builder
+
+# Install ca-certificates for downloading Go modules
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+COPY --from=web-builder /build/web/dist ./web/dist
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -extldflags '-static'" -o e2ecp .
+
+# Stage 3: Final runtime image
+FROM scratch
+
+# Copy the binary from the builder stage
+COPY --from=go-builder /build/e2ecp /e2ecp
+
+# Expose the default port
+EXPOSE 3001
+
+# Run the relay server with default settings
+# Override with: docker run -p PORT:PORT e2ecp-relay:latest --port PORT [other flags]
+ENTRYPOINT ["/e2ecp", "serve"]
+CMD ["--port", "3001", "--max-rooms", "10", "--max-rooms-per-ip", "2", "--log-level", "info"]
