@@ -1,0 +1,119 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  homebrew:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Create vendored source
+        id: release_info
+        run: |
+          # Clean version string (remove 'v' prefix if present)
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          echo "clean_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          
+          # Download and extract the source code
+          curl -L -o source.tar.gz "https://github.com/schollz/e2ecp/archive/refs/tags/${{ github.event.release.tag_name }}.tar.gz"
+          tar -xzf source.tar.gz
+          cd e2ecp-*
+          
+          # Vendor the dependencies
+          go mod vendor
+          
+          # Create vendored tarball
+          cd ..
+          mv e2ecp-* e2ecp-vendored
+          tar -czf source_code_vendored.tar.gz e2ecp-vendored/
+          
+          # Calculate SHA256 of vendored tarball
+          SHA256=$(shasum -a 256 source_code_vendored.tar.gz | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Upload vendored source to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: source_code_vendored.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Homebrew formula
+        run: |
+          cat > e2ecp.rb << 'EOF'
+          class E2ecp < Formula
+            desc "Secure E2E encrypted file transfer using ECDH and AES-GCM"
+            homepage "https://github.com/schollz/e2ecp"
+            url "https://github.com/schollz/e2ecp/releases/download/${{ github.event.release.tag_name }}/source_code_vendored.tar.gz"
+            sha256 "${{ steps.release_info.outputs.sha256 }}"
+            version "${{ steps.release_info.outputs.clean_version }}"
+            license "MIT"
+
+            depends_on "go" => :build
+            depends_on "node" => :build
+
+            def install
+              # Install web dependencies
+              cd "web" do
+                system "npm", "install"
+              end
+              
+              # Build web assets
+              cd "web" do
+                system "npm", "run", "build"
+              end
+              system "touch", "web/dist/.keep"
+              
+              # Build with proper flags using vendored dependencies
+              ENV["CGO_ENABLED"] = "0"
+              system "go", "build", "-v", "-mod=vendor", "-ldflags", "-X main.Version=#{version} -extldflags '-static'", "-o", "e2ecp"
+              bin.install "e2ecp"
+            end
+
+            test do
+              system "#{bin}/e2ecp", "--help"
+            end
+          end
+          EOF
+
+      - name: Update Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Clone the tap repository
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/schollz/homebrew-tap.git tap
+          
+          # Ensure Formula directory exists
+          mkdir -p tap/Formula
+          
+          # Copy the formula
+          cp e2ecp.rb tap/Formula/e2ecp.rb
+          
+          # Commit and push
+          cd tap
+          git add Formula/e2ecp.rb
+          git commit -m "Update e2ecp to ${{ steps.release_info.outputs.version }}" || exit 0
+          git push
