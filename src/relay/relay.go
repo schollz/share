@@ -60,6 +60,7 @@ type OutgoingMessage struct {
 	Error             string   `json:"error,omitempty"`
 	EncryptedMetadata string   `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
 	MetadataIV        string   `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
+	PeerID            string   `json:"peerId,omitempty"`             // ID of disconnected peer
 }
 
 var (
@@ -186,6 +187,19 @@ func removeClientFromRoom(c *Client) {
 	room.Mutex.Lock()
 	delete(room.Clients, c.ID)
 	empty := len(room.Clients) == 0
+	
+	// Notify other clients about the disconnection before clearing room
+	if !empty {
+		disconnectMsg := OutgoingMessage{
+			Type:     "peer_disconnected",
+			PeerID:   c.ID,
+			Mnemonic: c.Mnemonic,
+			RoomID:   roomID,
+		}
+		for _, other := range room.Clients {
+			sendMessage(other.Conn, &disconnectMsg, other.UseProtobuf)
+		}
+	}
 	room.Mutex.Unlock()
 
 	releaseIPRoom(c.IP, roomID)

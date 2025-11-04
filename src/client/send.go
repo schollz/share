@@ -136,6 +136,14 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 				return
 			
+			case "peer_disconnected":
+				disconnectedPeerName := msg.Mnemonic
+				if disconnectedPeerName == "" {
+					disconnectedPeerName = "Peer"
+				}
+				fmt.Printf("\n%s disconnected. Exiting to prevent new connections.\n", disconnectedPeerName)
+				return
+			
 			case "chunk_ack":
 				// Receiver acknowledged receiving a chunk
 				ackChan <- msg.ChunkNum

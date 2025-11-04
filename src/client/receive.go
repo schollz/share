@@ -189,6 +189,14 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				log.Fatalf("Server error: %s", msg.Error)
 			}
 			return
+		
+		case "peer_disconnected":
+			disconnectedPeerName := msg.Mnemonic
+			if disconnectedPeerName == "" {
+				disconnectedPeerName = "Peer"
+			}
+			fmt.Printf("\n%s disconnected. Exiting to prevent new connections.\n", disconnectedPeerName)
+			return
 
 		case "joined":
 			sendPublicKey()

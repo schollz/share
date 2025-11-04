@@ -55,6 +55,7 @@ func outgoingToPB(msg *OutgoingMessage) *PBOutgoingMessage {
 		Error:             msg.Error,
 		EncryptedMetadata: msg.EncryptedMetadata,
 		MetadataIv:        msg.MetadataIV,
+		PeerId:            msg.PeerID,
 	}
 }
 
@@ -76,6 +77,7 @@ func pbToOutgoing(pb *PBOutgoingMessage) *OutgoingMessage {
 		Error:             pb.Error,
 		EncryptedMetadata: pb.EncryptedMetadata,
 		MetadataIV:        pb.MetadataIv,
+		PeerID:            pb.PeerId,
 	}
 }
 
