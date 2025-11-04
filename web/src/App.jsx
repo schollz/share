@@ -231,7 +231,6 @@ function formatTime(seconds) {
 
 const ICON_CLASSES = [
     "fa-anchor",
-    "fa-ankh",
     "fa-apple-whole",
     "fa-atom",
     "fa-award",
@@ -245,11 +244,10 @@ const ICON_CLASSES = [
     "fa-brain",
     "fa-briefcase",
     "fa-bug",
-    "fa-cactus",
     "fa-cake-candles",
     "fa-calculator",
     "fa-camera",
-    "fa-cannabis",
+    "fa-campground",
     "fa-car",
     "fa-carrot",
     "fa-cat",
@@ -257,12 +255,11 @@ const ICON_CLASSES = [
     "fa-chess-rook",
     "fa-cloud",
     "fa-code",
-    "fa-cog",
+    "fa-gear",
     "fa-compass",
     "fa-cookie",
-    "fa-couch",
     "fa-crow",
-    "fa-cubes",
+    "fa-cube",
     "fa-diamond",
     "fa-dog",
     "fa-dove",
@@ -297,7 +294,7 @@ const ICON_CLASSES = [
     "fa-hippo",
     "fa-horse",
     "fa-hourglass-half",
-    "fa-ice-cream",
+    "fa-snowflake",
     "fa-key",
     "fa-leaf",
     "fa-lightbulb",
@@ -314,7 +311,7 @@ const ICON_CLASSES = [
     "fa-pen",
     "fa-pepper-hot",
     "fa-rocket",
-    "fa-route",
+    "fa-road",
     "fa-school",
     "fa-screwdriver-wrench",
     "fa-scroll",
@@ -323,9 +320,8 @@ const ICON_CLASSES = [
     "fa-ship",
     "fa-skull",
     "fa-sliders",
-    "fa-snowflake",
-    "fa-spider",
     "fa-splotch",
+    "fa-spider",
     "fa-star",
     "fa-sun",
     "fa-toolbox",
@@ -334,34 +330,50 @@ const ICON_CLASSES = [
     "fa-trophy",
     "fa-truck",
     "fa-user-astronaut",
-    "fa-water",
     "fa-wand-magic-sparkles",
     "fa-wrench",
+    "fa-pizza-slice",
+    "fa-burger",
+    "fa-lemon",
 ];
 
-function mnemonicToIcon(mnemonic) {
+function mnemonicToIcons(mnemonic) {
     if (!mnemonic) {
-        return "fa-circle-question";
+        return ["fa-circle-question", "fa-circle-question", "fa-circle-question"];
     }
+
+    // Split mnemonic into words (format: "word1-word2-word3")
     const words = mnemonic.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const icons = [];
+
+    // Map each word to its corresponding icon
     for (const word of words) {
         const directMatch = ICON_CLASSES.find((icon) => icon.includes(word));
         if (directMatch) {
-            return directMatch;
+            icons.push(directMatch);
+        } else {
+            // Fallback: use hash-based selection for this word
+            let hash = 0;
+            for (let i = 0; i < word.length; i++) {
+                hash = (hash * 31 + word.charCodeAt(i)) >>> 0;
+            }
+            icons.push(ICON_CLASSES[hash % ICON_CLASSES.length]);
         }
     }
-    let hash = 0;
-    for (let i = 0; i < mnemonic.length; i++) {
-        hash = (hash * 31 + mnemonic.charCodeAt(i)) >>> 0;
+
+    // Ensure we always have 3 icons
+    while (icons.length < 3) {
+        icons.push("fa-circle-question");
     }
-    return ICON_CLASSES[hash % ICON_CLASSES.length];
+
+    return icons.slice(0, 3);
 }
 
 function IconBadge({ mnemonic, label, className = "" }) {
     if (!mnemonic) {
         return null;
     }
-    const iconClass = mnemonicToIcon(mnemonic);
+    const iconClasses = mnemonicToIcons(mnemonic);
     return (
         <div className={`relative group ${className}`}>
             <div
@@ -369,8 +381,10 @@ function IconBadge({ mnemonic, label, className = "" }) {
                 className="bg-white text-black px-3 py-2 sm:px-4 sm:py-3 inline-flex items-center justify-center gap-2 border-2 sm:border-4 border-black font-black focus:outline-hidden"
                 aria-label={`${label}: ${mnemonic}`}
             >
-                <i className={`fas ${iconClass} text-xl sm:text-2xl md:text-3xl`} aria-hidden="true"></i>
-                {label === "You" && <span className="text-sm sm:text-base">(YOU)</span>}
+                {iconClasses.map((iconClass, index) => (
+                    <i key={index} className={`fas ${iconClass} text-xl sm:text-2xl md:text-3xl`} aria-hidden="true"></i>
+                ))}
+                {label === "You" && <span className="text-sm sm:text-base ml-1">(YOU)</span>}
             </div>
             <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 bg-black text-white border-2 border-white px-2 py-1 text-xs font-black uppercase whitespace-nowrap shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                 {mnemonic.toUpperCase()}
@@ -465,8 +479,8 @@ export default function App() {
     const ackReceivedRef = useRef(new Set());
     const retransmitTimerRef = useRef(null);
 
-    const myIconClass = mnemonicToIcon(myMnemonic);
-    const peerIconClass = mnemonicToIcon(peerMnemonic);
+    const myIconClasses = mnemonicToIcons(myMnemonic);
+    const peerIconClasses = mnemonicToIcons(peerMnemonic);
 
     function log(msg) {
         console.log(msg);
@@ -611,20 +625,26 @@ export default function App() {
                 log(`Received peer public key from ${peerName}`);
                 const hadPeerPub = havePeerPubRef.current;
 
-                // Show connection notification with peer's icon
-                if (!hadPeerPub) {
-                    const peerIcon = mnemonicToIcon(peerName);
-                    toast.success(
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <i className={`fas ${peerIcon}`} aria-hidden="true" style={{ fontSize: '16px' }}></i>
-                            <span>{peerName.toUpperCase()} CONNECTED</span>
-                        </div>,
-                        { duration: 3000 }
-                    );
+                // Prevent duplicate processing - set flag immediately to prevent race condition
+                if (hadPeerPub) {
+                    return;
                 }
+                havePeerPubRef.current = true;
+
+                // Show connection notification with peer's icons
+                const peerIcons = mnemonicToIcons(peerName);
+                toast.success(
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {peerIcons.map((iconClass, index) => (
+                            <i key={index} className={`fas ${iconClass}`} aria-hidden="true" style={{ fontSize: '16px' }}></i>
+                        ))}
+                        <span>{peerName.toUpperCase()} CONNECTED</span>
+                    </div>,
+                    { duration: 3000 }
+                );
 
                 await handlePeerPubKey(msg.pub);
-                if (!hadPeerPub) await announcePublicKey();
+                await announcePublicKey();
                 return;
             }
             
@@ -632,11 +652,13 @@ export default function App() {
                 const disconnectedPeerName = msg.mnemonic || msg.peerId || "Peer";
                 log(`${disconnectedPeerName} disconnected`);
                 
-                // Show disconnection notification with peer's icon
-                const peerIcon = mnemonicToIcon(disconnectedPeerName);
+                // Show disconnection notification with peer's icons
+                const peerIcons = mnemonicToIcons(disconnectedPeerName);
                 toast.error(
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <i className={`fas ${peerIcon}`} aria-hidden="true" style={{ fontSize: '16px' }}></i>
+                        {peerIcons.map((iconClass, index) => (
+                            <i key={index} className={`fas ${iconClass}`} aria-hidden="true" style={{ fontSize: '16px' }}></i>
+                        ))}
                         <span>{disconnectedPeerName.toUpperCase()} DISCONNECTED</span>
                     </div>,
                     { duration: 4000 }
@@ -1448,20 +1470,26 @@ export default function App() {
                                 peerMnemonic ? (
                                     <>
                                         CONNECTED AS {myMnemonic.toUpperCase()} (
-                                        <span className="inline-flex items-center ml-1" title={`Your icon for ${myMnemonic}`}>
-                                            <i className={`fas ${myIconClass}`} aria-hidden="true"></i>
+                                        <span className="inline-flex items-center gap-1 ml-1" title={`Your icons for ${myMnemonic}`}>
+                                            {myIconClasses.map((iconClass, index) => (
+                                                <i key={index} className={`fas ${iconClass}`} aria-hidden="true"></i>
+                                            ))}
                                         </span>
                                         ) TO {peerMnemonic.toUpperCase()} (
-                                        <span className="inline-flex items-center ml-1" title={`Peer icon for ${peerMnemonic}`}>
-                                            <i className={`fas ${peerIconClass}`} aria-hidden="true"></i>
+                                        <span className="inline-flex items-center gap-1 ml-1" title={`Peer icons for ${peerMnemonic}`}>
+                                            {peerIconClasses.map((iconClass, index) => (
+                                                <i key={index} className={`fas ${iconClass}`} aria-hidden="true"></i>
+                                            ))}
                                         </span>
                                         )
                                     </>
                                 ) : (
                                     <>
                                         CONNECTED AS {myMnemonic.toUpperCase()} (
-                                        <span className="inline-flex items-center ml-1" title={`Your icon for ${myMnemonic}`}>
-                                            <i className={`fas ${myIconClass}`} aria-hidden="true"></i>
+                                        <span className="inline-flex items-center gap-1 ml-1" title={`Your icons for ${myMnemonic}`}>
+                                            {myIconClasses.map((iconClass, index) => (
+                                                <i key={index} className={`fas ${iconClass}`} aria-hidden="true"></i>
+                                            ))}
                                         </span>
                                         )
                                     </>

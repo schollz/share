@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"crypto/rand"
 	"embed"
 	"fmt"
 	"log/slog"
@@ -14,7 +13,6 @@ import (
 	"github.com/schollz/e2ecp/src/relay"
 
 	"github.com/spf13/cobra"
-	"github.com/tyler-smith/go-bip39"
 )
 
 //go:embed all:web/dist install.sh
@@ -114,26 +112,8 @@ func promptForRoom() string {
 }
 
 func generateRandomRoom() string {
-	// Generate 16 bytes of random entropy
-	entropy := make([]byte, 16)
-	_, err := rand.Read(entropy)
-	if err != nil {
-		// Fallback to a simple random name if entropy generation fails
-		return fmt.Sprintf("room-%d", os.Getpid())
-	}
-
-	// Generate BIP39 mnemonic from entropy
-	mnemonic, err := bip39.NewMnemonic(entropy)
-	if err != nil {
-		return fmt.Sprintf("room-%d", os.Getpid())
-	}
-
-	// Extract first 2 words
-	words := strings.Split(mnemonic, " ")
-	if len(words) >= 2 {
-		return words[0] + "-" + words[1]
-	}
-	return words[0]
+	// Generate a random 3-word icon-based room name
+	return relay.GenerateRandomIconMnemonic(3)
 }
 
 func getWebSocketURL(domain string) string {

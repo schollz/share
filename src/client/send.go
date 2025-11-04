@@ -103,6 +103,8 @@ func SendFile(filePath, roomID, serverURL string) {
 
 	var sharedSecret []byte
 	var peerMnemonic string
+	var transferStarted bool
+	var transferMutex sync.Mutex
 
 	sendPublicKey := func() {
 		pubKeyBytes := privKey.PublicKey().Bytes()
@@ -194,6 +196,15 @@ func SendFile(filePath, roomID, serverURL string) {
 				}
 
 			case "pubkey":
+				// Check if transfer already started to prevent duplicates
+				transferMutex.Lock()
+				if transferStarted {
+					transferMutex.Unlock()
+					continue
+				}
+				transferStarted = true
+				transferMutex.Unlock()
+
 				peerMnemonic = msg.Mnemonic
 				peerPubBytes, _ := base64.StdEncoding.DecodeString(msg.Pub)
 				peerPubKey, err := ecdh.P256().NewPublicKey(peerPubBytes)

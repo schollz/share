@@ -199,6 +199,10 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			return
 
 		case "joined":
+			myMnemonic := msg.Mnemonic
+			if myMnemonic != "" {
+				fmt.Printf("You are: %s\n", myMnemonic)
+			}
 			sendPublicKey()
 
 		case "peers":
@@ -208,6 +212,11 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			}
 
 		case "pubkey":
+			// Skip if we already have a shared secret to prevent duplicate processing
+			if sharedSecret != nil {
+				continue
+			}
+
 			peerPubBytes, _ := base64.StdEncoding.DecodeString(msg.Pub)
 			peerPubKey, err := ecdh.P256().NewPublicKey(peerPubBytes)
 			if err != nil {
@@ -218,6 +227,13 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 			if err != nil {
 				log.Fatalf("Failed to derive shared secret: %v", err)
 			}
+
+			// Show connection message
+			peerMnemonic := msg.Mnemonic
+			if peerMnemonic == "" {
+				peerMnemonic = "peer"
+			}
+			fmt.Printf("Connected to %s\n", peerMnemonic)
 
 		case "file_start":
 			if sharedSecret == nil {

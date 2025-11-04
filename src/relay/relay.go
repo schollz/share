@@ -1,7 +1,6 @@
 package relay
 
 import (
-	"crypto/sha256"
 	"embed"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
-	"github.com/tyler-smith/go-bip39"
 )
 
 type Client struct {
@@ -76,21 +74,9 @@ var (
 	ipRoomMux sync.Mutex
 )
 
-// GenerateMnemonic generates a 2-word BIP39 mnemonic from a client ID
+// GenerateMnemonic generates a 3-word icon-based mnemonic from a client ID
 func GenerateMnemonic(clientID string) string {
-	hash := sha256.Sum256([]byte(clientID))
-	entropy := hash[:16]
-
-	mnemonic, err := bip39.NewMnemonic(entropy[:])
-	if err != nil {
-		return clientID
-	}
-
-	words := strings.Split(mnemonic, " ")
-	if len(words) >= 2 {
-		return words[0] + "-" + words[1]
-	}
-	return mnemonic
+	return GenerateIconMnemonicFromID(clientID)
 }
 
 func reserveIPRoom(ip, roomID string) bool {
