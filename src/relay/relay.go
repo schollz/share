@@ -484,7 +484,9 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 }
 
 // StartLocal starts a minimal local relay server on a random available port
-// Returns the port number and a function to shut it down
+// Returns the port number and a server handle for shutdown
+// Note: Modifies global relay configuration variables. Only one local relay
+// should be active per process.
 func StartLocal(log *slog.Logger) (int, *http.Server, error) {
 	logger = log
 	maxRooms = 0        // No room limit for local relay
