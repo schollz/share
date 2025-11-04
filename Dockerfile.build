@@ -1,4 +1,9 @@
 # Multi-stage build for e2ecp relay server
+# This Dockerfile builds the entire application from source
+#
+# Build with: docker build -f Dockerfile.build -t e2ecp-relay:latest .
+# Run with: docker run -p 3001:3001 e2ecp-relay:latest
+
 # Stage 1: Build the web assets
 FROM node:24-alpine AS web-builder
 
@@ -21,25 +26,15 @@ COPY --from=web-builder /build/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s -extldflags '-static'" -o e2ecp .
 
 # Stage 3: Final runtime image
-FROM alpine:latest
-
-# Install ca-certificates for HTTPS support
-RUN apk --no-cache add ca-certificates
-
-WORKDIR /app
+FROM scratch
 
 # Copy the binary from the builder stage
-COPY --from=go-builder /build/e2ecp .
+COPY --from=go-builder /build/e2ecp /e2ecp
 
 # Expose the default port
 EXPOSE 3001
 
-# Set default environment variables (can be overridden at runtime)
-ENV PORT=3001
-ENV MAX_ROOMS=10
-ENV MAX_ROOMS_PER_IP=2
-ENV LOG_LEVEL=info
-
-# Run the relay server with a shell to allow environment variable expansion
-ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["/app/e2ecp serve --port $PORT --max-rooms $MAX_ROOMS --max-rooms-per-ip $MAX_ROOMS_PER_IP --log-level $LOG_LEVEL"]
+# Run the relay server with default settings
+# Override with: docker run -p PORT:PORT e2ecp-relay:latest --port PORT [other flags]
+ENTRYPOINT ["/e2ecp", "serve"]
+CMD ["--port", "3001", "--max-rooms", "10", "--max-rooms-per-ip", "2", "--log-level", "info"]

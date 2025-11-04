@@ -64,7 +64,11 @@ e2ecp serve --port 8080
 
 ### Using Docker
 
-You can also run the relay server using Docker. First, build the binary:
+You can also run the relay server using Docker. There are two options:
+
+#### Option 1: Build from pre-compiled binary (faster)
+
+First, build the binary locally:
 
 ```bash
 make build
@@ -83,7 +87,22 @@ docker run -p 3001:3001 e2ecp-relay
 docker run -p 8080:8080 e2ecp-relay --port 8080 --max-rooms 50 --max-rooms-per-ip 5 --log-level debug
 ```
 
-Available options:
+#### Option 2: Build everything from source (no local dependencies required)
+
+Use the multi-stage Dockerfile that builds both the web assets and Go binary:
+
+```bash
+# Build the Docker image from source
+docker build -f Dockerfile.build -t e2ecp-relay .
+
+# Run with default settings
+docker run -p 3001:3001 e2ecp-relay
+
+# Run with custom settings
+docker run -p 8080:8080 e2ecp-relay --port 8080 --max-rooms 50 --max-rooms-per-ip 5 --log-level debug
+```
+
+**Available options:**
 - `--port`: Port to listen on (default: 3001)
 - `--max-rooms`: Maximum number of concurrent rooms (default: 10)
 - `--max-rooms-per-ip`: Maximum rooms per IP address (default: 2)
