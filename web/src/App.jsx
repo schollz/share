@@ -125,6 +125,7 @@ message PBOutgoingMessage {
   string error = 16;
   string encrypted_metadata = 20;
   string metadata_iv = 21;
+  string peer_id = 22;
 }
 `;
 
@@ -194,7 +195,8 @@ function decodeProtobuf(buffer) {
         count: message.count,
         error: message.error,
         encrypted_metadata: message.encryptedMetadata || null,
-        metadata_iv: message.metadataIv || null
+        metadata_iv: message.metadataIv || null,
+        peerId: message.peerId || null
     };
 }
 
@@ -623,6 +625,40 @@ export default function App() {
 
                 await handlePeerPubKey(msg.pub);
                 if (!hadPeerPub) await announcePublicKey();
+                return;
+            }
+            
+            if (msg.type === "peer_disconnected") {
+                const disconnectedPeerName = msg.mnemonic || msg.peerId || "Peer";
+                log(`${disconnectedPeerName} disconnected`);
+                
+                // Show disconnection notification with peer's icon
+                const peerIcon = mnemonicToIcon(disconnectedPeerName);
+                toast.error(
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <i className={`fas ${peerIcon}`} aria-hidden="true" style={{ fontSize: '16px' }}></i>
+                        <span>{disconnectedPeerName.toUpperCase()} DISCONNECTED</span>
+                    </div>,
+                    { duration: 4000 }
+                );
+                
+                // Reset peer state
+                setPeerMnemonic(null);
+                havePeerPubRef.current = false;
+                aesKeyRef.current = null;
+                setHasAesKey(false);
+                
+                // Close current connection
+                if (wsRef.current) {
+                    wsRef.current.close();
+                }
+                
+                // Rejoin the same room after a short delay
+                setTimeout(() => {
+                    log(`Rejoining room ${roomId}`);
+                    connectToRoom();
+                }, 500);
+                
                 return;
             }
 

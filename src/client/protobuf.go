@@ -81,6 +81,7 @@ func receiveProtobufMessage(conn *websocket.Conn) (*relay.OutgoingMessage, error
 			Error:             pbMsg.Error,
 			EncryptedMetadata: pbMsg.EncryptedMetadata,
 			MetadataIV:        pbMsg.MetadataIv,
+			PeerID:            pbMsg.PeerId,
 		}, nil
 	}
 
