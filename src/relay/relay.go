@@ -1,14 +1,17 @@
 package relay
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
@@ -472,4 +475,49 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		logger.Error("Server failed", "error", err)
 	}
+}
+
+// StartLocal starts a minimal local relay server on a random available port
+// Returns the port number and a server handle for shutdown
+// Note: Modifies global relay configuration variables. Only one local relay
+// should be active per process.
+func StartLocal(log *slog.Logger) (int, *http.Server, error) {
+	logger = log
+	maxRooms = 0        // No room limit for local relay
+	maxRoomsPerIP = 0   // No per-IP limit for local relay
+	
+	// Create a listener on a random port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to start local relay: %v", err)
+	}
+	
+	port := listener.Addr().(*net.TCPAddr).Port
+	
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws", wsHandler)
+	mux.HandleFunc("/health", healthHandler)
+	
+	handler := cors.AllowAll().Handler(mux)
+	server := &http.Server{Handler: handler}
+	
+	// Start server in background
+	go func() {
+		logger.Debug("Local relay starting", "port", port)
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+			logger.Error("Local relay failed", "error", err)
+		}
+	}()
+	
+	return port, server, nil
+}
+
+// ShutdownLocal gracefully shuts down a local relay server
+func ShutdownLocal(server *http.Server) error {
+	if server == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return server.Shutdown(ctx)
 }

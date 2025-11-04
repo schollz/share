@@ -32,7 +32,7 @@ type PBIncomingMessage struct {
 	DataB64           string                 `protobuf:"bytes,8,opt,name=data_b64,json=dataB64,proto3" json:"data_b64,omitempty"`
 	ChunkData         string                 `protobuf:"bytes,9,opt,name=chunk_data,json=chunkData,proto3" json:"chunk_data,omitempty"`
 	ChunkNum          int32                  `protobuf:"varint,10,opt,name=chunk_num,json=chunkNum,proto3" json:"chunk_num,omitempty"`
-	EncryptedMetadata string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"` // Encrypted metadata (name, total_size, is_folder, etc.)
+	EncryptedMetadata string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"` // Encrypted metadata (file info, local relay info, etc.)
 	MetadataIv        string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                      // IV for encrypted_metadata
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
@@ -154,7 +154,7 @@ type PBOutgoingMessage struct {
 	Peers             []string               `protobuf:"bytes,14,rep,name=peers,proto3" json:"peers,omitempty"`
 	Count             int32                  `protobuf:"varint,15,opt,name=count,proto3" json:"count,omitempty"`
 	Error             string                 `protobuf:"bytes,16,opt,name=error,proto3" json:"error,omitempty"`
-	EncryptedMetadata string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"` // Encrypted metadata (name, total_size, is_folder, etc.)
+	EncryptedMetadata string                 `protobuf:"bytes,20,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"` // Encrypted metadata (file info, local relay info, etc.)
 	MetadataIv        string                 `protobuf:"bytes,21,opt,name=metadata_iv,json=metadataIv,proto3" json:"metadata_iv,omitempty"`                      // IV for encrypted_metadata
 	PeerId            string                 `protobuf:"bytes,22,opt,name=peer_id,json=peerId,proto3" json:"peer_id,omitempty"`                                  // ID of disconnected peer
 	unknownFields     protoimpl.UnknownFields

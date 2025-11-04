@@ -26,3 +26,22 @@ func UnmarshalMetadata(data []byte) (FileMetadata, error) {
 	err := json.Unmarshal(data, &meta)
 	return meta, err
 }
+
+// LocalRelayInfo contains local relay connection information that should be encrypted
+// before transmission through the relay server
+type LocalRelayInfo struct {
+	IPs  []string `json:"ips"`
+	Port int      `json:"port"`
+}
+
+// MarshalLocalRelayInfo converts LocalRelayInfo to JSON bytes for encryption
+func MarshalLocalRelayInfo(info LocalRelayInfo) ([]byte, error) {
+	return json.Marshal(info)
+}
+
+// UnmarshalLocalRelayInfo converts JSON bytes to LocalRelayInfo after decryption
+func UnmarshalLocalRelayInfo(data []byte) (LocalRelayInfo, error) {
+	var info LocalRelayInfo
+	err := json.Unmarshal(data, &info)
+	return info, err
+}

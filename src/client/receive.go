@@ -16,6 +16,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/schollz/e2ecp/src/crypto"
+	"github.com/schollz/e2ecp/src/relay"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -84,6 +85,24 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 	privKey, err := crypto.GenerateECDHKeyPair()
 	if err != nil {
 		log.Fatalf("Failed to generate key pair: %v", err)
+	}
+	
+	// Start local relay server for potential CLI-to-CLI direct transfer
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+	localPort, localServer, err := relay.StartLocal(logger)
+	if err != nil {
+		slog.Debug("Failed to start local relay, using global only", "error", err)
+		localPort = 0
+	}
+	if localServer != nil {
+		defer relay.ShutdownLocal(localServer)
+	}
+	
+	// Get local IP addresses
+	localIPs, err := GetLocalIPAddresses()
+	if err != nil {
+		slog.Debug("Failed to get local IPs", "error", err)
+		localIPs = nil
 	}
 
 	u, _ := url.Parse(serverURL)
@@ -234,6 +253,39 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool) {
 				peerMnemonic = "peer"
 			}
 			fmt.Printf("Connected to %s\n", peerMnemonic)
+			
+			// Send encrypted local relay info if available
+			if localPort > 0 && len(localIPs) > 0 {
+				slog.Debug("Preparing local relay info", "port", localPort, "num_ips", len(localIPs))
+				
+				// Create local relay info structure
+				relayInfo := LocalRelayInfo{
+					IPs:  localIPs,
+					Port: localPort,
+				}
+				
+				// Marshal and encrypt local relay info
+				relayInfoJSON, err := MarshalLocalRelayInfo(relayInfo)
+				if err != nil {
+					slog.Debug("Failed to marshal local relay info", "error", err)
+					continue
+				}
+				
+				relayInfoIV, encryptedRelayInfo, err := crypto.EncryptAESGCM(sharedSecret, relayInfoJSON)
+				if err != nil {
+					slog.Debug("Failed to encrypt local relay info", "error", err)
+					continue
+				}
+				
+				// Send encrypted local relay info via global relay
+				localRelayMsg := map[string]interface{}{
+					"type":               "local_relay_info",
+					"encrypted_metadata": base64.StdEncoding.EncodeToString(encryptedRelayInfo),
+					"metadata_iv":        base64.StdEncoding.EncodeToString(relayInfoIV),
+				}
+				safeSend(localRelayMsg)
+				slog.Debug("Sent encrypted local relay info via global relay")
+			}
 
 		case "file_start":
 			if sharedSecret == nil {

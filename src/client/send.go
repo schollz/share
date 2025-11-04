@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -105,6 +106,12 @@ func SendFile(filePath, roomID, serverURL string) {
 	var peerMnemonic string
 	var transferStarted bool
 	var transferMutex sync.Mutex
+	
+	// Local relay connection tracking
+	var useLocalRelay bool
+	var localConn *websocket.Conn
+	var localConnMutex sync.Mutex
+	var localSafeSend func(msg map[string]interface{})
 
 	sendPublicKey := func() {
 		pubKeyBytes := privKey.PublicKey().Bytes()
@@ -202,6 +209,91 @@ func SendFile(filePath, roomID, serverURL string) {
 				if msg.Count == 2 {
 					sendPublicKey()
 				}
+			
+			case "local_relay_info":
+				// Receiver sent us encrypted local relay information - decrypt and try to connect
+				if msg.EncryptedMetadata == "" || msg.MetadataIV == "" {
+					slog.Debug("Received local_relay_info without encrypted metadata")
+					continue
+				}
+				
+				// Decrypt local relay info
+				relayInfoIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
+				encryptedRelayInfo, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
+				
+				relayInfoJSON, err := crypto.DecryptAESGCM(sharedSecret, relayInfoIV, encryptedRelayInfo)
+				if err != nil {
+					slog.Debug("Failed to decrypt local relay info", "error", err)
+					continue
+				}
+				
+				relayInfo, err := UnmarshalLocalRelayInfo(relayInfoJSON)
+				if err != nil {
+					slog.Debug("Failed to unmarshal local relay info", "error", err)
+					continue
+				}
+				
+				if len(relayInfo.IPs) == 0 || relayInfo.Port == 0 {
+					slog.Debug("Invalid local relay info", "num_ips", len(relayInfo.IPs), "port", relayInfo.Port)
+					continue
+				}
+				
+				slog.Debug("Received encrypted local relay info", "num_ips", len(relayInfo.IPs), "port", relayInfo.Port)
+				
+				// Try to connect to local relay using each IP address
+				for _, ip := range relayInfo.IPs {
+					localURL := fmt.Sprintf("ws://%s:%d/ws", ip, relayInfo.Port)
+					lconn, _, err := websocket.DefaultDialer.Dial(localURL, nil)
+					if err != nil {
+						slog.Debug("Failed to connect to local relay", "url", localURL, "error", err)
+						continue
+					}
+					
+					// Successfully connected to local relay
+					localConn = lconn
+					localSafeSend = func(msg map[string]interface{}) {
+						localConnMutex.Lock()
+						defer localConnMutex.Unlock()
+						sendProtobufMessage(localConn, msg)
+					}
+					
+					// Join the same room on local relay
+					localJoinMsg := map[string]interface{}{
+						"type":     "join",
+						"roomId":   roomID,
+						"clientId": clientID,
+					}
+					localSafeSend(localJoinMsg)
+					
+					// Wait a bit for join to complete
+					time.Sleep(100 * time.Millisecond)
+					
+					useLocalRelay = true
+					slog.Debug("Connected to local relay for file transfer", "url", localURL)
+					fmt.Printf("Connected to local relay at %s (faster transfer)\n", localURL)
+					
+					// Start reading from local relay connection
+					go func() {
+						for {
+							lmsg, err := receiveProtobufMessage(localConn)
+							if err != nil {
+								slog.Debug("Local relay connection closed", "error", err)
+								return
+							}
+							
+							// Handle chunk ACKs from local relay
+							if lmsg.Type == "chunk_ack" {
+								ackChan <- lmsg.ChunkNum
+							}
+						}
+					}()
+					
+					break
+				}
+				
+				if !useLocalRelay {
+					slog.Debug("Failed to connect to any local relay IP, will use global relay")
+				}
 
 			case "pubkey":
 				// Check if transfer already started to prevent duplicates
@@ -232,6 +324,18 @@ func SendFile(filePath, roomID, serverURL string) {
 							log.Fatalf("Panic during file transfer: %v", r)
 						}
 					}()
+					
+					// Give local relay connection time to establish if it's being set up
+					time.Sleep(200 * time.Millisecond)
+					
+					// Use local relay for file transfer if available, otherwise use global relay
+					transferSend := safeSend
+					if useLocalRelay && localSafeSend != nil {
+						transferSend = localSafeSend
+						slog.Debug("Using local relay for file transfer")
+					} else {
+						slog.Debug("Using global relay for file transfer")
+					}
 					
 					// Calculate file hash before sending
 					hashFile, err := os.Open(actualFilePath)
@@ -279,7 +383,7 @@ func SendFile(filePath, roomID, serverURL string) {
 						"encrypted_metadata": base64.StdEncoding.EncodeToString(encryptedMetadata),
 						"metadata_iv":        base64.StdEncoding.EncodeToString(metadataIV),
 					}
-					safeSend(fileStartMsg)
+					transferSend(fileStartMsg)
 
 					// Create progress bar
 					bar := progressbar.NewOptions64(
@@ -358,7 +462,7 @@ func SendFile(filePath, roomID, serverURL string) {
 											"chunk_data": base64.StdEncoding.EncodeToString(chunk.data),
 											"iv_b64":     base64.StdEncoding.EncodeToString(chunk.iv),
 										}
-										safeSend(chunkMsg)
+										transferSend(chunkMsg)
 										chunk.sentTime = now
 										chunk.retries++
 										lastActivityTime = now
@@ -399,7 +503,7 @@ func SendFile(filePath, roomID, serverURL string) {
 								"chunk_data": base64.StdEncoding.EncodeToString(cipherChunk),
 								"iv_b64":     base64.StdEncoding.EncodeToString(iv),
 							}
-							safeSend(chunkMsg)
+							transferSend(chunkMsg)
 							bar.Add(n)
 							chunkNum++
 
@@ -440,7 +544,7 @@ func SendFile(filePath, roomID, serverURL string) {
 					fileEndMsg := map[string]interface{}{
 						"type": "file_end",
 					}
-					safeSend(fileEndMsg)
+					transferSend(fileEndMsg)
 
 					if isFolder {
 						fmt.Printf("Sent encrypted folder '%s' to %s (%s)\n", originalFolderName, peerMnemonic, formatBytes(fileSize))
