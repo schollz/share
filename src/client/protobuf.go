@@ -41,12 +41,6 @@ func sendProtobufMessage(conn *websocket.Conn, msg map[string]interface{}) error
 	if v, ok := msg["metadata_iv"].(string); ok {
 		pbMsg.MetadataIv = v
 	}
-	if v, ok := msg["local_ips"].([]string); ok {
-		pbMsg.LocalIps = v
-	}
-	if v, ok := msg["local_port"].(int); ok {
-		pbMsg.LocalPort = int32(v)
-	}
 
 	data, err := proto.Marshal(pbMsg)
 	if err != nil {
@@ -88,8 +82,6 @@ func receiveProtobufMessage(conn *websocket.Conn) (*relay.OutgoingMessage, error
 			EncryptedMetadata: pbMsg.EncryptedMetadata,
 			MetadataIV:        pbMsg.MetadataIv,
 			PeerID:            pbMsg.PeerId,
-			LocalIPs:          pbMsg.LocalIps,
-			LocalPort:         int(pbMsg.LocalPort),
 		}, nil
 	}
 

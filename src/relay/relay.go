@@ -33,18 +33,16 @@ type Room struct {
 }
 
 type IncomingMessage struct {
-	Type              string   `json:"type"`
-	RoomID            string   `json:"roomId,omitempty"`
-	ClientID          string   `json:"clientId,omitempty"`
-	Pub               string   `json:"pub,omitempty"`
-	IvB64             string   `json:"iv_b64,omitempty"`
-	DataB64           string   `json:"data_b64,omitempty"`
-	ChunkData         string   `json:"chunk_data,omitempty"`
-	ChunkNum          int      `json:"chunk_num,omitempty"`
-	EncryptedMetadata string   `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
-	MetadataIV        string   `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
-	LocalIPs          []string `json:"local_ips,omitempty"`          // Local IP addresses for local relay
-	LocalPort         int      `json:"local_port,omitempty"`         // Local relay port
+	Type              string `json:"type"`
+	RoomID            string `json:"roomId,omitempty"`
+	ClientID          string `json:"clientId,omitempty"`
+	Pub               string `json:"pub,omitempty"`
+	IvB64             string `json:"iv_b64,omitempty"`
+	DataB64           string `json:"data_b64,omitempty"`
+	ChunkData         string `json:"chunk_data,omitempty"`
+	ChunkNum          int    `json:"chunk_num,omitempty"`
+	EncryptedMetadata string `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
+	MetadataIV        string `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
 }
 
 type OutgoingMessage struct {
@@ -64,8 +62,6 @@ type OutgoingMessage struct {
 	EncryptedMetadata string   `json:"encrypted_metadata,omitempty"` // Zero-knowledge metadata
 	MetadataIV        string   `json:"metadata_iv,omitempty"`        // IV for encrypted metadata
 	PeerID            string   `json:"peerId,omitempty"`             // ID of disconnected peer
-	LocalIPs          []string `json:"local_ips,omitempty"`          // Local IP addresses for local relay
-	LocalPort         int      `json:"local_port,omitempty"`         // Local relay port
 }
 
 var (
@@ -374,8 +370,6 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				ChunkNum:          in.ChunkNum,
 				EncryptedMetadata: in.EncryptedMetadata, // Zero-knowledge metadata
 				MetadataIV:        in.MetadataIV,        // IV for encrypted metadata
-				LocalIPs:          in.LocalIPs,          // Local relay info
-				LocalPort:         in.LocalPort,         // Local relay port
 			}
 
 			room.Mutex.Lock()
