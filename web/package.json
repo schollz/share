@@ -13,7 +13,8 @@
         "protobufjs": "^7.5.4",
         "qrcode.react": "^4.2.0",
         "react": "^19.2.0",
-        "react-dom": "^19.2.0"
+        "react-dom": "^19.2.0",
+        "react-hot-toast": "^2.6.0"
     },
     "devDependencies": {
         "@playwright/test": "^1.56.1",
