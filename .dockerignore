@@ -25,9 +25,8 @@ tmp
 .env
 .env.*
 
-# Documentation
+# Documentation (not needed in Docker images)
 *.md
-!README.md
 
 # CI/CD
 .github
