@@ -62,6 +62,33 @@ You can run your own relay server if you want to self-host, using the [command-l
 e2ecp serve --port 8080
 ```
 
+### Using Docker
+
+You can also run the relay server using Docker. First, build the binary:
+
+```bash
+make build
+```
+
+Then build and run the Docker container:
+
+```bash
+# Build the Docker image
+docker build -t e2ecp-relay .
+
+# Run with default settings (port 3001)
+docker run -p 3001:3001 e2ecp-relay
+
+# Run with custom settings
+docker run -p 8080:8080 e2ecp-relay --port 8080 --max-rooms 50 --max-rooms-per-ip 5 --log-level debug
+```
+
+Available options:
+- `--port`: Port to listen on (default: 3001)
+- `--max-rooms`: Maximum number of concurrent rooms (default: 10)
+- `--max-rooms-per-ip`: Maximum rooms per IP address (default: 2)
+- `--log-level`: Logging level - debug, info, warn, error (default: info)
+
 ## About
 
 This project is created and maintained by [Zack](https://schollz.com). If you find it useful, please consider sponsoring me on [GitHub Sponsors](https://github.com/sponsors/schollz).

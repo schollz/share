@@ -1,0 +1,33 @@
+# Git and IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Build artifacts (but keep e2ecp for Docker build)
+share
+*.exe
+
+# Node modules (will be installed in container)
+node_modules
+web/node_modules
+
+# Test artifacts
+test-results
+playwright-report
+tests/**/test-*.txt
+tests/**/downloaded-*.txt
+tests/cli-output
+
+# Temporary files
+tmp
+*.log
+.env
+.env.*
+
+# Documentation
+*.md
+!README.md
+
+# CI/CD
+.github
