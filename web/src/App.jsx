@@ -683,6 +683,26 @@ export default function App() {
                 
                 return;
             }
+            
+            if (msg.type === "transfer_received") {
+                // Receiver confirmed they successfully received the file
+                const receiverName = msg.mnemonic || msg.from || "Receiver";
+                log(`${receiverName} confirmed receipt of the file`);
+                
+                // Show success notification with receiver's icons
+                const receiverIcons = mnemonicToIcons(receiverName);
+                toast.success(
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {receiverIcons.map((iconClass, index) => (
+                            <i key={index} className={`fas ${iconClass}`} aria-hidden="true" style={{ fontSize: '16px' }}></i>
+                        ))}
+                        <span>{receiverName.toUpperCase()} RECEIVED FILE</span>
+                    </div>,
+                    { duration: 4000 }
+                );
+                
+                return;
+            }
 
             if (msg.type === "file_start") {
                 if (!aesKeyRef.current) {
@@ -870,6 +890,9 @@ export default function App() {
                     setShowDownloadConfirmModal(true);
                     
                     log(`Decrypted and prepared download "${downloadFileName}" (${typeLabel})`);
+                    
+                    // Send transfer received confirmation to sender
+                    sendMsg({ type: "transfer_received" });
                 } catch (err) {
                     console.error(err);
                     log("Failed to assemble file");
