@@ -154,7 +154,7 @@ func getOrCreateRoom(roomID string) *Room {
 		Clients: make(map[string]*Client),
 	}
 	rooms[roomID] = rm
-	logger.Info("Room created", "room", roomID, "total_rooms", len(rooms))
+	logger.Debug("Room created", "room", roomID, "total_rooms", len(rooms))
 	return rm
 }
 
@@ -176,7 +176,7 @@ func removeClientFromRoom(c *Client) {
 	room.Mutex.Lock()
 	delete(room.Clients, c.ID)
 	empty := len(room.Clients) == 0
-	
+
 	// Notify other clients about the disconnection before clearing room
 	if !empty {
 		disconnectMsg := OutgoingMessage{
@@ -257,7 +257,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		IP:   clientIP,
 	}
 
-	logger.Info("New client", "clientId", client.ID, "ip", clientIP)
+	logger.Debug("New client", "clientId", client.ID, "ip", clientIP)
 
 	// All clients use protobuf
 	client.UseProtobuf = true
@@ -328,7 +328,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 			client.RoomID = in.RoomID
 
-			logger.Info("Client joined room", "clientId", client.ID, "room", in.RoomID)
+			logger.Debug("Client joined room", "clientId", client.ID, "room", in.RoomID)
 
 			resp := OutgoingMessage{
 				Type:     "joined",
@@ -383,7 +383,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	removeClientFromRoom(client)
-	logger.Info("Closed connection", "clientId", client.ID)
+	logger.Debug("Closed connection", "clientId", client.ID)
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -399,8 +399,8 @@ type spaHandler struct {
 
 func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ua := strings.ToLower(r.UserAgent())
-	logger.Info("Request received", "path", r.URL.Path, "user_agent", ua)
-	
+	logger.Debug("Request received", "path", r.URL.Path, "user_agent", ua)
+
 	// Serve install script for curl requests to root, but not for specific files like robots.txt
 	if r.URL.Path == "/" && strings.Contains(ua, "curl") && len(h.installScript) > 0 {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -471,7 +471,7 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 
 	handler := cors.AllowAll().Handler(mux)
 	addr := fmt.Sprintf(":%d", port)
-	logger.Info("share relay starting", "address", fmt.Sprintf("ws://localhost%s", addr))
+	logger.Debug("share relay starting", "address", fmt.Sprintf("ws://localhost%s", addr))
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		logger.Error("Server failed", "error", err)
 	}
@@ -483,24 +483,24 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.F
 // should be active per process.
 func StartLocal(log *slog.Logger) (int, *http.Server, error) {
 	logger = log
-	maxRooms = 0        // No room limit for local relay
-	maxRoomsPerIP = 0   // No per-IP limit for local relay
+	maxRooms = 0      // No room limit for local relay
+	maxRoomsPerIP = 0 // No per-IP limit for local relay
 
 	// Create a listener on all interfaces on a random port
 	listener, err := net.Listen("tcp", "0.0.0.0:0")
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to start local relay: %v", err)
 	}
-	
+
 	port := listener.Addr().(*net.TCPAddr).Port
-	
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsHandler)
 	mux.HandleFunc("/health", healthHandler)
-	
+
 	handler := cors.AllowAll().Handler(mux)
 	server := &http.Server{Handler: handler}
-	
+
 	// Start server in background
 	go func() {
 		logger.Debug("Local relay starting", "port", port)
@@ -508,7 +508,7 @@ func StartLocal(log *slog.Logger) (int, *http.Server, error) {
 			logger.Error("Local relay failed", "error", err)
 		}
 	}()
-	
+
 	return port, server, nil
 }
 
