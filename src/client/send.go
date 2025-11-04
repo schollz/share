@@ -419,7 +419,7 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 					)
 
 					// Stream file in chunks, encrypting each chunk individually
-					chunkSize := 256 * 1024
+					chunkSize := 512 * 1024
 					buffer := make([]byte, chunkSize)
 					chunkNum := 0
 

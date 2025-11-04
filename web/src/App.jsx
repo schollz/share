@@ -1083,7 +1083,7 @@ export default function App() {
             }, 500);
 
             // Stream file in chunks, encrypting each chunk individually
-            const chunkSize = 256 * 1024;
+            const chunkSize = 512 * 1024;
             let sentBytes = 0;
             let chunkNum = 0;
 
