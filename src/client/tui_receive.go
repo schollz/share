@@ -57,7 +57,6 @@ type receiveErrorMsg error
 
 func NewReceiveTUIModel(roomID string) *ReceiveTUIModel {
 	prog := progress.New(
-		progress.WithDefaultGradient(),
 		progress.WithWidth(60),
 		progress.WithoutPercentage(),
 	)
@@ -145,19 +144,15 @@ func (m *ReceiveTUIModel) View() string {
 	// Styles
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("205")).
 		Width(m.width - 8)
 
-	labelStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
+	labelStyle := lipgloss.NewStyle()
 
 	valueStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255")).
 		Bold(true)
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("205")).
 		Padding(1, 2).
 		Width(m.width - 4)
 
@@ -240,7 +235,7 @@ func (m *ReceiveTUIModel) View() string {
 		}
 		stats += fmt.Sprintf(" • %.1f%%", percent*100)
 
-		content.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(stats))
+		content.WriteString(stats)
 		content.WriteString("\n")
 	}
 
@@ -248,10 +243,7 @@ func (m *ReceiveTUIModel) View() string {
 	result := boxStyle.Render(content.String())
 
 	// Add help text at bottom
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Italic(true)
-	help := helpStyle.Render("\nPress q or Ctrl+C to quit")
+	help := "\nPress q or Ctrl+C to quit"
 
 	return result + help
 }

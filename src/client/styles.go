@@ -7,50 +7,32 @@ import (
 )
 
 var (
-	// Color palette
-	primaryColor   = lipgloss.Color("205") // Pink
-	successColor   = lipgloss.Color("42")  // Green
-	infoColor      = lipgloss.Color("117") // Light blue
-	warningColor   = lipgloss.Color("214") // Orange
-	errorColor     = lipgloss.Color("196") // Red
-	subtleColor    = lipgloss.Color("241") // Gray
-
-	// Styles
+	// Styles with no custom colors - use terminal defaults
 	TitleStyle = lipgloss.NewStyle().
-			Foreground(primaryColor).
 			Bold(true).
 			MarginBottom(1)
 
 	SuccessStyle = lipgloss.NewStyle().
-			Foreground(successColor).
 			Bold(true)
 
-	InfoStyle = lipgloss.NewStyle().
-			Foreground(infoColor)
+	InfoStyle = lipgloss.NewStyle()
 
 	WarningStyle = lipgloss.NewStyle().
-			Foreground(warningColor).
 			Bold(true)
 
 	ErrorStyle = lipgloss.NewStyle().
-			Foreground(errorColor).
 			Bold(true)
 
-	SubtleStyle = lipgloss.NewStyle().
-			Foreground(subtleColor)
+	SubtleStyle = lipgloss.NewStyle()
 
 	CodeStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("99")).
-			Background(lipgloss.Color("236")).
 			Padding(0, 1)
 
 	BoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(primaryColor).
 			Padding(0, 1)
 
 	URLStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("99")).
 			Underline(true)
 )
 

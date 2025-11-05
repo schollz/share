@@ -81,7 +81,6 @@ type sendErrorMsg error
 
 func NewSendTUIModel(fileName string, fileSize int64, roomID string) *SendTUIModel {
 	prog := progress.New(
-		progress.WithDefaultGradient(),
 		progress.WithWidth(50),
 		progress.WithoutPercentage(),
 	)
@@ -170,28 +169,21 @@ func (m *SendTUIModel) View() string {
 	// Styles
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("205")).
 		Width(contentWidth)
 
-	labelStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
+	labelStyle := lipgloss.NewStyle()
 
 	valueStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255")).
 		Bold(true)
 
 	codeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("99")).
-		Background(lipgloss.Color("236")).
 		Padding(0, 1)
 
 	urlStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("99")).
 		Underline(true)
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("205")).
 		Padding(1, 2).
 		Width(m.width - 4)
 
@@ -276,7 +268,7 @@ func (m *SendTUIModel) View() string {
 		}
 		stats += fmt.Sprintf(" • %.1f%%", percent*100)
 
-		content.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(stats))
+		content.WriteString(stats)
 		content.WriteString("\n")
 	}
 
@@ -289,9 +281,7 @@ func (m *SendTUIModel) View() string {
 		qrLines := strings.Split(m.qrCode, "\n")
 		qrPanel = strings.Join(qrLines, "\n")
 	} else {
-		qrPanel = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Render("QR code will appear\nwhen ready...")
+		qrPanel = "QR code will appear\nwhen ready..."
 	}
 
 	// Combine panels side by side
@@ -306,10 +296,7 @@ func (m *SendTUIModel) View() string {
 	result := boxStyle.Render(combined)
 
 	// Add help text at bottom
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Italic(true)
-	help := helpStyle.Render("\nPress q or Ctrl+C to quit")
+	help := "\nPress q or Ctrl+C to quit"
 
 	return result + help
 }
