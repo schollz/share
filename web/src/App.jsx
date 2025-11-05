@@ -1465,13 +1465,14 @@ export default function App() {
                         )}
                     </div>
                     {myMnemonic && !peerMnemonic && roomId && (
-                        <div className="flex-shrink-0 ml-auto">
+                        <div className="flex-shrink-0 ml-auto w-20 sm:w-auto">
                             <QRCodeSVG
                                 value={`${window.location.origin}/${roomId}`}
                                 size={140}
                                 level="M"
                                 fgColor="#ffffff"
                                 bgColor="#000000"
+                                className="w-full h-auto"
                             />
                         </div>
                     )}
