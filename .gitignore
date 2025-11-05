@@ -158,3 +158,4 @@ tests/cli-output/
 e2eecp
 e2ecp
 .claude/
+*.db
