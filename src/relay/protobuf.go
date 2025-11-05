@@ -97,10 +97,12 @@ func decodeProtobuf(data []byte) (*IncomingMessage, error) {
 }
 
 // Helper to send a protobuf message to a websocket connection
-func sendMessage(conn *websocket.Conn, msg *OutgoingMessage, useProtobuf bool) error {
+func sendMessage(client *Client, msg *OutgoingMessage) error {
 	data, err := encodeProtobuf(msg)
 	if err != nil {
 		return err
 	}
-	return conn.WriteMessage(websocket.BinaryMessage, data)
+	client.WriteMutex.Lock()
+	defer client.WriteMutex.Unlock()
+	return client.Conn.WriteMessage(websocket.BinaryMessage, data)
 }
