@@ -24,6 +24,7 @@ type Client struct {
 	RoomID      string
 	IP          string
 	UseProtobuf bool // Track if client uses protobuf
+	WriteMutex  sync.Mutex // Protects concurrent writes to Conn
 }
 
 type Room struct {
@@ -186,7 +187,7 @@ func removeClientFromRoom(c *Client) {
 			RoomID:   roomID,
 		}
 		for _, other := range room.Clients {
-			sendMessage(other.Conn, &disconnectMsg, other.UseProtobuf)
+			sendMessage(other, &disconnectMsg)
 		}
 	}
 	room.Mutex.Unlock()
@@ -220,7 +221,7 @@ func broadcastPeers(room *Room) {
 	}
 
 	for _, c := range room.Clients {
-		sendMessage(c.Conn, &payload, c.UseProtobuf)
+		sendMessage(c, &payload)
 	}
 }
 
@@ -289,7 +290,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 					Mnemonic: client.Mnemonic,
 					RoomID:   in.RoomID,
 				}
-				sendMessage(conn, &resp, client.UseProtobuf)
+				sendMessage(client, &resp)
 				continue
 			}
 
@@ -303,7 +304,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 					Type:  "error",
 					Error: "Maximum rooms per IP reached, try again later",
 				}
-				sendMessage(conn, &resp, client.UseProtobuf)
+				sendMessage(client, &resp)
 				conn.Close()
 				return
 			}
@@ -317,7 +318,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 					Type:  "error",
 					Error: "Maximum rooms reached, try again later",
 				}
-				sendMessage(conn, &resp, client.UseProtobuf)
+				sendMessage(client, &resp)
 				conn.Close()
 				return
 			}
@@ -336,7 +337,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 				Mnemonic: client.Mnemonic,
 				RoomID:   in.RoomID,
 			}
-			sendMessage(conn, &resp, client.UseProtobuf)
+			sendMessage(client, &resp)
 			broadcastPeers(room)
 
 		default:
@@ -375,7 +376,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			room.Mutex.Lock()
 			for _, other := range room.Clients {
 				if other.ID != client.ID {
-					sendMessage(other.Conn, &out, other.UseProtobuf)
+					sendMessage(other, &out)
 				}
 			}
 			room.Mutex.Unlock()
