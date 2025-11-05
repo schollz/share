@@ -101,10 +101,7 @@ func NewSendTUIModel(fileName string, fileSize int64, roomID string) *SendTUIMod
 }
 
 func (m *SendTUIModel) Init() tea.Cmd {
-	return tea.Batch(
-		tea.EnterAltScreen,
-		tickCmd(),
-	)
+	return tickCmd()
 }
 
 func (m *SendTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

@@ -593,8 +593,8 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 					// Complete the TUI
 					program.Send(sendCompleteMsg{})
 
-					// Wait a moment to show completion
-					time.Sleep(2 * time.Second)
+					// Wait a moment to show completion before cleanup
+					time.Sleep(1 * time.Second)
 					done <- true
 				}()
 			}
@@ -602,4 +602,14 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 	}()
 
 	<-done
+
+	// Wait for TUI to fully exit
+	time.Sleep(200 * time.Millisecond)
+
+	// Print final success message
+	if isFolder {
+		fmt.Printf("\nTransfer complete: '%s' sent successfully\n", originalFolderName)
+	} else {
+		fmt.Printf("\nTransfer complete: '%s' sent successfully\n", fileName)
+	}
 }

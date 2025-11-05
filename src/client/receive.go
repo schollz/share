@@ -164,6 +164,8 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 	var originalFolderName string
 	var tempZipPath string
 	var expectedHash string
+	var transferCompleted bool
+	var finalPath string
 
 	// Track chunks for ordering and deduplication
 	receivedChunks := make(map[int]bool)
@@ -645,9 +647,12 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 										}
 									} else {
 										outputPath := filepath.Join(outputDir, fileName)
+										finalPath = outputPath
 										// Update TUI with completion
 										program.Send(receiveCompleteMsg{savedPath: outputPath})
 									}
+
+									transferCompleted = true
 
 									// Send transfer received confirmation to sender
 									transferReceivedMsg := map[string]interface{}{
@@ -656,7 +661,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 									localSafeSend(transferReceivedMsg)
 
 									// Wait a moment to show completion
-									time.Sleep(2 * time.Second)
+									time.Sleep(1 * time.Second)
 
 									// Signal that local transfer is complete
 									select {
@@ -945,9 +950,12 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 					}
 				} else {
 					outputPath := filepath.Join(outputDir, fileName)
+					finalPath = outputPath
 					// Update TUI with completion
 					program.Send(receiveCompleteMsg{savedPath: outputPath})
 				}
+
+				transferCompleted = true
 
 				// Send transfer received confirmation to sender
 				transferReceivedMsg := map[string]interface{}{
@@ -956,11 +964,25 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 				safeSend(transferReceivedMsg)
 
 				// Wait a moment to show completion
-				time.Sleep(2 * time.Second)
+				time.Sleep(1 * time.Second)
 
 				return
 
 			}
+		}
+	}
+
+	// Wait for TUI to fully exit
+	time.Sleep(200 * time.Millisecond)
+
+	// Print final success message if transfer completed
+	if transferCompleted {
+		if finalPath != "" {
+			fmt.Printf("\nTransfer complete: file saved to %s\n", finalPath)
+		} else if isFolder && originalFolderName != "" {
+			fmt.Printf("\nTransfer complete: folder '%s' received successfully\n", originalFolderName)
+		} else {
+			fmt.Printf("\nTransfer complete: file received successfully\n")
 		}
 	}
 }

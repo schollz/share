@@ -75,10 +75,7 @@ func NewReceiveTUIModel(roomID string) *ReceiveTUIModel {
 }
 
 func (m *ReceiveTUIModel) Init() tea.Cmd {
-	return tea.Batch(
-		tea.EnterAltScreen,
-		tickCmd(),
-	)
+	return tickCmd()
 }
 
 func (m *ReceiveTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
