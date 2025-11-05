@@ -84,7 +84,7 @@ func (m *ReceiveTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
-			return m, tea.Quit
+			return m, tea.Sequence(tea.ClearScreen, tea.Quit)
 		}
 
 	case tea.WindowSizeMsg:
@@ -112,7 +112,7 @@ func (m *ReceiveTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.completed = true
 		m.savedPath = msg.savedPath
 		m.currentBytes = m.fileSize
-		return m, tea.Quit
+		return m, tea.Sequence(tea.ClearScreen, tea.Quit)
 
 	case receiveErrorMsg:
 		m.err = msg

@@ -110,7 +110,7 @@ func (m *SendTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
-			return m, tea.Quit
+			return m, tea.Sequence(tea.ClearScreen, tea.Quit)
 		}
 
 	case tea.WindowSizeMsg:
@@ -133,7 +133,7 @@ func (m *SendTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sendCompleteMsg:
 		m.completed = true
 		m.currentBytes = m.fileSize
-		return m, tea.Quit
+		return m, tea.Sequence(tea.ClearScreen, tea.Quit)
 
 	case sendErrorMsg:
 		m.err = msg
@@ -188,7 +188,13 @@ func (m *SendTUIModel) View() string {
 	var content strings.Builder
 
 	// Title
-	content.WriteString(titleStyle.Render(fmt.Sprintf("SENDING: %s (%s)", m.fileName, formatBytesHuman(m.fileSize))))
+	var titleText string
+	if m.fileSize > 0 {
+		titleText = fmt.Sprintf("SENDING: %s (%s)", m.fileName, formatBytesHuman(m.fileSize))
+	} else {
+		titleText = fmt.Sprintf("SENDING: %s", m.fileName)
+	}
+	content.WriteString(titleStyle.Render(titleText))
 	content.WriteString("\n\n")
 
 	// Status
@@ -229,7 +235,7 @@ func (m *SendTUIModel) View() string {
 	}
 
 	// Progress section
-	if m.transferring {
+	if m.transferring && m.fileSize > 0 {
 		content.WriteString(labelStyle.Render("Progress:"))
 		content.WriteString("\n")
 

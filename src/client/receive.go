@@ -97,6 +97,12 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 	// Give TUI time to initialize
 	time.Sleep(100 * time.Millisecond)
 
+	// Update status: starting
+	program.Send(receiveStatusMsg{
+		status:    "Initializing...",
+		connected: false,
+	})
+
 	privKey, err := crypto.GenerateECDHKeyPair()
 	if err != nil {
 		program.Quit()
@@ -125,10 +131,17 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 		localIPs = append([]string{"127.0.0.1"}, localIPs...)
 	}
 
+	// Update status: connecting
+	program.Send(receiveStatusMsg{
+		status:    "Connecting to relay...",
+		connected: false,
+	})
+
 	u, _ := url.Parse(serverURL)
 	u.Path = "/ws"
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
+		program.Quit()
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer conn.Close()
@@ -972,17 +985,20 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 		}
 	}
 
-	// Wait for TUI to fully exit
-	time.Sleep(200 * time.Millisecond)
+	// Wait for TUI to fully exit and clear
+	time.Sleep(300 * time.Millisecond)
+
+	// Ensure cursor is visible and terminal is in good state
+	fmt.Print("\033[?25h") // Show cursor
 
 	// Print final success message if transfer completed
 	if transferCompleted {
 		if finalPath != "" {
-			fmt.Printf("\nTransfer complete: file saved to %s\n", finalPath)
+			fmt.Printf("Transfer complete: file saved to %s\n", finalPath)
 		} else if isFolder && originalFolderName != "" {
-			fmt.Printf("\nTransfer complete: folder '%s' received successfully\n", originalFolderName)
+			fmt.Printf("Transfer complete: folder '%s' received successfully\n", originalFolderName)
 		} else {
-			fmt.Printf("\nTransfer complete: file received successfully\n")
+			fmt.Printf("Transfer complete: file received successfully\n")
 		}
 	}
 }

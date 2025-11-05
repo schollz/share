@@ -36,51 +36,19 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 	var tempZipPath string
 	var fileSize int64
 
+	// Get preliminary info for TUI
+	var displayName string
 	if isFolder {
-		// It's a folder - we need to zip it
 		originalFolderName = filepath.Base(filePath)
-
-		// Count files for user feedback
-		fileCount, err := CountFilesInDirectory(filePath)
-		if err != nil {
-			log.Fatalf("Failed to count files in directory: %v", err)
-		}
-
-		PrintInfo(fmt.Sprintf("Zipping folder '%s' (%d files)...", originalFolderName, fileCount))
-
-		// Create temp zip file
-		tempZipPath = filepath.Join(os.TempDir(), originalFolderName+".zip")
-		err = CreateZipFromDirectory(filePath, tempZipPath)
-		if err != nil {
-			log.Fatalf("Failed to zip folder: %v", err)
-		}
-		defer os.Remove(tempZipPath) // Clean up temp file when done
-
-		// Get zip file size
-		zipInfo, err := os.Stat(tempZipPath)
-		if err != nil {
-			log.Fatalf("Failed to stat zip file: %v", err)
-		}
-		fileSize = zipInfo.Size()
-		actualFilePath = tempZipPath
-
-		PrintSuccess(fmt.Sprintf("Folder zipped (%s)", formatBytes(fileSize)))
-	} else {
-		// It's a regular file
-		fileSize = fileInfo.Size()
-		actualFilePath = filePath
-		originalFolderName = ""
-	}
-
-	fileName := filepath.Base(actualFilePath)
-	displayName := fileName
-	if isFolder {
 		displayName = originalFolderName
+	} else {
+		displayName = filepath.Base(filePath)
 	}
+
 	clientID := uuid.New().String()
 
-	// Create TUI model
-	tuiModel := NewSendTUIModel(displayName, fileSize, roomID)
+	// Create TUI model early (before zipping)
+	tuiModel := NewSendTUIModel(displayName, 0, roomID) // Size will be updated later
 	program := tea.NewProgram(tuiModel)
 
 	// Start TUI in background
@@ -93,6 +61,61 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 
 	// Give TUI time to initialize
 	time.Sleep(100 * time.Millisecond)
+
+	if isFolder {
+		// It's a folder - we need to zip it
+		// Count files for user feedback
+		fileCount, err := CountFilesInDirectory(filePath)
+		if err != nil {
+			program.Quit()
+			log.Fatalf("Failed to count files in directory: %v", err)
+		}
+
+		// Update status: zipping
+		program.Send(sendStatusMsg{
+			status:    fmt.Sprintf("Zipping folder '%s' (%d files)...", originalFolderName, fileCount),
+			connected: false,
+		})
+
+		// Create temp zip file
+		tempZipPath = filepath.Join(os.TempDir(), originalFolderName+".zip")
+		err = CreateZipFromDirectory(filePath, tempZipPath)
+		if err != nil {
+			program.Quit()
+			log.Fatalf("Failed to zip folder: %v", err)
+		}
+		defer os.Remove(tempZipPath) // Clean up temp file when done
+
+		// Get zip file size
+		zipInfo, err := os.Stat(tempZipPath)
+		if err != nil {
+			program.Quit()
+			log.Fatalf("Failed to stat zip file: %v", err)
+		}
+		fileSize = zipInfo.Size()
+		actualFilePath = tempZipPath
+
+		// Update TUI with actual file size and status
+		tuiModel.fileSize = fileSize
+		program.Send(sendStatusMsg{
+			status:    fmt.Sprintf("Folder zipped (%s), connecting...", formatBytes(fileSize)),
+			connected: false,
+		})
+	} else {
+		// It's a regular file
+		fileSize = fileInfo.Size()
+		actualFilePath = filePath
+		originalFolderName = ""
+
+		// Update TUI with file size
+		tuiModel.fileSize = fileSize
+		program.Send(sendStatusMsg{
+			status:    "Connecting...",
+			connected: false,
+		})
+	}
+
+	fileName := filepath.Base(actualFilePath)
 
 	privKey, err := crypto.GenerateECDHKeyPair()
 	if err != nil {
@@ -603,13 +626,16 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 
 	<-done
 
-	// Wait for TUI to fully exit
-	time.Sleep(200 * time.Millisecond)
+	// Wait for TUI to fully exit and clear
+	time.Sleep(300 * time.Millisecond)
+
+	// Ensure cursor is visible and terminal is in good state
+	fmt.Print("\033[?25h") // Show cursor
 
 	// Print final success message
 	if isFolder {
-		fmt.Printf("\nTransfer complete: '%s' sent successfully\n", originalFolderName)
+		fmt.Printf("Transfer complete: '%s' sent successfully\n", originalFolderName)
 	} else {
-		fmt.Printf("\nTransfer complete: '%s' sent successfully\n", fileName)
+		fmt.Printf("Transfer complete: '%s' sent successfully\n", fileName)
 	}
 }
