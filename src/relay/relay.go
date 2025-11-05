@@ -18,13 +18,16 @@ import (
 )
 
 type Client struct {
-	ID          string
-	Mnemonic    string
-	Conn        *websocket.Conn
-	RoomID      string
-	IP          string
-	UseProtobuf bool // Track if client uses protobuf
-	WriteMutex  sync.Mutex // Protects concurrent writes to Conn
+	ID           string
+	Mnemonic     string
+	Conn         *websocket.Conn
+	RoomID       string
+	IP           string
+	UseProtobuf  bool      // Track if client uses protobuf
+	WriteMutex   sync.Mutex // Protects concurrent writes to Conn
+	SessionStart time.Time  // When the client joined
+	BytesRelayed int64      // Total bytes relayed for this client
+	PeerIPs      []string   // IPs of peers in the room
 }
 
 type Room struct {
@@ -165,6 +168,13 @@ func removeClientFromRoom(c *Client) {
 		return
 	}
 
+	// Log session end if database is initialized
+	if db := GetDatabase(); db != nil && !c.SessionStart.IsZero() {
+		if err := db.EndSession(c.ID); err != nil {
+			logger.Warn("Failed to log session end", "error", err, "session_id", c.ID)
+		}
+	}
+
 	roomMux.Lock()
 	room, ok := rooms[roomID]
 	roomMux.Unlock()
@@ -223,6 +233,20 @@ func broadcastPeers(room *Room) {
 	for _, c := range room.Clients {
 		sendMessage(c, &payload)
 	}
+}
+
+// getPeerIPs returns a slice of IP addresses for all clients in the room except the given client
+func getPeerIPs(room *Room, excludeClientID string) []string {
+	room.Mutex.Lock()
+	defer room.Mutex.Unlock()
+
+	ips := make([]string, 0, len(room.Clients)-1)
+	for id, client := range room.Clients {
+		if id != excludeClientID && client.IP != "" {
+			ips = append(ips, client.IP)
+		}
+	}
+	return ips
 }
 
 var logger *slog.Logger
@@ -328,6 +352,23 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			room.Mutex.Unlock()
 
 			client.RoomID = in.RoomID
+			client.SessionStart = time.Now()
+
+			// Get peer IPs and log session start
+			client.PeerIPs = getPeerIPs(room, client.ID)
+
+			// Determine the primary peer IP for logging (first peer or empty)
+			peerIP := ""
+			if len(client.PeerIPs) > 0 {
+				peerIP = client.PeerIPs[0]
+			}
+
+			// Log session start to database if initialized
+			if db := GetDatabase(); db != nil {
+				if err := db.StartSession(client.ID, client.IP, peerIP); err != nil {
+					logger.Warn("Failed to log session start", "error", err, "session_id", client.ID)
+				}
+			}
 
 			logger.Debug("Client joined room", "clientId", client.ID, "room", in.RoomID)
 
@@ -350,6 +391,17 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			roomMux.Unlock()
 			if room == nil {
 				continue
+			}
+
+			// Track bandwidth for this message (use raw message size)
+			messageSize := int64(len(raw))
+			client.BytesRelayed += messageSize
+
+			// Update bandwidth in database if initialized
+			if db := GetDatabase(); db != nil {
+				if err := db.UpdateBandwidth(client.ID, messageSize); err != nil {
+					logger.Warn("Failed to update bandwidth", "error", err, "session_id", client.ID)
+				}
 			}
 
 			// Debug logging for file_start messages - but not the sensitive metadata
@@ -440,10 +492,21 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Start starts the relay server on the specified port
-func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, staticFS embed.FS, log *slog.Logger) {
+func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, staticFS embed.FS, log *slog.Logger) {
 	logger = log
 	maxRooms = maxRoomsLimit
 	maxRoomsPerIP = maxRoomsPerIPLimit
+
+	// Initialize database if path is provided
+	if dbPath != "" {
+		if err := InitDatabase(dbPath, log); err != nil {
+			logger.Error("Failed to initialize database", "error", err)
+		} else {
+			logger.Info("Session logging enabled", "database", dbPath)
+		}
+	} else {
+		logger.Info("Session logging disabled (no database path provided)")
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsHandler)
