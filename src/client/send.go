@@ -15,7 +15,6 @@ import (
 
 	"github.com/schollz/e2ecp/src/crypto"
 	"github.com/schollz/e2ecp/src/qrcode"
-	"github.com/schollz/progressbar/v3"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -45,7 +44,7 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 			log.Fatalf("Failed to count files in directory: %v", err)
 		}
 
-		fmt.Printf("Zipping folder '%s' (%d files)...\n", originalFolderName, fileCount)
+		PrintInfo(fmt.Sprintf("📦 Zipping folder '%s' (%d files)...", originalFolderName, fileCount))
 
 		// Create temp zip file
 		tempZipPath = filepath.Join(os.TempDir(), originalFolderName+".zip")
@@ -63,7 +62,7 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 		fileSize = zipInfo.Size()
 		actualFilePath = tempZipPath
 
-		fmt.Printf("Folder zipped successfully (%s)\n", formatBytes(fileSize))
+		PrintSuccess(fmt.Sprintf("Folder zipped (%s)", formatBytes(fileSize)))
 	} else {
 		// It's a regular file
 		fileSize = fileInfo.Size()
@@ -186,15 +185,21 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 				parsedURL.Path = ""
 				fullURL := fmt.Sprintf("%s/%s", parsedURL.String(), roomID)
 
+				fmt.Println()
 				if isFolder {
-					fmt.Printf("Sending folder '%s' (%s, zipped).\n",
-						originalFolderName, formatBytes(fileSize))
+					PrintTitle(fmt.Sprintf("📁 Sending folder '%s' (%s, zipped)",
+						originalFolderName, formatBytes(fileSize)))
 				} else {
-					fmt.Printf("Sending file '%s' (%s).\n",
-						fileName, formatBytes(fileSize))
+					PrintTitle(fmt.Sprintf("📄 Sending file '%s' (%s)",
+						fileName, formatBytes(fileSize)))
 				}
-				fmt.Printf("Receive via CLI with\n\n\te2ecp receive %s\n\nor online at\n\n\t%s\n\n",
-					roomID, fullURL)
+				fmt.Println()
+				PrintInfo("Receive via CLI with:")
+				PrintCode(fmt.Sprintf("e2ecp receive %s", roomID))
+				fmt.Println()
+				PrintInfo("Or online at:")
+				fmt.Println("  " + URLStyle.Render(fullURL))
+				fmt.Println()
 
 				// Generate compact QR code (strip protocol for shorter code)
 				qrURL := fullURL
@@ -278,7 +283,7 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 
 					useLocalRelay = true
 					logger.Debug("Connected to local relay for file transfer", "url", localURL)
-					fmt.Printf("Connected to local relay at %s (faster transfer)\n", localURL)
+					PrintSuccess(fmt.Sprintf("Connected to local relay (faster transfer)"))
 
 					// Start reading from local relay connection
 					go func() {
@@ -403,20 +408,7 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 					transferSend(fileStartMsg)
 
 					// Create progress bar
-					bar := progressbar.NewOptions64(
-						fileSize,
-						progressbar.OptionSetDescription("Sending"),
-						progressbar.OptionSetWriter(os.Stderr),
-						progressbar.OptionShowBytes(true),
-						progressbar.OptionSetWidth(10),
-						progressbar.OptionThrottle(65*time.Millisecond),
-						progressbar.OptionShowCount(),
-						progressbar.OptionOnCompletion(func() {
-							fmt.Fprint(os.Stderr, "\n")
-						}),
-						progressbar.OptionSpinnerType(14),
-						progressbar.OptionFullWidth(),
-					)
+					bar := NewProgressWriter(fileSize, "📤 Sending")
 
 					// Stream file in chunks, encrypting each chunk individually
 					chunkSize := 512 * 1024
@@ -557,6 +549,9 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 
 					stopRetransmitter <- true
 
+					// Finish the progress bar
+					bar.Finish()
+
 					// Send file_end message
 					fileEndMsg := map[string]interface{}{
 						"type": "file_end",
@@ -564,9 +559,9 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 					transferSend(fileEndMsg)
 
 					if isFolder {
-						fmt.Printf("Sent encrypted folder '%s' to %s (%s)\n", originalFolderName, peerMnemonic, formatBytes(fileSize))
+						PrintSuccess(fmt.Sprintf("Sent encrypted folder '%s' to %s (%s)", originalFolderName, peerMnemonic, formatBytes(fileSize)))
 					} else {
-						fmt.Printf("Sent encrypted file '%s' to %s (%s)\n", fileName, peerMnemonic, formatBytes(fileSize))
+						PrintSuccess(fmt.Sprintf("Sent encrypted file '%s' to %s (%s)", fileName, peerMnemonic, formatBytes(fileSize)))
 					}
 
 					time.Sleep(500 * time.Millisecond)

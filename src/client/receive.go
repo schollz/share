@@ -16,7 +16,6 @@ import (
 
 	"github.com/schollz/e2ecp/src/crypto"
 	"github.com/schollz/e2ecp/src/relay"
-	"github.com/schollz/progressbar/v3"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -142,7 +141,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 	var fileName string
 	var totalSize int64
 	var receivedBytes int64
-	var bar *progressbar.ProgressBar
+	var bar *ProgressWriter
 	var outputFile *os.File
 	var isFolder bool
 	var isMultipleFiles bool
@@ -260,7 +259,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 			case "joined":
 				myMnemonic := msg.Mnemonic
 				if myMnemonic != "" {
-					fmt.Printf("You are: %s\n", myMnemonic)
+					PrintInfo(fmt.Sprintf("🔑 Your code: %s", myMnemonic))
 				}
 				sendPublicKey()
 
@@ -292,7 +291,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 				if peerMnemonic == "" {
 					peerMnemonic = "peer"
 				}
-				fmt.Printf("Connected to %s\n", peerMnemonic)
+				PrintSuccess(fmt.Sprintf("Connected to %s", peerMnemonic))
 
 				// Send encrypted local relay info if available
 				if localPort > 0 && len(localIPs) > 0 {
@@ -403,9 +402,10 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 										// Save to temp zip file first
 										tempZipPath = filepath.Join(outputDir, fileName)
 										outputPath = tempZipPath
-										fmt.Printf("Receiving folder '%s' (%s, zipped)\n", originalFolderName, formatBytes(totalSize))
+										PrintInfo(fmt.Sprintf("📁 Receiving folder '%s' (%s, zipped)", originalFolderName, formatBytes(totalSize)))
 									} else {
 										outputPath = filepath.Join(outputDir, fileName)
+										PrintInfo(fmt.Sprintf("📄 Receiving file '%s' (%s)", fileName, formatBytes(totalSize)))
 									}
 
 									// Check if file exists and prompt for overwrite if needed
@@ -436,20 +436,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 									nextExpectedChunk = 0
 									lastActivityTime = time.Now()
 
-									bar = progressbar.NewOptions64(
-										totalSize,
-										progressbar.OptionSetDescription("Receiving"),
-										progressbar.OptionSetWriter(os.Stderr),
-										progressbar.OptionShowBytes(true),
-										progressbar.OptionSetWidth(10),
-										progressbar.OptionThrottle(65*time.Millisecond),
-										progressbar.OptionShowCount(),
-										progressbar.OptionOnCompletion(func() {
-											fmt.Fprint(os.Stderr, "\n")
-										}),
-										progressbar.OptionSpinnerType(14),
-										progressbar.OptionFullWidth(),
-									)
+									bar = NewProgressWriter(totalSize, "📥 Receiving")
 
 								case "file_chunk":
 									if bar == nil || outputFile == nil {
@@ -632,7 +619,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 										}
 									} else {
 										outputPath := filepath.Join(outputDir, fileName)
-										fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(totalSize))
+										PrintSuccess(fmt.Sprintf("Saved: %s (%s)", outputPath, formatBytes(totalSize)))
 									}
 
 									// Send transfer received confirmation to sender
@@ -691,9 +678,10 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 					// Save to temp zip file first
 					tempZipPath = filepath.Join(outputDir, fileName)
 					outputPath = tempZipPath
-					fmt.Printf("Receiving folder '%s' (%s, zipped)\n", originalFolderName, formatBytes(totalSize))
+					PrintInfo(fmt.Sprintf("📁 Receiving folder '%s' (%s, zipped)", originalFolderName, formatBytes(totalSize)))
 				} else {
 					outputPath = filepath.Join(outputDir, fileName)
+					PrintInfo(fmt.Sprintf("📄 Receiving file '%s' (%s)", fileName, formatBytes(totalSize)))
 				}
 
 				// Check if file exists and prompt for overwrite if needed
@@ -718,20 +706,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 				nextExpectedChunk = 0
 				lastActivityTime = time.Now()
 
-				bar = progressbar.NewOptions64(
-					totalSize,
-					progressbar.OptionSetDescription("Receiving"),
-					progressbar.OptionSetWriter(os.Stderr),
-					progressbar.OptionShowBytes(true),
-					progressbar.OptionSetWidth(10),
-					progressbar.OptionThrottle(65*time.Millisecond),
-					progressbar.OptionShowCount(),
-					progressbar.OptionOnCompletion(func() {
-						fmt.Fprint(os.Stderr, "\n")
-					}),
-					progressbar.OptionSpinnerType(14),
-					progressbar.OptionFullWidth(),
-				)
+				bar = NewProgressWriter(totalSize, "📥 Receiving")
 
 			case "file_chunk":
 				if bar == nil || outputFile == nil {
@@ -938,7 +913,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 					}
 				} else {
 					outputPath := filepath.Join(outputDir, fileName)
-					fmt.Printf("Saved: %s (%s)\n", outputPath, formatBytes(totalSize))
+					PrintSuccess(fmt.Sprintf("Saved: %s (%s)", outputPath, formatBytes(totalSize)))
 				}
 
 				// Send transfer received confirmation to sender
