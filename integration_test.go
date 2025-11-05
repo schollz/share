@@ -60,7 +60,7 @@ func TestIntegrationFileTransfer(t *testing.T) {
 
 	// Start the actual relay server in background
 	go func() {
-		relay.Start(port, 0, 0, staticFS, logger) // 0 limits disable room caps for integration tests
+		relay.Start(port, 0, 0, "", staticFS, logger) // 0 limits disable room caps for integration tests
 	}()
 
 	// Give the server time to start
@@ -203,7 +203,7 @@ func TestIntegrationFolderTransfer(t *testing.T) {
 
 	// Start the actual relay server in background
 	go func() {
-		relay.Start(port, 0, 0, staticFS, logger) // 0 limits disable room caps for integration tests
+		relay.Start(port, 0, 0, "", staticFS, logger) // 0 limits disable room caps for integration tests
 	}()
 
 	// Give the server time to start
@@ -352,7 +352,7 @@ func TestIntegrationHashVerification(t *testing.T) {
 
 	// Start the actual relay server in background
 	go func() {
-		relay.Start(port, 0, 0, staticFS, logger)
+		relay.Start(port, 0, 0, "", staticFS, logger)
 	}()
 
 	// Give the server time to start
