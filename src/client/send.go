@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"crypto/ecdh"
 	"encoding/base64"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/schollz/e2ecp/src/crypto"
 	"github.com/schollz/e2ecp/src/qrcode"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -44,7 +46,7 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 			log.Fatalf("Failed to count files in directory: %v", err)
 		}
 
-		PrintInfo(fmt.Sprintf("📦 Zipping folder '%s' (%d files)...", originalFolderName, fileCount))
+		PrintInfo(fmt.Sprintf("Zipping folder '%s' (%d files)...", originalFolderName, fileCount))
 
 		// Create temp zip file
 		tempZipPath = filepath.Join(os.TempDir(), originalFolderName+".zip")
@@ -71,10 +73,30 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 	}
 
 	fileName := filepath.Base(actualFilePath)
+	displayName := fileName
+	if isFolder {
+		displayName = originalFolderName
+	}
 	clientID := uuid.New().String()
+
+	// Create TUI model
+	tuiModel := NewSendTUIModel(displayName, fileSize, roomID)
+	program := tea.NewProgram(tuiModel)
+
+	// Start TUI in background
+	go func() {
+		if _, err := program.Run(); err != nil {
+			log.Printf("TUI error: %v", err)
+		}
+	}()
+	defer program.Quit()
+
+	// Give TUI time to initialize
+	time.Sleep(100 * time.Millisecond)
 
 	privKey, err := crypto.GenerateECDHKeyPair()
 	if err != nil {
+		program.Quit()
 		log.Fatalf("Failed to generate key pair: %v", err)
 	}
 
@@ -82,6 +104,7 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 	u.Path = "/ws"
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
+		program.Quit()
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer conn.Close()
@@ -185,22 +208,6 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 				parsedURL.Path = ""
 				fullURL := fmt.Sprintf("%s/%s", parsedURL.String(), roomID)
 
-				fmt.Println()
-				if isFolder {
-					PrintTitle(fmt.Sprintf("📁 Sending folder '%s' (%s, zipped)",
-						originalFolderName, formatBytes(fileSize)))
-				} else {
-					PrintTitle(fmt.Sprintf("📄 Sending file '%s' (%s)",
-						fileName, formatBytes(fileSize)))
-				}
-				fmt.Println()
-				PrintInfo("Receive via CLI with:")
-				PrintCode(fmt.Sprintf("e2ecp receive %s", roomID))
-				fmt.Println()
-				PrintInfo("Or online at:")
-				fmt.Println("  " + URLStyle.Render(fullURL))
-				fmt.Println()
-
 				// Generate compact QR code (strip protocol for shorter code)
 				qrURL := fullURL
 				if len(qrURL) >= 8 && qrURL[:8] == "https://" {
@@ -209,11 +216,19 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 					qrURL = qrURL[7:]
 				}
 
-				// Print QR code using custom half-block renderer with left padding
-				if err := qrcode.PrintHalfBlock(os.Stdout, qrURL, 15); err != nil {
-					log.Printf("Failed to generate QR code: %v", err)
+				// Generate QR code to string
+				var qrBuf bytes.Buffer
+				if err := qrcode.PrintHalfBlock(&qrBuf, qrURL, 0); err != nil {
+					logger.Debug("Failed to generate QR code", "error", err)
 				}
-				fmt.Println()
+
+				// Update TUI with connection info
+				receiveCmd := fmt.Sprintf("e2ecp receive %s", roomID)
+				tuiModel.SetConnectionInfo(receiveCmd, fullURL, qrBuf.String())
+				program.Send(sendStatusMsg{
+					status:    "Waiting for receiver...",
+					connected: false,
+				})
 
 				sendPublicKey()
 
@@ -283,7 +298,11 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 
 					useLocalRelay = true
 					logger.Debug("Connected to local relay for file transfer", "url", localURL)
-					PrintSuccess(fmt.Sprintf("Connected to local relay (faster transfer)"))
+					program.Send(sendStatusMsg{
+						status:     "Connected",
+						connected:  true,
+						localRelay: true,
+					})
 
 					// Start reading from local relay connection
 					go func() {
@@ -336,8 +355,17 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 
 				sharedSecret, err = crypto.DeriveSharedSecret(privKey, peerPubKey)
 				if err != nil {
+					program.Quit()
 					log.Fatalf("Failed to derive shared secret: %v", err)
 				}
+
+				// Update TUI with receiver info
+				program.Send(sendStatusMsg{
+					status:       "Connected",
+					connected:    true,
+					localRelay:   false,
+					receiverName: peerMnemonic,
+				})
 
 				// Start file transfer in a separate goroutine so message loop continues
 				go func() {
@@ -407,13 +435,19 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 					}
 					transferSend(fileStartMsg)
 
-					// Create progress bar
-					bar := NewProgressWriter(fileSize, "📤 Sending")
+					// Update TUI status
+					program.Send(sendStatusMsg{
+						status:       "Transferring...",
+						connected:    true,
+						localRelay:   useLocalRelay,
+						receiverName: peerMnemonic,
+					})
 
 					// Stream file in chunks, encrypting each chunk individually
 					chunkSize := 512 * 1024
 					buffer := make([]byte, chunkSize)
 					chunkNum := 0
+					var totalBytesSent int64 = 0
 
 					// Track chunks for retransmission
 					type ChunkInfo struct {
@@ -513,7 +547,8 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 								"iv_b64":     base64.StdEncoding.EncodeToString(iv),
 							}
 							transferSend(chunkMsg)
-							bar.Add(n)
+							totalBytesSent += int64(n)
+							program.Send(sendProgressMsg(totalBytesSent))
 							chunkNum++
 
 							// Small delay to allow network transmission
@@ -549,22 +584,17 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 
 					stopRetransmitter <- true
 
-					// Finish the progress bar
-					bar.Finish()
-
 					// Send file_end message
 					fileEndMsg := map[string]interface{}{
 						"type": "file_end",
 					}
 					transferSend(fileEndMsg)
 
-					if isFolder {
-						PrintSuccess(fmt.Sprintf("Sent encrypted folder '%s' to %s (%s)", originalFolderName, peerMnemonic, formatBytes(fileSize)))
-					} else {
-						PrintSuccess(fmt.Sprintf("Sent encrypted file '%s' to %s (%s)", fileName, peerMnemonic, formatBytes(fileSize)))
-					}
+					// Complete the TUI
+					program.Send(sendCompleteMsg{})
 
-					time.Sleep(500 * time.Millisecond)
+					// Wait a moment to show completion
+					time.Sleep(2 * time.Second)
 					done <- true
 				}()
 			}

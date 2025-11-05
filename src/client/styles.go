@@ -61,7 +61,7 @@ func PrintTitle(text string) {
 
 // PrintSuccess prints a styled success message
 func PrintSuccess(text string) {
-	fmt.Println(SuccessStyle.Render("✓ " + text))
+	fmt.Println(SuccessStyle.Render(text))
 }
 
 // PrintInfo prints a styled info message
@@ -71,12 +71,12 @@ func PrintInfo(text string) {
 
 // PrintWarning prints a styled warning message
 func PrintWarning(text string) {
-	fmt.Println(WarningStyle.Render("⚠ " + text))
+	fmt.Println(WarningStyle.Render(text))
 }
 
 // PrintError prints a styled error message
 func PrintError(text string) {
-	fmt.Println(ErrorStyle.Render("✗ " + text))
+	fmt.Println(ErrorStyle.Render(text))
 }
 
 // PrintSubtle prints a styled subtle message

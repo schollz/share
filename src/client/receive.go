@@ -17,6 +17,7 @@ import (
 	"github.com/schollz/e2ecp/src/crypto"
 	"github.com/schollz/e2ecp/src/relay"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -81,8 +82,24 @@ func sanitizeFileName(fileName string) string {
 func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logger *slog.Logger) {
 	clientID := uuid.New().String()
 
+	// Create TUI model
+	tuiModel := NewReceiveTUIModel(roomID)
+	program := tea.NewProgram(tuiModel)
+
+	// Start TUI in background
+	go func() {
+		if _, err := program.Run(); err != nil {
+			log.Printf("TUI error: %v", err)
+		}
+	}()
+	defer program.Quit()
+
+	// Give TUI time to initialize
+	time.Sleep(100 * time.Millisecond)
+
 	privKey, err := crypto.GenerateECDHKeyPair()
 	if err != nil {
+		program.Quit()
 		log.Fatalf("Failed to generate key pair: %v", err)
 	}
 
@@ -141,7 +158,6 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 	var fileName string
 	var totalSize int64
 	var receivedBytes int64
-	var bar *ProgressWriter
 	var outputFile *os.File
 	var isFolder bool
 	var isMultipleFiles bool
@@ -210,7 +226,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 			return fmt.Errorf("failed to write to file: %v", err)
 		}
 		receivedBytes += int64(n)
-		bar.Add(n)
+		program.Send(receiveProgressMsg(receivedBytes))
 		lastActivityTime = time.Now()
 		return nil
 	}
@@ -259,7 +275,11 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 			case "joined":
 				myMnemonic := msg.Mnemonic
 				if myMnemonic != "" {
-					PrintInfo(fmt.Sprintf("🔑 Your code: %s", myMnemonic))
+					tuiModel.SetMyCode(myMnemonic)
+					program.Send(receiveStatusMsg{
+						status:    "Waiting for sender...",
+						connected: false,
+					})
 				}
 				sendPublicKey()
 
@@ -291,7 +311,11 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 				if peerMnemonic == "" {
 					peerMnemonic = "peer"
 				}
-				PrintSuccess(fmt.Sprintf("Connected to %s", peerMnemonic))
+				program.Send(receiveStatusMsg{
+					status:     "Connected",
+					connected:  true,
+					senderName: peerMnemonic,
+				})
 
 				// Send encrypted local relay info if available
 				if localPort > 0 && len(localIPs) > 0 {
@@ -402,11 +426,17 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 										// Save to temp zip file first
 										tempZipPath = filepath.Join(outputDir, fileName)
 										outputPath = tempZipPath
-										PrintInfo(fmt.Sprintf("📁 Receiving folder '%s' (%s, zipped)", originalFolderName, formatBytes(totalSize)))
 									} else {
 										outputPath = filepath.Join(outputDir, fileName)
-										PrintInfo(fmt.Sprintf("📄 Receiving file '%s' (%s)", fileName, formatBytes(totalSize)))
 									}
+
+									// Update TUI with file info
+									program.Send(receiveFileInfoMsg{
+										fileName:   fileName,
+										fileSize:   totalSize,
+										isFolder:   isFolder,
+										folderName: originalFolderName,
+									})
 
 									// Check if file exists and prompt for overwrite if needed
 									if !checkFileOverwrite(outputPath, forceOverwrite) {
@@ -429,17 +459,14 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 										log.Fatalf("Failed to create output file: %v", err)
 									}
 
-									// Create progress bar for receiving
 									// Reset chunk tracking for new file
 									receivedChunks = make(map[int]bool)
 									chunkBuffer = make(map[int][]byte)
 									nextExpectedChunk = 0
 									lastActivityTime = time.Now()
 
-									bar = NewProgressWriter(totalSize, "📥 Receiving")
-
 								case "file_chunk":
-									if bar == nil || outputFile == nil {
+									if outputFile == nil {
 										continue
 									}
 
@@ -495,11 +522,10 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 									sendChunkAck(chunkNum)
 
 								case "file_end":
-									if bar == nil || outputFile == nil {
+									if outputFile == nil {
 										continue
 									}
 
-									bar.Finish()
 									outputFile.Close()
 
 									// Verify file hash if provided
@@ -619,7 +645,8 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 										}
 									} else {
 										outputPath := filepath.Join(outputDir, fileName)
-										PrintSuccess(fmt.Sprintf("Saved: %s (%s)", outputPath, formatBytes(totalSize)))
+										// Update TUI with completion
+										program.Send(receiveCompleteMsg{savedPath: outputPath})
 									}
 
 									// Send transfer received confirmation to sender
@@ -627,6 +654,9 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 										"type": "transfer_received",
 									}
 									localSafeSend(transferReceivedMsg)
+
+									// Wait a moment to show completion
+									time.Sleep(2 * time.Second)
 
 									// Signal that local transfer is complete
 									select {
@@ -678,11 +708,17 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 					// Save to temp zip file first
 					tempZipPath = filepath.Join(outputDir, fileName)
 					outputPath = tempZipPath
-					PrintInfo(fmt.Sprintf("📁 Receiving folder '%s' (%s, zipped)", originalFolderName, formatBytes(totalSize)))
 				} else {
 					outputPath = filepath.Join(outputDir, fileName)
-					PrintInfo(fmt.Sprintf("📄 Receiving file '%s' (%s)", fileName, formatBytes(totalSize)))
 				}
+
+				// Update TUI with file info
+				program.Send(receiveFileInfoMsg{
+					fileName:   fileName,
+					fileSize:   totalSize,
+					isFolder:   isFolder,
+					folderName: originalFolderName,
+				})
 
 				// Check if file exists and prompt for overwrite if needed
 				if !checkFileOverwrite(outputPath, forceOverwrite) {
@@ -699,17 +735,14 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 					log.Fatalf("Failed to create output file: %v", err)
 				}
 
-				// Create progress bar for receiving
 				// Reset chunk tracking for new file
 				receivedChunks = make(map[int]bool)
 				chunkBuffer = make(map[int][]byte)
 				nextExpectedChunk = 0
 				lastActivityTime = time.Now()
 
-				bar = NewProgressWriter(totalSize, "📥 Receiving")
-
 			case "file_chunk":
-				if bar == nil || outputFile == nil {
+				if outputFile == nil {
 					continue
 				}
 
@@ -775,11 +808,10 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 				lastActivityTime = time.Now()
 
 			case "file_end":
-				if bar == nil || outputFile == nil {
+				if outputFile == nil {
 					continue
 				}
 
-				bar.Finish()
 				outputFile.Close()
 
 				// Verify file hash if provided
@@ -913,7 +945,8 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 					}
 				} else {
 					outputPath := filepath.Join(outputDir, fileName)
-					PrintSuccess(fmt.Sprintf("Saved: %s (%s)", outputPath, formatBytes(totalSize)))
+					// Update TUI with completion
+					program.Send(receiveCompleteMsg{savedPath: outputPath})
 				}
 
 				// Send transfer received confirmation to sender
@@ -921,6 +954,9 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 					"type": "transfer_received",
 				}
 				safeSend(transferReceivedMsg)
+
+				// Wait a moment to show completion
+				time.Sleep(2 * time.Second)
 
 				return
 
