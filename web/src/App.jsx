@@ -446,14 +446,8 @@ export default function App() {
     const [isDragging, setIsDragging] = useState(false);
     const [roomIdError, setRoomIdError] = useState(null);
     
-    // Dark mode state - check localStorage and browser preference
-    const [darkMode, setDarkMode] = useState(() => {
-        const saved = localStorage.getItem('darkMode');
-        if (saved !== null) {
-            return saved === 'true';
-        }
-        return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    });
+    // Dark mode state - will be initialized in useEffect to avoid SSR issues
+    const [darkMode, setDarkMode] = useState(false);
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -1398,6 +1392,16 @@ export default function App() {
         }
     }, []);
     
+    // Initialize dark mode from localStorage or browser preference
+    useEffect(() => {
+        const saved = localStorage.getItem('darkMode');
+        if (saved !== null) {
+            setDarkMode(saved === 'true');
+        } else if (window.matchMedia) {
+            setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+        }
+    }, []);
+    
     // Dark mode toggle handler
     const toggleDarkMode = () => {
         setDarkMode(prev => {
@@ -1422,10 +1426,11 @@ export default function App() {
                 position="bottom-right"
                 toastOptions={{
                     duration: 2000,
+                    className: darkMode ? 'dark-toast' : 'light-toast',
                     style: {
-                        background: darkMode ? '#1f2937' : '#fff',
-                        color: darkMode ? '#fff' : '#000',
-                        border: darkMode ? '2px solid #fff' : '2px solid #000',
+                        background: 'var(--toast-bg)',
+                        color: 'var(--toast-text)',
+                        border: 'var(--toast-border)',
                         fontFamily: 'monospace',
                         fontWeight: 'bold',
                         textTransform: 'uppercase',
@@ -1434,15 +1439,15 @@ export default function App() {
                     },
                     success: {
                         iconTheme: {
-                            primary: darkMode ? '#fff' : '#000',
-                            secondary: darkMode ? '#1f2937' : '#fff',
+                            primary: 'var(--toast-icon-primary)',
+                            secondary: 'var(--toast-icon-secondary)',
                         },
                     },
                 }}
             />
             <div className="max-w-4xl w-full flex-grow flex flex-col justify-center">
                 {/* Header */}
-                <div className="bg-black dark:bg-gray-800 text-white border-4 sm:border-8 border-black dark:border-gray-600 p-4 sm:p-6 mb-3 sm:mb-6 flex items-start justify-between gap-4 transition-colors duration-200" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)', boxShadow: darkMode ? '4px 4px 0px 0px rgb(75, 85, 99), 0 0 0 4px rgb(75, 85, 99)' : '4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black' }}>
+                <div className="bg-black dark:bg-gray-800 text-white border-4 sm:border-8 border-black dark:border-gray-600 p-4 sm:p-6 mb-3 sm:mb-6 flex items-start justify-between gap-4 transition-colors duration-200 header-shadow" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)' }}>
                     <div className="flex-1">
                         <div className="flex items-start gap-3 mb-2 sm:mb-3">
                             <h1 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight">
