@@ -33,11 +33,11 @@
   }
   
   :root.dark {
-    --toast-bg: rgb(31, 41, 55); /* gray-800 */
+    --toast-bg: #000;
     --toast-text: #fff;
     --toast-border: 2px solid #fff;
     --toast-icon-primary: #fff;
-    --toast-icon-secondary: rgb(31, 41, 55); /* gray-800 */
+    --toast-icon-secondary: #000;
   }
   
   /* Header box shadow for dark mode */
@@ -46,7 +46,7 @@
   }
   
   :root.dark .header-shadow {
-    box-shadow: 4px 4px 0px 0px rgb(75, 85, 99), 0 0 0 4px rgb(75, 85, 99);
+    box-shadow: 4px 4px 0px 0px #fff, 0 0 0 4px #fff;
   }
   
   /* Override FontAwesome font-display from block to swap for better performance
