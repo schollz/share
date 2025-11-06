@@ -2103,7 +2103,7 @@ export default function App() {
                                                     }
                                                     placeholder="Type your message here..."
                                                     disabled={!hasAesKey}
-                                                    className="flex-1 border-2 border-black dark:border-white p-2 text-sm sm:text-base font-bold uppercase bg-white dark:bg-black dark:text-white disabled:bg-gray-300 dark:disabled:bg-gray-500 disabled:cursor-not-allowed focus:outline-hidden focus:ring-2 focus:ring-black dark:focus:ring-white"
+                                                    className="flex-1 border-2 border-black dark:border-white p-2 text-sm sm:text-base font-bold bg-white dark:bg-black dark:text-white disabled:bg-gray-300 dark:disabled:bg-gray-500 disabled:cursor-not-allowed focus:outline-hidden focus:ring-2 focus:ring-black dark:focus:ring-white"
                                                 />
                                                 <button
                                                     onClick={handleTextSend}
