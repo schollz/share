@@ -653,7 +653,7 @@ export default function App() {
             if (msg.type === "peer_disconnected") {
                 const disconnectedPeerName = msg.mnemonic || msg.peerId || "Peer";
                 log(`${disconnectedPeerName} disconnected`);
-                
+
                 // Show disconnection notification with peer's icons
                 const peerIcons = mnemonicToIcons(disconnectedPeerName);
                 toast.error(
@@ -665,24 +665,20 @@ export default function App() {
                     </div>,
                     { duration: 4000 }
                 );
-                
-                // Reset peer state
+
+                // Reset peer state but keep connection and received data
+                // This allows waiting for a new peer without losing received texts/files
                 setPeerMnemonic(null);
                 havePeerPubRef.current = false;
                 aesKeyRef.current = null;
                 setHasAesKey(false);
-                
-                // Close current connection
-                if (wsRef.current) {
-                    wsRef.current.close();
-                }
-                
-                // Rejoin the same room after a short delay
-                setTimeout(() => {
-                    log(`Rejoining room ${roomId}`);
-                    connectToRoom();
-                }, 500);
-                
+
+                // Update status to show waiting for new peer
+                setStatus(`Connected as ${myMnemonicRef.current || "waiting..."}`);
+                setPeerCount(1);
+
+                // DON'T close connection or rejoin - stay connected and preserve received data
+
                 return;
             }
             
