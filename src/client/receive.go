@@ -680,7 +680,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 				if metadata.IsText {
 					fmt.Println("\n=== Received Text ===")
 					fmt.Println(metadata.Text)
-					fmt.Println("=====================\n")
+					fmt.Println("=====================")
 
 					// Send transfer received confirmation to sender
 					transferReceivedMsg := map[string]interface{}{
