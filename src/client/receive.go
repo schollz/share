@@ -451,6 +451,43 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 										progressbar.OptionFullWidth(),
 									)
 
+								case "text_message":
+									if sharedSecret == nil {
+										continue
+									}
+
+									// Decrypt the text message
+									if lmsg.EncryptedMetadata == "" || lmsg.MetadataIV == "" {
+										log.Fatal("Missing encrypted text message")
+									}
+
+									textIV, _ := base64.StdEncoding.DecodeString(lmsg.MetadataIV)
+									encryptedText, _ := base64.StdEncoding.DecodeString(lmsg.EncryptedMetadata)
+
+									textBytes, err := crypto.DecryptAESGCM(sharedSecret, textIV, encryptedText)
+									if err != nil {
+										log.Fatalf("Failed to decrypt text message: %v", err)
+									}
+
+									// Print the received text
+									fmt.Printf("\n📨 Received text message:\n")
+									fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+									fmt.Printf("%s\n", string(textBytes))
+									fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+									// Send confirmation
+									confirmMsg := map[string]interface{}{
+										"type": "text_received",
+									}
+									localSafeSend(confirmMsg)
+
+									// Signal completion
+									select {
+									case localTransferDone <- true:
+									default:
+									}
+									return
+
 								case "file_chunk":
 									if bar == nil || outputFile == nil {
 										continue
@@ -732,6 +769,38 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 					progressbar.OptionSpinnerType(14),
 					progressbar.OptionFullWidth(),
 				)
+
+			case "text_message":
+				if sharedSecret == nil {
+					continue
+				}
+
+				// Decrypt the text message
+				if msg.EncryptedMetadata == "" || msg.MetadataIV == "" {
+					log.Fatal("Missing encrypted text message")
+				}
+
+				textIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
+				encryptedText, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
+
+				textBytes, err := crypto.DecryptAESGCM(sharedSecret, textIV, encryptedText)
+				if err != nil {
+					log.Fatalf("Failed to decrypt text message: %v", err)
+				}
+
+				// Print the received text
+				fmt.Printf("\n📨 Received text message:\n")
+				fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+				fmt.Printf("%s\n", string(textBytes))
+				fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+				// Send confirmation
+				confirmMsg := map[string]interface{}{
+					"type": "text_received",
+				}
+				safeSend(confirmMsg)
+
+				return
 
 			case "file_chunk":
 				if bar == nil || outputFile == nil {

@@ -425,3 +425,94 @@ func TestIntegrationHashVerification(t *testing.T) {
 
 	t.Log("Hash verification test passed - file transferred with hash verification")
 }
+
+func TestIntegrationTextMessage(t *testing.T) {
+	// Skip if short tests
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	// Start the relay server in a goroutine
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		// Skip integration testing if the sandbox disallows opening sockets
+		if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+			t.Skipf("Skipping integration test due to network restrictions: %v", err)
+		}
+		t.Fatalf("Failed to reserve test port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Start the actual relay server in background
+	go func() {
+		relay.Start(port, 0, 0, "", staticFS, logger) // 0 limits disable room caps for integration tests
+	}()
+
+	// Give the server time to start
+	time.Sleep(1 * time.Second)
+
+	serverURL := fmt.Sprintf("ws://localhost:%d", port)
+	roomID := "integration-text-test-room"
+	testMessage := "Hello from the integration test! This is a text message."
+
+	// Create temporary directory for receiver (even though we won't save files)
+	tmpDir, err := os.MkdirTemp("", "share-text-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Start receiver in a goroutine
+	receiveDone := make(chan error, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				receiveDone <- fmt.Errorf("receiver panic: %v", r)
+			}
+		}()
+		client.ReceiveFile(roomID, serverURL, tmpDir, true, logger)
+		receiveDone <- nil
+	}()
+
+	// Give receiver time to connect and join the room
+	time.Sleep(2 * time.Second)
+
+	// Start sender in a goroutine
+	sendDone := make(chan error, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				sendDone <- fmt.Errorf("sender panic: %v", r)
+			}
+		}()
+		client.SendText(testMessage, roomID, serverURL, logger)
+		sendDone <- nil
+	}()
+
+	// Wait for both sender and receiver to complete (with timeout)
+	timeout := time.After(30 * time.Second)
+
+	select {
+	case err := <-sendDone:
+		if err != nil {
+			t.Fatalf("Sender failed: %v", err)
+		}
+		t.Log("Text sender completed")
+	case <-timeout:
+		t.Fatal("Text sender timed out")
+	}
+
+	select {
+	case err := <-receiveDone:
+		if err != nil {
+			t.Fatalf("Receiver failed: %v", err)
+		}
+		t.Log("Text receiver completed")
+	case <-timeout:
+		t.Fatal("Text receiver timed out")
+	}
+
+	t.Logf("Successfully sent and received text message: %s", testMessage)
+}

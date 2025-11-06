@@ -445,6 +445,8 @@ export default function App() {
     const [pendingDownload, setPendingDownload] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [roomIdError, setRoomIdError] = useState(null);
+    const [textInput, setTextInput] = useState('');
+    const [receivedTexts, setReceivedTexts] = useState([]);
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -701,6 +703,63 @@ export default function App() {
                     { duration: 4000 }
                 );
                 
+                return;
+            }
+
+            if (msg.type === "text_message") {
+                if (!aesKeyRef.current) {
+                    log("Can't decrypt text yet (no shared key)");
+                    return;
+                }
+
+                // Decrypt the text message
+                if (!msg.encrypted_metadata || !msg.metadata_iv) {
+                    console.error("Missing encrypted text message");
+                    log("Missing encrypted text message");
+                    return;
+                }
+
+                try {
+                    const textIV = base64ToUint8(msg.metadata_iv);
+                    const encryptedText = base64ToUint8(msg.encrypted_metadata);
+                    const textBytes = await decryptBytes(aesKeyRef.current, textIV, encryptedText);
+                    const text = new TextDecoder().decode(textBytes);
+
+                    // Add to received texts
+                    setReceivedTexts(prev => [...prev, {
+                        text,
+                        from: msg.mnemonic || msg.from,
+                        timestamp: Date.now()
+                    }]);
+
+                    log(`Received text message from ${msg.mnemonic || msg.from}`);
+
+                    // Show toast notification
+                    const senderIcons = mnemonicToIcons(msg.mnemonic || msg.from);
+                    toast.success(
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {senderIcons.map((iconClass, index) => (
+                                <i key={index} className={`fas ${iconClass}`} aria-hidden="true" style={{ fontSize: '16px' }}></i>
+                            ))}
+                            <span>TEXT MESSAGE RECEIVED</span>
+                        </div>,
+                        { duration: 3000 }
+                    );
+
+                    // Send confirmation
+                    sendMsg({ type: "text_received" });
+                } catch (err) {
+                    console.error("Failed to decrypt text message:", err);
+                    log("Failed to decrypt text message");
+                }
+
+                return;
+            }
+
+            if (msg.type === "text_received") {
+                // Receiver confirmed they received the text
+                log("Text message delivered");
+                toast.success('Text message delivered', { duration: 2000 });
                 return;
             }
 
@@ -1194,6 +1253,38 @@ export default function App() {
         }
     }
 
+    // Send text message
+    async function sendTextMessage() {
+        if (!textInput.trim() || !aesKeyRef.current) return;
+
+        try {
+            const text = textInput.trim();
+
+            // Encrypt the text message
+            const textBytes = new TextEncoder().encode(text);
+            const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, textBytes);
+
+            // Send text_message with encrypted text
+            sendMsg({
+                type: "text_message",
+                encrypted_metadata: uint8ToBase64(ciphertext),
+                metadata_iv: uint8ToBase64(iv)
+            });
+
+            log(`Sent text message: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
+
+            // Show toast notification
+            toast.success('Text message sent', { duration: 2000 });
+
+            // Clear input
+            setTextInput('');
+        } catch (err) {
+            console.error(err);
+            log("Failed to send text: " + (err.message || "unknown error"));
+            toast.error('Failed to send text message');
+        }
+    }
+
     // Drag and drop handlers
     function handleDragOver(e) {
         e.preventDefault();
@@ -1628,6 +1719,70 @@ export default function App() {
                                 >
                                     {downloadName}
                                 </a>
+                            </div>
+                        )}
+
+                        {/* Text Messaging */}
+                        {hasAesKey && (
+                            <div className="mt-3 sm:mt-4">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="TYPE TEXT TO SEND..."
+                                        value={textInput}
+                                        onChange={(e) => setTextInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && textInput.trim()) {
+                                                sendTextMessage();
+                                            }
+                                        }}
+                                        className="flex-1 border-2 sm:border-4 border-black p-2 sm:p-3 text-sm sm:text-base font-bold uppercase bg-white focus:outline-hidden focus:ring-4 focus:ring-black"
+                                        disabled={!hasAesKey}
+                                    />
+                                    <button
+                                        onClick={sendTextMessage}
+                                        disabled={!textInput.trim() || !hasAesKey}
+                                        className="border-2 sm:border-4 border-black px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-black uppercase transition-all whitespace-nowrap bg-white hover:bg-gray-100 disabled:bg-gray-400 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                        SEND
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Received Texts */}
+                        {receivedTexts.length > 0 && (
+                            <div className="mt-3 sm:mt-4 space-y-2">
+                                {receivedTexts.map((item, index) => (
+                                    <div
+                                        key={index}
+                                        className="bg-white border-2 sm:border-4 border-black p-3 sm:p-4"
+                                    >
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="text-xs sm:text-sm font-black uppercase text-gray-600">
+                                                FROM: {item.from || 'PEER'}
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(item.text).then(() => {
+                                                        toast.success('Copied to clipboard', { duration: 1500 });
+                                                    }).catch(err => {
+                                                        toast.error('Failed to copy');
+                                                        console.error('Failed to copy:', err);
+                                                    });
+                                                }}
+                                                className="text-black hover:opacity-70 transition-opacity cursor-pointer flex-shrink-0"
+                                                title="Copy text to clipboard"
+                                                type="button"
+                                            >
+                                                <i className="fas fa-copy text-base sm:text-lg" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                        <div className="text-sm sm:text-base font-bold break-words whitespace-pre-wrap">
+                                            {item.text}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>

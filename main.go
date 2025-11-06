@@ -63,12 +63,12 @@ var serveCmd = &cobra.Command{
 }
 
 var sendCmd = &cobra.Command{
-	Use:   "send <file-or-folder> [room]",
-	Short: "Send a file or folder to a room",
-	Long:  "Send a file or folder through E2E encryption to a specified room. Folders are automatically zipped for transfer.",
+	Use:   "send <file-or-folder-or-text> [room]",
+	Short: "Send a file, folder, or text to a room",
+	Long:  "Send a file, folder, or text message through E2E encryption to a specified room. Folders are automatically zipped for transfer. If the first argument is not a file or folder, it will be sent as text.",
 	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
-		filePath := args[0]
+		input := args[0]
 		var roomID string
 		if len(args) >= 2 {
 			roomID = args[1]
@@ -80,7 +80,16 @@ var sendCmd = &cobra.Command{
 			server = getWebSocketURL(domain)
 		}
 		logger := createLogger(logLevel)
-		client.SendFile(filePath, roomID, server, logger)
+
+		// Check if input is a file or folder
+		_, err := os.Stat(input)
+		if err == nil {
+			// Path exists - send as file/folder
+			client.SendFile(input, roomID, server, logger)
+		} else {
+			// Path doesn't exist - send as text
+			client.SendText(input, roomID, server, logger)
+		}
 	},
 }
 
