@@ -114,6 +114,76 @@ docker run -p 8080:8080 e2ecp-relay --port 8080 --max-rooms 50 --max-rooms-per-i
 - `--max-rooms-per-ip`: Maximum rooms per IP address (default: 2)
 - `--log-level`: Logging level - debug, info, warn, error (default: info)
 
+### Using Docker Compose
+
+#### Option 1: Build from pre-compiled binary (faster)
+
+`compose.yml`
+```yaml
+services:
+  e2ecp-relay:
+    pull_policy: build
+    build:
+      context: https://github.com/schollz/e2ecp.git#${VERSION:-main}
+      dockerfile: Dockerfile
+      labels:
+        - x-e2ecp-relay-version=${VERSION:-main}
+    ports:
+      - ${PORT:-3001}:${PORT:-3001}
+    command:
+      - --port
+      - ${PORT:-3001}
+      - --max-rooms
+      - ${MAX_ROOMS:-10}
+      - --max-rooms-per-ip
+      - ${MAX_ROOMS_PER_IP:-2}
+      - --log-level
+      - ${LOG_LEVEL:-info}
+```
+
+`.env`
+```
+VERSION=v3.0.5
+PORT=8080
+MAX_ROOMS=50
+MAX_ROOMS_PER_IP=5
+LOG_LEVEL=debug
+```
+
+#### Option 2: Build everything from source (no local dependencies required)
+
+`compose.yml`
+```yaml
+services:
+  e2ecp-relay:
+    pull_policy: build
+    build:
+      context: https://github.com/schollz/e2ecp.git#${VERSION:-main}
+      dockerfile: Dockerfile.build
+      labels:
+        - x-e2ecp-relay-version=${VERSION:-main}
+    ports:
+      - ${PORT:-3001}:${PORT:-3001}
+    command:
+      - --port
+      - ${PORT:-3001}
+      - --max-rooms
+      - ${MAX_ROOMS:-10}
+      - --max-rooms-per-ip
+      - ${MAX_ROOMS_PER_IP:-2}
+      - --log-level
+      - ${LOG_LEVEL:-info}
+```
+
+`.env`
+```
+VERSION=v3.0.5
+PORT=8080
+MAX_ROOMS=50
+MAX_ROOMS_PER_IP=5
+LOG_LEVEL=debug
+```
+
 ## About
 
 This project is created and maintained by [Zack](https://schollz.com). If you find it useful, please consider sponsoring me on [GitHub Sponsors](https://github.com/sponsors/schollz).
