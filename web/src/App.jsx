@@ -378,7 +378,7 @@ function IconBadge({ mnemonic, label, className = "" }) {
         <div className={`relative group ${className}`}>
             <div
                 tabIndex={0}
-                className="bg-white text-black px-3 py-2 sm:px-4 sm:py-3 inline-flex items-center justify-center gap-2 border-2 sm:border-4 border-black font-black focus:outline-hidden"
+                className="bg-white dark:bg-gray-700 text-black dark:text-white px-3 py-2 sm:px-4 sm:py-3 inline-flex items-center justify-center gap-2 border-2 sm:border-4 border-black dark:border-gray-500 font-black focus:outline-hidden transition-colors duration-200"
                 aria-label={`${label}: ${mnemonic}`}
             >
                 {iconClasses.map((iconClass, index) => (
@@ -386,7 +386,7 @@ function IconBadge({ mnemonic, label, className = "" }) {
                 ))}
                 {label === "You" && <span className="text-sm sm:text-base ml-1">(YOU)</span>}
             </div>
-            <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 bg-black text-white border-2 border-white px-2 py-1 text-xs font-black uppercase whitespace-nowrap shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 bg-black dark:bg-white text-white dark:text-black border-2 border-white dark:border-black px-2 py-1 text-xs font-black uppercase whitespace-nowrap shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
                 {mnemonic.toUpperCase()}
             </div>
         </div>
@@ -400,11 +400,11 @@ function ProgressBar({ progress, label }) {
     const cleanLabel = label.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
 
     return (
-        <div className="bg-white border-2 sm:border-4 border-black p-3 sm:p-4 mb-3 sm:mb-4">
-            <div className="text-sm sm:text-base font-black mb-2 uppercase">{cleanLabel}</div>
-            <div className="relative w-full h-6 sm:h-8 bg-gray-300 border-2 sm:border-4 border-black">
+        <div className="bg-white dark:bg-gray-700 border-2 sm:border-4 border-black dark:border-gray-600 p-3 sm:p-4 mb-3 sm:mb-4 transition-colors duration-200">
+            <div className="text-sm sm:text-base font-black mb-2 uppercase text-black dark:text-white">{cleanLabel}</div>
+            <div className="relative w-full h-6 sm:h-8 bg-gray-300 dark:bg-gray-600 border-2 sm:border-4 border-black dark:border-gray-500">
                 <div
-                    className="absolute top-0 left-0 h-full bg-black transition-all duration-300"
+                    className="absolute top-0 left-0 h-full bg-black dark:bg-white transition-all duration-300"
                     style={{ width: `${progress.percent}%` }}
                 />
                 <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold" style={{ mixBlendMode: 'difference', color: 'white' }}>
@@ -412,7 +412,7 @@ function ProgressBar({ progress, label }) {
                 </div>
             </div>
             {(progress.speed > 0 || progress.eta > 0) && (
-                <div className="mt-2 text-xs sm:text-sm font-bold flex flex-wrap gap-x-4 gap-y-1">
+                <div className="mt-2 text-xs sm:text-sm font-bold flex flex-wrap gap-x-4 gap-y-1 text-black dark:text-white">
                     {progress.speed > 0 && (
                         <span>Speed: {formatSpeed(progress.speed)}</span>
                     )}
@@ -445,6 +445,15 @@ export default function App() {
     const [pendingDownload, setPendingDownload] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [roomIdError, setRoomIdError] = useState(null);
+    
+    // Dark mode state - check localStorage and browser preference
+    const [darkMode, setDarkMode] = useState(() => {
+        const saved = localStorage.getItem('darkMode');
+        if (saved !== null) {
+            return saved === 'true';
+        }
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    });
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -1388,17 +1397,35 @@ export default function App() {
             roomInputRef.current.focus();
         }
     }, []);
+    
+    // Dark mode toggle handler
+    const toggleDarkMode = () => {
+        setDarkMode(prev => {
+            const newValue = !prev;
+            localStorage.setItem('darkMode', String(newValue));
+            return newValue;
+        });
+    };
+    
+    // Apply dark mode class to document
+    useEffect(() => {
+        if (darkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [darkMode]);
 
     return (
-        <div className="min-h-screen bg-white p-2 sm:p-4 md:p-8 font-mono flex flex-col items-center justify-center">
+        <div className="min-h-screen bg-white dark:bg-gray-900 p-2 sm:p-4 md:p-8 font-mono flex flex-col items-center justify-center transition-colors duration-200">
             <Toaster
                 position="bottom-right"
                 toastOptions={{
                     duration: 2000,
                     style: {
-                        background: '#fff',
-                        color: '#000',
-                        border: '2px solid #000',
+                        background: darkMode ? '#1f2937' : '#fff',
+                        color: darkMode ? '#fff' : '#000',
+                        border: darkMode ? '2px solid #fff' : '2px solid #000',
                         fontFamily: 'monospace',
                         fontWeight: 'bold',
                         textTransform: 'uppercase',
@@ -1407,15 +1434,15 @@ export default function App() {
                     },
                     success: {
                         iconTheme: {
-                            primary: '#000',
-                            secondary: '#fff',
+                            primary: darkMode ? '#fff' : '#000',
+                            secondary: darkMode ? '#1f2937' : '#fff',
                         },
                     },
                 }}
             />
             <div className="max-w-4xl w-full flex-grow flex flex-col justify-center">
                 {/* Header */}
-                <div className="bg-black text-white border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 flex items-start justify-between gap-4" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)', boxShadow: '4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black' }}>
+                <div className="bg-black dark:bg-gray-800 text-white border-4 sm:border-8 border-black dark:border-gray-600 p-4 sm:p-6 mb-3 sm:mb-6 flex items-start justify-between gap-4 transition-colors duration-200" style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)', boxShadow: darkMode ? '4px 4px 0px 0px rgb(75, 85, 99), 0 0 0 4px rgb(75, 85, 99)' : '4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black' }}>
                     <div className="flex-1">
                         <div className="flex items-start gap-3 mb-2 sm:mb-3">
                             <h1 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight">
@@ -1428,6 +1455,14 @@ export default function App() {
                                 aria-label="About e2ecp"
                             >
                                 ?
+                            </button>
+                            <button
+                                type="button"
+                                onClick={toggleDarkMode}
+                                className="inline-flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer text-base sm:text-lg font-bold flex-shrink-0 mt-0.5 sm:mt-1"
+                                aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+                            >
+                                <i className={`fas ${darkMode ? 'fa-sun' : 'fa-moon'}`} aria-hidden="true"></i>
                             </button>
                         </div>
                         <p className="text-sm sm:text-lg md:text-xl font-bold leading-tight mb-2 sm:mb-3">
@@ -1448,7 +1483,7 @@ export default function App() {
                                             console.error('Failed to copy:', err);
                                         });
                                     }}
-                                    className="bg-white text-black px-2 py-1 sm:px-3 sm:py-1 inline-flex items-center justify-center border-2 sm:border-4 border-black font-black text-sm sm:text-lg uppercase cursor-pointer hover:bg-gray-100 transition-colors"
+                                    className="bg-white dark:bg-gray-700 text-black dark:text-white px-2 py-1 sm:px-3 sm:py-1 inline-flex items-center justify-center border-2 sm:border-4 border-black dark:border-gray-500 font-black text-sm sm:text-lg uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                     title="Copy URL to clipboard"
                                     type="button"
                                 >
@@ -1480,7 +1515,7 @@ export default function App() {
 
                 {/* Connection Panel - only show on home page */}
                 {!pathRoom && (
-                    <div className="bg-gray-200 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-gray-900">
+                    <div className="bg-gray-200 dark:bg-gray-800 border-4 sm:border-8 border-black dark:border-gray-600 p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(75,85,99,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:sm:shadow-[8px_8px_0px_0px_rgba(75,85,99,1)] text-gray-900 dark:text-gray-100 transition-colors duration-200">
                         {/* <h2 className="text-2xl sm:text-3xl font-black mb-3 sm:mb-4 uppercase">ROOM</h2> */}
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
                             <input
@@ -1494,20 +1529,20 @@ export default function App() {
                                     setRoomIdError(null);
                                 }}
                                 onKeyDown={(e) => e.key === "Enter" && !connected && handleConnect()}
-                                className={`flex-1 border-2 sm:border-4 p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 ${roomIdError ? 'border-red-600 focus:ring-red-600' : 'border-black focus:ring-black'}`}
+                                className={`flex-1 border-2 sm:border-4 p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white dark:bg-gray-700 dark:text-white disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 transition-colors duration-200 ${roomIdError ? 'border-red-600 focus:ring-red-600' : 'border-black dark:border-gray-500 focus:ring-black dark:focus:ring-gray-400'}`}
                             />
                             <button
                                 onClick={handleConnect}
                                 disabled={connected}
-                                className={`border-2 sm:border-4 border-black px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-xl font-black uppercase transition-all whitespace-nowrap ${connected
-                                    ? "bg-gray-400 cursor-not-allowed"
-                                    : "bg-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 cursor-pointer"
-                                    } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`}
+                                className={`border-2 sm:border-4 border-black dark:border-gray-500 px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-xl font-black uppercase transition-all whitespace-nowrap ${connected
+                                    ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                                    : "bg-white dark:bg-gray-700 dark:text-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 cursor-pointer"
+                                    } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(75,85,99,1)]`}
                             >
                                 {connected ? "CONNECTED" : "CONNECT"}
                             </button>
                         </div>
-                        <div className={`border-2 sm:border-4 border-black p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words ${roomIdError ? 'bg-red-600 text-white' : 'bg-black text-white'}`}>
+                        <div className={`border-2 sm:border-4 border-black dark:border-gray-600 p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words transition-colors duration-200 ${roomIdError ? 'bg-red-600 text-white' : 'bg-black dark:bg-gray-700 text-white'}`}>
                             {roomIdError ? (
                                 <>ERROR: {roomIdError.toUpperCase()}</>
                             ) : connected && myMnemonic ? (
@@ -1547,7 +1582,7 @@ export default function App() {
 
                 {/* File Transfer Panel */}
                 {connected && (
-                    <div className="bg-gray-300 border-4 sm:border-8 border-black p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-gray-900">
+                    <div className="bg-gray-300 dark:bg-gray-800 border-4 sm:border-8 border-black dark:border-gray-600 p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(75,85,99,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:sm:shadow-[8px_8px_0px_0px_rgba(75,85,99,1)] text-gray-900 dark:text-gray-100 transition-colors duration-200">
                         {uploadProgress && (
                             <ProgressBar progress={uploadProgress} label={`Sending ${uploadProgress.fileName}`} />
                         )}
@@ -1557,11 +1592,11 @@ export default function App() {
                         )}
 
                         <div
-                            className={`border-2 sm:border-4 border-black p-6 sm:p-8 text-center transition-all ${hasAesKey
+                            className={`border-2 sm:border-4 border-black dark:border-gray-600 p-6 sm:p-8 text-center transition-all duration-200 ${hasAesKey
                                 ? isDragging
-                                    ? "bg-yellow-300 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] scale-105"
-                                    : "bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                                : "bg-gray-400"
+                                    ? "bg-yellow-300 dark:bg-yellow-600 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(75,85,99,1)] scale-105"
+                                    : "bg-white dark:bg-gray-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(75,85,99,1)]"
+                                : "bg-gray-400 dark:bg-gray-600"
                                 }`}
                             onDragOver={handleDragOver}
                             onDragEnter={handleDragEnter}
@@ -1570,7 +1605,7 @@ export default function App() {
                         >
                             {hasAesKey ? (
                                 isDragging ? (
-                                    <div className="font-black uppercase text-xl sm:text-2xl">
+                                    <div className="font-black uppercase text-xl sm:text-2xl text-black dark:text-white">
                                         📁 DROP FILES OR FOLDER HERE
                                     </div>
                                 ) : (
@@ -1586,14 +1621,14 @@ export default function App() {
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={!hasAesKey}
-                                            className="block w-full border-2 border-black p-4 font-black uppercase cursor-pointer hover:bg-gray-100 transition-colors text-sm sm:text-base md:text-lg disabled:cursor-not-allowed disabled:bg-gray-400"
+                                            className="block w-full border-2 border-black dark:border-gray-500 p-4 font-black uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-sm sm:text-base md:text-lg disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-500 text-black dark:text-white"
                                         >
                                             CLICK OR DROP FILES HERE
                                         </button>
                                     </>
                                 )
                             ) : (
-                                <div className="flex items-center justify-center gap-2 font-black uppercase text-sm sm:text-base text-gray-900">
+                                <div className="flex items-center justify-center gap-2 font-black uppercase text-sm sm:text-base text-gray-900 dark:text-gray-100">
                                     <span>
                                         {`WAITING FOR PEER TO JOIN ${window.location.host}/${roomId}`.toUpperCase()}
                                     </span>
@@ -1608,7 +1643,7 @@ export default function App() {
                                                 console.error('Failed to copy:', err);
                                             });
                                         }}
-                                        className="text-black hover:opacity-70 transition-opacity cursor-pointer"
+                                        className="text-black dark:text-white hover:opacity-70 transition-opacity cursor-pointer"
                                         title="Copy URL to clipboard"
                                         type="button"
                                     >
@@ -1619,12 +1654,12 @@ export default function App() {
                         </div>
 
                         {downloadUrl && (
-                            <div className="mt-3 sm:mt-4 bg-white border-2 sm:border-4 border-black p-3 sm:p-4">
-                                <div className="text-base sm:text-xl font-black mb-2">FILE READY:</div>
+                            <div className="mt-3 sm:mt-4 bg-white dark:bg-gray-700 border-2 sm:border-4 border-black dark:border-gray-600 p-3 sm:p-4 transition-colors duration-200">
+                                <div className="text-base sm:text-xl font-black mb-2 text-black dark:text-white">FILE READY:</div>
                                 <a
                                     href={downloadUrl}
                                     download={downloadName}
-                                    className="text-lg sm:text-2xl font-black underline hover:no-underline text-black break-all"
+                                    className="text-lg sm:text-2xl font-black underline hover:no-underline text-black dark:text-white break-all"
                                 >
                                     {downloadName}
                                 </a>
@@ -1637,16 +1672,16 @@ export default function App() {
 
             {/* Error Modal */}
             {showErrorModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md w-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                        <h2 className="text-2xl sm:text-4xl font-black mb-4 uppercase text-center">MAXIMUM ROOMS</h2>
-                        <p className="text-lg sm:text-xl font-bold mb-6 text-center">TRY AGAIN LATER</p>
+                <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4 transition-colors duration-200">
+                    <div className="bg-white dark:bg-gray-800 border-4 sm:border-8 border-black dark:border-gray-600 p-6 sm:p-8 max-w-md w-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(75,85,99,1)] transition-colors duration-200">
+                        <h2 className="text-2xl sm:text-4xl font-black mb-4 uppercase text-center text-black dark:text-white">MAXIMUM ROOMS</h2>
+                        <p className="text-lg sm:text-xl font-bold mb-6 text-center text-black dark:text-white">TRY AGAIN LATER</p>
                         <button
                             onClick={() => {
                                 setShowErrorModal(false);
                                 setRoomId('');
                             }}
-                            className="w-full border-2 sm:border-4 border-black bg-black text-white px-6 py-3 sm:py-4 text-lg sm:text-xl font-black uppercase hover:bg-gray-900 transition-colors cursor-pointer"
+                            className="w-full border-2 sm:border-4 border-black dark:border-gray-600 bg-black dark:bg-gray-700 text-white px-6 py-3 sm:py-4 text-lg sm:text-xl font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                         >
                             OK
                         </button>
@@ -1657,11 +1692,11 @@ export default function App() {
             {/* About Modal */}
             {showAboutModal && (
                 <div
-                    className="fixed inset-0 bg-[rgba(15,15,15,0.7)] flex items-center justify-center z-50 p-4"
+                    className="fixed inset-0 bg-[rgba(15,15,15,0.7)] dark:bg-[rgba(0,0,0,0.8)] flex items-center justify-center z-50 p-4 transition-colors duration-200"
                     onClick={() => setShowAboutModal(false)}
                 >
                     <div
-                        className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+                        className="bg-white dark:bg-gray-800 border-4 sm:border-8 border-black dark:border-gray-600 p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black dark:text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(75,85,99,1)] transition-colors duration-200"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <h2 className="text-2xl sm:text-3xl font-black uppercase mb-3 text-center">WHAT IS e2ecp?</h2>
@@ -1671,14 +1706,14 @@ export default function App() {
                         <p className="text-sm sm:text-base font-bold mb-4 text-center">
                             Use the CLI to transfer files between web or terminals:
                             <br />
-                            <code>curl https://e2ecp.com | bash</code>
+                            <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">curl https://e2ecp.com | bash</code>
                         </p>
                         <div className="mb-4 text-center">
                             <a
                                 href="https://github.com/schollz/e2ecp"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-black hover:text-gray-700 transition-colors font-bold text-lg sm:text-xl"
+                                className="inline-flex items-center gap-2 text-black dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors font-bold text-lg sm:text-xl"
                                 aria-label="View on GitHub"
                             >
                                 <i className="fab fa-github text-2xl sm:text-3xl" aria-hidden="true"></i>
@@ -1687,7 +1722,7 @@ export default function App() {
                         <button
                             type="button"
                             onClick={() => setShowAboutModal(false)}
-                            className="w-full border-2 sm:border-4 border-black bg-black text-white px-4 py-2 sm:py-3 text-sm sm:text-lg font-black uppercase hover:bg-gray-900 transition-colors cursor-pointer"
+                            className="w-full border-2 sm:border-4 border-black dark:border-gray-600 bg-black dark:bg-gray-700 text-white px-4 py-2 sm:py-3 text-sm sm:text-lg font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                         >
                             Close
                         </button>
@@ -1697,13 +1732,13 @@ export default function App() {
 
             {/* Download Confirmation Modal */}
             {showDownloadConfirmModal && pendingDownload && (
-                <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] dark:bg-[rgba(0,0,0,0.8)] flex items-center justify-center z-50 p-4 transition-colors duration-200">
                     <div
-                        className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+                        className="bg-white dark:bg-gray-800 border-4 sm:border-8 border-black dark:border-gray-600 p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black dark:text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(75,85,99,1)] transition-colors duration-200"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <h2 className="text-2xl sm:text-3xl font-black uppercase mb-4 text-center">DOWNLOAD FILE?</h2>
-                        <div className="bg-gray-200 border-2 sm:border-4 border-black p-4 mb-4">
+                        <div className="bg-gray-200 dark:bg-gray-700 border-2 sm:border-4 border-black dark:border-gray-600 p-4 mb-4 transition-colors duration-200">
                             <p className="text-sm sm:text-base font-bold mb-2">
                                 <span className="uppercase">Name:</span> {pendingDownload.name}
                             </p>
@@ -1721,14 +1756,14 @@ export default function App() {
                             <button
                                 type="button"
                                 onClick={handleCancelDownload}
-                                className="flex-1 border-2 sm:border-4 border-black bg-white text-black px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-200 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                                className="flex-1 border-2 sm:border-4 border-black dark:border-gray-600 bg-white dark:bg-gray-700 text-black dark:text-white px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(75,85,99,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="button"
                                 onClick={handleConfirmDownload}
-                                className="flex-1 border-2 sm:border-4 border-black bg-black text-white px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-900 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                                className="flex-1 border-2 sm:border-4 border-black dark:border-gray-600 bg-black dark:bg-gray-700 text-white px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-600 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(75,85,99,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
                             >
                                 Download
                             </button>

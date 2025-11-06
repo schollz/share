@@ -4,6 +4,13 @@
   --color-magenta-400: #ff006e;
 }
 
+/* Enable dark mode based on class */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+  }
+}
+
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
