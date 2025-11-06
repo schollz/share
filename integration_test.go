@@ -3,10 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -424,4 +426,151 @@ func TestIntegrationHashVerification(t *testing.T) {
 	}
 
 	t.Log("Hash verification test passed - file transferred with hash verification")
+}
+
+func TestIntegrationTextTransfer(t *testing.T) {
+	// Skip if short tests
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	// Start the relay server in a goroutine
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		// Skip integration testing if the sandbox disallows opening sockets
+		if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+			t.Skipf("Skipping integration test due to network restrictions: %v", err)
+		}
+		t.Fatalf("Failed to reserve test port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	// Start the actual relay server in background
+	go func() {
+		relay.Start(port, 0, 0, "", staticFS, logger) // 0 limits disable room caps for integration tests
+	}()
+
+	// Give the server time to start
+	time.Sleep(1 * time.Second)
+
+	serverURL := fmt.Sprintf("ws://localhost:%d", port)
+	roomID := "text-test-room"
+
+	// Test text to send
+	testText := "Hello, World! This is a test text message for integration testing."
+
+	// Create a temporary directory for test
+	tmpDir, err := os.MkdirTemp("", "share-text-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Channel to capture received text
+	receivedTextChan := make(chan string, 1)
+
+	// Start receiver in a goroutine - we'll need to capture its output
+	receiveDone := make(chan error, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				receiveDone <- fmt.Errorf("receiver panic: %v", r)
+			}
+		}()
+
+		// Redirect stdout to capture the text output
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		// Start receiving in a goroutine
+		done := make(chan struct{})
+		go func() {
+			client.ReceiveFile(roomID, serverURL, tmpDir, true, logger)
+			close(done)
+		}()
+
+		// Wait for completion or timeout
+		select {
+		case <-done:
+		case <-time.After(15 * time.Second):
+			w.Close()
+			os.Stdout = oldStdout
+			receiveDone <- fmt.Errorf("receiver timed out")
+			return
+		}
+
+		// Restore stdout and read captured output
+		w.Close()
+		os.Stdout = oldStdout
+
+		var buf []byte
+		buf, _ = io.ReadAll(r)
+		output := string(buf)
+
+		// Extract the received text from output
+		if strings.Contains(output, "=== Received Text ===") {
+			lines := strings.Split(output, "\n")
+			for i, line := range lines {
+				if strings.Contains(line, "=== Received Text ===") && i+1 < len(lines) {
+					receivedTextChan <- lines[i+1]
+					break
+				}
+			}
+		}
+
+		receiveDone <- nil
+	}()
+
+	// Give receiver time to connect and join the room
+	time.Sleep(2 * time.Second)
+
+	// Start sender in a goroutine
+	sendDone := make(chan error, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				sendDone <- fmt.Errorf("sender panic: %v", r)
+			}
+		}()
+		client.SendText(testText, roomID, serverURL, logger)
+		sendDone <- nil
+	}()
+
+	// Wait for both sender and receiver to complete (with timeout)
+	timeout := time.After(30 * time.Second)
+
+	select {
+	case err := <-sendDone:
+		if err != nil {
+			t.Fatalf("Sender failed: %v", err)
+		}
+		t.Log("Sender completed")
+	case <-timeout:
+		t.Fatal("Sender timed out")
+	}
+
+	select {
+	case err := <-receiveDone:
+		if err != nil {
+			t.Fatalf("Receiver failed: %v", err)
+		}
+		t.Log("Receiver completed")
+	case <-timeout:
+		t.Fatal("Receiver timed out")
+	}
+
+	// Verify the text was received correctly
+	select {
+	case receivedText := <-receivedTextChan:
+		if receivedText != testText {
+			t.Fatalf("Received text does not match sent text.\nExpected: %s\nGot: %s",
+				testText, receivedText)
+		}
+		t.Logf("Successfully transferred text: %s", receivedText)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Did not receive text within timeout")
+	}
 }
