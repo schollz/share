@@ -1195,6 +1195,23 @@ export default function App() {
             setConnected(false);
             setPeerCount(1);
             setStatus("Not connected");
+
+            // If we were in a room, attempt to reconnect
+            if (roomId) {
+                log(`Connection lost, attempting to reconnect to room ${roomId}`);
+
+                // Reset peer state
+                setPeerMnemonic(null);
+                havePeerPubRef.current = false;
+                aesKeyRef.current = null;
+                setHasAesKey(false);
+
+                // Attempt to reconnect after a short delay
+                setTimeout(() => {
+                    log(`Reconnecting to room ${roomId}`);
+                    connectToRoom();
+                }, 1000);
+            }
         };
 
         ws.onerror = (err) => {
