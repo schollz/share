@@ -652,6 +652,44 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 						}()
 					}
 				}
+			
+			case "text_message":
+				if sharedSecret == nil {
+					continue
+				}
+
+				// Decrypt metadata to get text
+				if msg.EncryptedMetadata == "" || msg.MetadataIV == "" {
+					log.Fatal("Missing encrypted metadata for text message")
+				}
+
+				metadataIV, _ := base64.StdEncoding.DecodeString(msg.MetadataIV)
+				encryptedMeta, _ := base64.StdEncoding.DecodeString(msg.EncryptedMetadata)
+
+				metadataJSON, err := crypto.DecryptAESGCM(sharedSecret, metadataIV, encryptedMeta)
+				if err != nil {
+					log.Fatalf("Failed to decrypt text metadata: %v", err)
+				}
+
+				metadata, err := UnmarshalMetadata(metadataJSON)
+				if err != nil {
+					log.Fatalf("Failed to unmarshal text metadata: %v", err)
+				}
+
+				// Display the text
+				if metadata.IsText {
+					fmt.Println("\n=== Received Text ===")
+					fmt.Println(metadata.Text)
+					fmt.Println("=====================\n")
+
+					// Send transfer received confirmation to sender
+					transferReceivedMsg := map[string]interface{}{
+						"type": "transfer_received",
+					}
+					safeSend(transferReceivedMsg)
+				}
+
+				return
 
 			case "file_start":
 				if sharedSecret == nil {

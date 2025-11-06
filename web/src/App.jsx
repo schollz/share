@@ -445,6 +445,9 @@ export default function App() {
     const [pendingDownload, setPendingDownload] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [roomIdError, setRoomIdError] = useState(null);
+    const [textInput, setTextInput] = useState("");
+    const [receivedText, setReceivedText] = useState(null);
+    const [showTextModal, setShowTextModal] = useState(false);
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -900,6 +903,43 @@ export default function App() {
                 }
                 return;
             }
+            
+            if (msg.type === "text_message") {
+                if (!aesKeyRef.current) {
+                    log("Can't decrypt text yet (no shared key)");
+                    return;
+                }
+
+                // Decrypt metadata to get text
+                if (!msg.encrypted_metadata || !msg.metadata_iv) {
+                    console.error("Missing encrypted metadata for text message");
+                    log("Missing encrypted metadata for text message");
+                    return;
+                }
+
+                try {
+                    // Decrypt metadata
+                    const metadataIV = base64ToUint8(msg.metadata_iv);
+                    const encryptedMetadata = base64ToUint8(msg.encrypted_metadata);
+                    const metadataBytes = await decryptBytes(aesKeyRef.current, metadataIV, encryptedMetadata);
+                    const metadataJSON = new TextDecoder().decode(metadataBytes);
+                    const metadata = JSON.parse(metadataJSON);
+
+                    // Display the text
+                    if (metadata.is_text && metadata.text) {
+                        setReceivedText(metadata.text);
+                        setShowTextModal(true);
+                        log("Received text message");
+                        
+                        // Send transfer received confirmation to sender
+                        sendMsg({ type: "transfer_received" });
+                    }
+                } catch (err) {
+                    console.error("Failed to decrypt text message:", err);
+                    log("Failed to decrypt text message");
+                }
+                return;
+            }
 
         };
 
@@ -1191,6 +1231,48 @@ export default function App() {
             console.error(err);
             log("Failed to send " + (err.message || "file"));
             setUploadProgress(null);
+        }
+    }
+
+    async function handleTextSend() {
+        if (!textInput.trim() || !aesKeyRef.current) {
+            return;
+        }
+
+        try {
+            log(`Sending text message`);
+
+            // Create metadata with text
+            const metadata = {
+                is_text: true,
+                text: textInput
+            };
+
+            // Encrypt metadata
+            const metadataJSON = JSON.stringify(metadata);
+            const metadataBytes = new TextEncoder().encode(metadataJSON);
+            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } = await encryptBytes(aesKeyRef.current, metadataBytes);
+
+            // Send text_message with encrypted metadata
+            const textMsg = {
+                type: "text_message",
+                encrypted_metadata: uint8ToBase64(encryptedMetadataBytes),
+                metadata_iv: uint8ToBase64(metadataIV)
+            };
+
+            sendMsg(textMsg);
+
+            log(`Sent encrypted text`);
+            
+            // Clear the input
+            setTextInput("");
+            
+            // Show success notification
+            toast.success('Text sent!', { duration: 2000 });
+        } catch (err) {
+            console.error(err);
+            log("Failed to send text: " + (err.message || "unknown error"));
+            toast.error('Failed to send text');
         }
     }
 
@@ -1590,6 +1672,29 @@ export default function App() {
                                         >
                                             CLICK OR DROP FILES HERE
                                         </button>
+                                        
+                                        {/* Text input section */}
+                                        <div className="mt-4 pt-4 border-t-2 border-black">
+                                            <div className="text-xs sm:text-sm font-bold mb-2 uppercase">OR SEND TEXT:</div>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={textInput}
+                                                    onChange={(e) => setTextInput(e.target.value)}
+                                                    onKeyDown={(e) => e.key === "Enter" && handleTextSend()}
+                                                    placeholder="Type your message here..."
+                                                    disabled={!hasAesKey}
+                                                    className="flex-1 border-2 border-black p-2 text-sm sm:text-base font-bold uppercase disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-hidden focus:ring-2 focus:ring-black"
+                                                />
+                                                <button
+                                                    onClick={handleTextSend}
+                                                    disabled={!hasAesKey || !textInput.trim()}
+                                                    className="border-2 border-black px-4 py-2 text-sm sm:text-base font-black uppercase transition-all whitespace-nowrap bg-black text-white hover:bg-gray-800 cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                                >
+                                                    SEND
+                                                </button>
+                                            </div>
+                                        </div>
                                     </>
                                 )
                             ) : (
@@ -1733,6 +1838,48 @@ export default function App() {
                                 Download
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Text Message Modal */}
+            {showTextModal && receivedText && (
+                <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] flex items-center justify-center z-50 p-4">
+                    <div
+                        className="bg-white border-4 sm:border-8 border-black p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-4 text-center">RECEIVED TEXT</h2>
+                        <div className="bg-gray-200 border-2 sm:border-4 border-black p-4 mb-4 relative">
+                            <div className="text-sm sm:text-base font-bold break-words whitespace-pre-wrap max-h-96 overflow-y-auto">
+                                {receivedText}
+                            </div>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(receivedText).then(() => {
+                                        toast.success('Text copied to clipboard!');
+                                    }).catch(err => {
+                                        toast.error('Failed to copy text');
+                                        console.error('Failed to copy:', err);
+                                    });
+                                }}
+                                className="absolute top-2 right-2 bg-black text-white border-2 border-black p-2 hover:bg-gray-800 transition-colors cursor-pointer"
+                                title="Copy to clipboard"
+                                type="button"
+                            >
+                                <i className="fas fa-copy" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowTextModal(false);
+                                setReceivedText(null);
+                            }}
+                            className="w-full border-2 sm:border-4 border-black bg-black text-white px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-900 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                        >
+                            Close
+                        </button>
                     </div>
                 </div>
             )}

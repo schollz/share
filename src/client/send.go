@@ -578,3 +578,202 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 
 	<-done
 }
+
+// SendText sends text to the specified room via the relay server
+func SendText(text, roomID, serverURL string, logger *slog.Logger) {
+	clientID := uuid.New().String()
+
+	privKey, err := crypto.GenerateECDHKeyPair()
+	if err != nil {
+		log.Fatalf("Failed to generate key pair: %v", err)
+	}
+
+	u, _ := url.Parse(serverURL)
+	u.Path = "/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	// Mutex to protect websocket writes
+	var connMutex sync.Mutex
+	safeSend := func(msg map[string]interface{}) {
+		connMutex.Lock()
+		defer connMutex.Unlock()
+		sendProtobufMessage(conn, msg)
+	}
+
+	joinMsg := map[string]interface{}{
+		"type":     "join",
+		"roomId":   roomID,
+		"clientId": clientID,
+	}
+	safeSend(joinMsg)
+
+	var sharedSecret []byte
+	var peerMnemonic string
+	var transferStarted bool
+	var transferMutex sync.Mutex
+
+	sendPublicKey := func() {
+		pubKeyBytes := privKey.PublicKey().Bytes()
+		pubKeyMsg := map[string]interface{}{
+			"type": "pubkey",
+			"pub":  base64.StdEncoding.EncodeToString(pubKeyBytes),
+		}
+		safeSend(pubKeyMsg)
+	}
+
+	done := make(chan bool)
+
+	go func() {
+		defer func() {
+			select {
+			case done <- true:
+			default:
+			}
+		}()
+		for {
+			msg, err := receiveProtobufMessage(conn)
+			if err != nil {
+				return
+			}
+
+			switch msg.Type {
+			case "error":
+				if msg.Error != "" {
+					log.Fatalf("Server error: %s", msg.Error)
+				}
+				return
+
+			case "peer_disconnected":
+				disconnectedPeerName := msg.Mnemonic
+				if disconnectedPeerName == "" {
+					disconnectedPeerName = "Peer"
+				}
+				fmt.Printf("\n%s disconnected. Exiting to prevent new connections.\n", disconnectedPeerName)
+				return
+
+			case "transfer_cancelled":
+				receiverName := msg.Mnemonic
+				if receiverName == "" {
+					receiverName = "Receiver"
+				}
+				fmt.Printf("\n%s cancelled the transfer.\n", receiverName)
+				return
+
+			case "transfer_received":
+				// Receiver confirmed they successfully received the text
+				receiverName := msg.Mnemonic
+				if receiverName == "" {
+					receiverName = "Receiver"
+				}
+				fmt.Printf("%s confirmed receipt of the text.\n", receiverName)
+				return
+
+			case "joined":
+				// Convert WebSocket URL to HTTP URL for display
+				webURL := serverURL
+				if len(webURL) >= 6 && webURL[:6] == "wss://" {
+					webURL = "https://" + webURL[6:]
+				} else if len(webURL) >= 5 && webURL[:5] == "ws://" {
+					webURL = "http://" + webURL[5:]
+				}
+				// Remove /ws path if present
+				parsedURL, _ := url.Parse(webURL)
+				parsedURL.Path = ""
+				fullURL := fmt.Sprintf("%s/%s", parsedURL.String(), roomID)
+
+				fmt.Printf("Sending text message.\n")
+				fmt.Printf("Receive via CLI with\n\n\te2ecp receive %s\n\nor online at\n\n\t%s\n\n",
+					roomID, fullURL)
+
+				// Generate compact QR code (strip protocol for shorter code)
+				qrURL := fullURL
+				if len(qrURL) >= 8 && qrURL[:8] == "https://" {
+					qrURL = qrURL[8:]
+				} else if len(qrURL) >= 7 && qrURL[:7] == "http://" {
+					qrURL = qrURL[7:]
+				}
+
+				// Print QR code using custom half-block renderer with left padding
+				if err := qrcode.PrintHalfBlock(os.Stdout, qrURL, 15); err != nil {
+					log.Printf("Failed to generate QR code: %v", err)
+				}
+				fmt.Println()
+
+				sendPublicKey()
+
+			case "peers":
+				// When a new peer joins, re-send our public key
+				if msg.Count == 2 {
+					sendPublicKey()
+				}
+
+			case "pubkey":
+				// Check if transfer already started to prevent duplicates
+				transferMutex.Lock()
+				if transferStarted {
+					transferMutex.Unlock()
+					continue
+				}
+				transferStarted = true
+				transferMutex.Unlock()
+
+				peerMnemonic = msg.Mnemonic
+				peerPubBytes, _ := base64.StdEncoding.DecodeString(msg.Pub)
+				peerPubKey, err := ecdh.P256().NewPublicKey(peerPubBytes)
+				if err != nil {
+					log.Fatalf("Failed to parse peer public key: %v", err)
+				}
+
+				sharedSecret, err = crypto.DeriveSharedSecret(privKey, peerPubKey)
+				if err != nil {
+					log.Fatalf("Failed to derive shared secret: %v", err)
+				}
+
+				// Send text in a separate goroutine so message loop continues
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Fatalf("Panic during text transfer: %v", r)
+						}
+					}()
+
+					// Create metadata with text
+					metadata := FileMetadata{
+						IsText: true,
+						Text:   text,
+					}
+
+					// Marshal and encrypt metadata
+					metadataJSON, err := MarshalMetadata(metadata)
+					if err != nil {
+						log.Fatalf("Failed to marshal metadata: %v", err)
+					}
+
+					metadataIV, encryptedMetadata, err := crypto.EncryptAESGCM(sharedSecret, metadataJSON)
+					if err != nil {
+						log.Fatalf("Failed to encrypt metadata: %v", err)
+					}
+
+					// Send text_message with encrypted metadata
+					textMsg := map[string]interface{}{
+						"type":               "text_message",
+						"encrypted_metadata": base64.StdEncoding.EncodeToString(encryptedMetadata),
+						"metadata_iv":        base64.StdEncoding.EncodeToString(metadataIV),
+					}
+					safeSend(textMsg)
+
+					fmt.Printf("Sent encrypted text to %s\n", peerMnemonic)
+
+					// Wait for confirmation
+					time.Sleep(2 * time.Second)
+				}()
+			}
+		}
+	}()
+
+	<-done
+}
