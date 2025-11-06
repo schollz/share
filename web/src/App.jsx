@@ -1399,7 +1399,25 @@ export default function App() {
             if (saved !== null) {
                 setDarkMode(saved === 'true');
             } else if (window.matchMedia) {
-                setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                setDarkMode(mediaQuery.matches);
+                
+                // Listen for system theme changes
+                const handleChange = (e) => {
+                    // Only update if user hasn't manually set a preference
+                    try {
+                        const userPref = localStorage.getItem('darkMode');
+                        if (userPref === null) {
+                            setDarkMode(e.matches);
+                        }
+                    } catch (error) {
+                        // If localStorage is unavailable, update based on system preference
+                        setDarkMode(e.matches);
+                    }
+                };
+                
+                mediaQuery.addEventListener('change', handleChange);
+                return () => mediaQuery.removeEventListener('change', handleChange);
             }
         } catch (error) {
             // localStorage might not be available in private browsing mode
