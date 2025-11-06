@@ -19,7 +19,7 @@ test.describe('CLI to Web Text Transfer', () => {
     serverPort = 8082 + Math.floor(Math.random() * 1000); // Random port to avoid conflicts
 
     return new Promise((resolve, reject) => {
-      relayServer = spawn('./e2ecp', ['serve', '--port', serverPort.toString()], {
+      relayServer = spawn('./e2ecp', ['serve', '--port', serverPort.toString(), '--db-path', ''], {
         cwd: path.join(__dirname, '..'),
       });
 
@@ -67,7 +67,9 @@ test.describe('CLI to Web Text Transfer', () => {
     // Test text to send
     const testText = 'Hello from CLI to web! This is a Playwright test for CLI-to-web text transfer.';
 
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+      permissions: ['clipboard-read', 'clipboard-write']
+    });
     const page = await context.newPage();
 
     try {
@@ -113,8 +115,11 @@ test.describe('CLI to Web Text Transfer', () => {
       // Test copy button functionality
       await page.click('button[title="Copy to clipboard"]');
 
-      // Look for success toast
-      await page.waitForSelector('text=Text copied to clipboard!', { timeout: 5000 });
+      // Verify clipboard content directly (more reliable than checking toast)
+      const clipboardText = await page.evaluate(async () => {
+        return await navigator.clipboard.readText();
+      });
+      expect(clipboardText).toBe(testText);
 
       // Close the modal
       await page.click('button:has-text("Close")');

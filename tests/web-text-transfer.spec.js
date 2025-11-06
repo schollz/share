@@ -19,7 +19,7 @@ test.describe('Web to Web Text Transfer', () => {
     serverPort = 8080 + Math.floor(Math.random() * 1000); // Random port to avoid conflicts
     
     return new Promise((resolve, reject) => {
-      relayServer = spawn('./e2ecp', ['serve', '--port', serverPort.toString()], {
+      relayServer = spawn('./e2ecp', ['serve', '--port', serverPort.toString(), '--db-path', ''], {
         cwd: path.join(__dirname, '..'),
       });
 
@@ -67,9 +67,13 @@ test.describe('Web to Web Text Transfer', () => {
     // Test text to send
     const testText = 'Hello from Playwright! This is a test text message for web-to-web transfer.';
 
-    // Create two browser contexts (sender and receiver)
-    const senderContext = await browser.newContext();
-    const receiverContext = await browser.newContext();
+    // Create two browser contexts (sender and receiver) with clipboard permissions
+    const senderContext = await browser.newContext({
+      permissions: ['clipboard-read', 'clipboard-write']
+    });
+    const receiverContext = await browser.newContext({
+      permissions: ['clipboard-read', 'clipboard-write']
+    });
 
     const senderPage = await senderContext.newPage();
     const receiverPage = await receiverContext.newPage();
@@ -112,9 +116,12 @@ test.describe('Web to Web Text Transfer', () => {
 
       // Test copy button functionality
       await receiverPage.click('button[title="Copy to clipboard"]');
-      
-      // Look for success toast
-      await receiverPage.waitForSelector('text=Text copied to clipboard!', { timeout: 5000 });
+
+      // Verify clipboard content directly (more reliable than checking toast)
+      const clipboardText = await receiverPage.evaluate(async () => {
+        return await navigator.clipboard.readText();
+      });
+      expect(clipboardText).toBe(testText);
 
       // Close the modal
       await receiverPage.click('button:has-text("Close")');
