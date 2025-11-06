@@ -7,6 +7,7 @@ import (
 	"log"
 	"log/slog"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -57,7 +58,9 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 	// Show QR code
 	qrURL, _ := url.Parse(serverURL)
 	qrURL.Path = "/" + roomID
-	qrcode.PrintQRCode(qrURL.String())
+	if err := qrcode.PrintHalfBlock(os.Stdout, qrURL.String(), 15); err != nil {
+		logger.Debug("Failed to print QR code", "error", err)
+	}
 
 	fmt.Printf("Share this link with the recipient:\n")
 	fmt.Printf("  %s\n\n", qrURL.String())
@@ -98,7 +101,7 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 				log.Fatalf("Failed to decode peer public key: %v", err)
 			}
 
-			peerPubKey, err := crypto.ParseECDHPublicKey(peerPubKeyBytes)
+			peerPubKey, err := ecdh.P256().NewPublicKey(peerPubKeyBytes)
 			if err != nil {
 				log.Fatalf("Failed to parse peer public key: %v", err)
 			}
