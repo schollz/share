@@ -784,9 +784,36 @@ export default function App() {
             }
 
             if (msg.type === "transfer_received") {
-                // Receiver confirmed they successfully received the file
+                // Receiver confirmed they successfully received the file or text
                 const receiverName = msg.mnemonic || msg.from || "Receiver";
-                log(`${receiverName} confirmed receipt of the file`);
+                
+                // Default to "file" if no metadata is provided (for backward compatibility)
+                let transferType = "file";
+                
+                // Try to decrypt metadata to determine transfer type
+                if (msg.encrypted_metadata && msg.metadata_iv && aesKeyRef.current) {
+                    try {
+                        const metadataIV = base64ToUint8(msg.metadata_iv);
+                        const encryptedMetadata = base64ToUint8(msg.encrypted_metadata);
+                        const metadataBytes = await decryptBytes(
+                            aesKeyRef.current,
+                            metadataIV,
+                            encryptedMetadata,
+                        );
+                        const metadataJSON = new TextDecoder().decode(metadataBytes);
+                        const metadata = JSON.parse(metadataJSON);
+                        
+                        if (metadata.transfer_type) {
+                            transferType = metadata.transfer_type;
+                        }
+                    } catch (err) {
+                        console.error("Failed to decrypt transfer_received metadata:", err);
+                        // Fall back to default "file"
+                    }
+                }
+                
+                const typeLabel = transferType === "text" ? "TEXT" : "FILE";
+                log(`${receiverName} confirmed receipt of the ${typeLabel.toLowerCase()}`);
 
                 // Show success notification with receiver's icons
                 const receiverIcons = mnemonicToIcons(receiverName);
@@ -806,7 +833,7 @@ export default function App() {
                                 style={{ fontSize: "16px" }}
                             ></i>
                         ))}
-                        <span>{receiverName.toUpperCase()} RECEIVED FILE</span>
+                        <span>{receiverName.toUpperCase()} RECEIVED {typeLabel}</span>
                     </div>,
                     { duration: 4000 },
                 );
@@ -1069,8 +1096,26 @@ export default function App() {
                         `Decrypted and prepared download "${downloadFileName}" (${typeLabel})`,
                     );
 
-                    // Send transfer received confirmation to sender
-                    sendMsg({ type: "transfer_received" });
+                    // Send transfer received confirmation to sender with encrypted metadata
+                    try {
+                        const transferMetadata = {
+                            transfer_type: "file",
+                        };
+                        const metadataJSON = JSON.stringify(transferMetadata);
+                        const metadataBytes = new TextEncoder().encode(metadataJSON);
+                        const { iv: metadataIV, ciphertext: encryptedMetadataBytes } =
+                            await encryptBytes(aesKeyRef.current, metadataBytes);
+                        
+                        sendMsg({
+                            type: "transfer_received",
+                            encrypted_metadata: uint8ToBase64(encryptedMetadataBytes),
+                            metadata_iv: uint8ToBase64(metadataIV),
+                        });
+                    } catch (err) {
+                        console.error("Failed to encrypt transfer_received metadata:", err);
+                        // Fall back to sending without metadata
+                        sendMsg({ type: "transfer_received" });
+                    }
                 } catch (err) {
                     console.error(err);
                     log("Failed to assemble file");
@@ -1116,8 +1161,26 @@ export default function App() {
                         setShowTextModal(true);
                         log("Received text message");
 
-                        // Send transfer received confirmation to sender
-                        sendMsg({ type: "transfer_received" });
+                        // Send transfer received confirmation to sender with encrypted metadata
+                        try {
+                            const transferMetadata = {
+                                transfer_type: "text",
+                            };
+                            const metadataJSON = JSON.stringify(transferMetadata);
+                            const metadataBytes = new TextEncoder().encode(metadataJSON);
+                            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } =
+                                await encryptBytes(aesKeyRef.current, metadataBytes);
+                            
+                            sendMsg({
+                                type: "transfer_received",
+                                encrypted_metadata: uint8ToBase64(encryptedMetadataBytes),
+                                metadata_iv: uint8ToBase64(metadataIV),
+                            });
+                        } catch (err) {
+                            console.error("Failed to encrypt transfer_received metadata:", err);
+                            // Fall back to sending without metadata
+                            sendMsg({ type: "transfer_received" });
+                        }
                     }
                 } catch (err) {
                     console.error("Failed to decrypt text message:", err);
