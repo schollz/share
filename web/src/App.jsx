@@ -1394,11 +1394,20 @@ export default function App() {
     
     // Initialize dark mode from localStorage or browser preference
     useEffect(() => {
-        const saved = localStorage.getItem('darkMode');
-        if (saved !== null) {
-            setDarkMode(saved === 'true');
-        } else if (window.matchMedia) {
-            setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+        try {
+            const saved = localStorage.getItem('darkMode');
+            if (saved !== null) {
+                setDarkMode(saved === 'true');
+            } else if (window.matchMedia) {
+                setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+            }
+        } catch (error) {
+            // localStorage might not be available in private browsing mode
+            console.warn('Could not access localStorage for dark mode preference:', error);
+            // Fall back to browser preference if available
+            if (window.matchMedia) {
+                setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+            }
         }
     }, []);
     
@@ -1406,7 +1415,12 @@ export default function App() {
     const toggleDarkMode = () => {
         setDarkMode(prev => {
             const newValue = !prev;
-            localStorage.setItem('darkMode', String(newValue));
+            try {
+                localStorage.setItem('darkMode', String(newValue));
+            } catch (error) {
+                // localStorage might not be available in private browsing mode
+                console.warn('Could not save dark mode preference:', error);
+            }
             return newValue;
         });
     };
@@ -1426,7 +1440,6 @@ export default function App() {
                 position="bottom-right"
                 toastOptions={{
                     duration: 2000,
-                    className: darkMode ? 'dark-toast' : 'light-toast',
                     style: {
                         background: 'var(--toast-bg)',
                         color: 'var(--toast-text)',
