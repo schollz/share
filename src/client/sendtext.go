@@ -73,6 +73,16 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 	peerConnected := false
 	textSent := false
 
+	// Function to send our public key
+	sendPublicKey := func() {
+		pubBytes := privKey.PublicKey().Bytes()
+		pubKeyMsg := map[string]interface{}{
+			"type": "pubkey",
+			"pub":  base64.StdEncoding.EncodeToString(pubBytes),
+		}
+		safeSend(pubKeyMsg)
+	}
+
 	for {
 		msg, err := receiveProtobufMessage(conn)
 		if err != nil {
@@ -84,11 +94,15 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 		case "joined":
 			myMnemonic = msg.Mnemonic
 			logger.Debug("Joined room", "mnemonic", myMnemonic)
+			// Announce our public key immediately when we join
+			sendPublicKey()
 
 		case "peers":
 			if msg.Count >= 2 && !peerConnected {
 				fmt.Println("\nPeer connected! Establishing secure channel...")
 				peerConnected = true
+				// Re-send public key when peer joins
+				sendPublicKey()
 			}
 
 		case "pubkey":
@@ -111,15 +125,7 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 				log.Fatalf("Failed to derive shared secret: %v", err)
 			}
 
-			// Announce our public key
-			pubBytes := privKey.PublicKey().Bytes()
-			pubKeyMsg := map[string]interface{}{
-				"type": "pubkey",
-				"pub":  base64.StdEncoding.EncodeToString(pubBytes),
-			}
-			safeSend(pubKeyMsg)
-
-			// Send text message
+			// Send text message immediately after deriving shared secret
 			if sharedSecret != nil && !textSent {
 				textSent = true
 				err = sendTextMessage(text, sharedSecret, safeSend, logger)
@@ -127,9 +133,6 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 					log.Fatalf("Failed to send text: %v", err)
 				}
 				fmt.Printf("\n✓ Sent text message to %s\n", peerMnemonic)
-				// Wait a bit to ensure message is delivered
-				time.Sleep(500 * time.Millisecond)
-				return
 			}
 
 		case "text_received":
