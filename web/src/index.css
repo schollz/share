@@ -4,6 +4,8 @@
   --color-magenta-400: #ff006e;
 }
 
+@variant dark (&:is(.dark *));
+
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
@@ -19,6 +21,32 @@
   ::backdrop,
   ::file-selector-button {
     border-color: var(--color-gray-200, currentcolor);
+  }
+  
+  /* Toast notification color variables */
+  :root {
+    --toast-bg: #fff;
+    --toast-text: #000;
+    --toast-border: 2px solid #000;
+    --toast-icon-primary: #000;
+    --toast-icon-secondary: #fff;
+  }
+  
+  :root.dark {
+    --toast-bg: rgb(31, 41, 55); /* gray-800 */
+    --toast-text: #fff;
+    --toast-border: 2px solid #fff;
+    --toast-icon-primary: #fff;
+    --toast-icon-secondary: rgb(31, 41, 55); /* gray-800 */
+  }
+  
+  /* Header box shadow for dark mode */
+  .header-shadow {
+    box-shadow: 4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black;
+  }
+  
+  :root.dark .header-shadow {
+    box-shadow: 4px 4px 0px 0px rgb(75, 85, 99), 0 0 0 4px rgb(75, 85, 99);
   }
   
   /* Override FontAwesome font-display from block to swap for better performance
