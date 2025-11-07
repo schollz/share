@@ -448,8 +448,10 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // spaHandler wraps http.FileServer to handle SPA routing
 type spaHandler struct {
-	staticFS      http.FileSystem
-	installScript []byte
+	staticFS         http.FileSystem
+	installScript    []byte
+	botHTMLCache     []byte        // Cached bot-modified HTML
+	botHTMLCacheLock sync.RWMutex  // Protects botHTMLCache
 }
 
 func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -501,6 +503,18 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// If this is a bot requesting index.html, inject a script to disable websockets
 	if isBot {
+		// Check if we have cached bot HTML
+		h.botHTMLCacheLock.RLock()
+		if h.botHTMLCache != nil {
+			cachedHTML := h.botHTMLCache
+			h.botHTMLCacheLock.RUnlock()
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(cachedHTML)))
+			w.Write(cachedHTML)
+			return
+		}
+		h.botHTMLCacheLock.RUnlock()
+
 		// Read the index.html content
 		htmlContent, err := io.ReadAll(index)
 		if err != nil {
@@ -511,6 +525,17 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Inject a script tag before </head> to set window.__DISABLE_WEBSOCKET
 		injectScript := []byte("<script>window.__DISABLE_WEBSOCKET=true;</script>")
 		modifiedHTML := bytes.Replace(htmlContent, []byte("</head>"), append(injectScript, []byte("</head>")...), 1)
+
+		// Check if injection was successful (i.e., </head> tag was found)
+		if !bytes.Contains(modifiedHTML, injectScript) {
+			// Fallback: if no </head> tag found, append script at the beginning
+			modifiedHTML = append(append([]byte("<!DOCTYPE html><html><head>"), injectScript...), htmlContent...)
+		}
+
+		// Cache the modified HTML
+		h.botHTMLCacheLock.Lock()
+		h.botHTMLCache = modifiedHTML
+		h.botHTMLCacheLock.Unlock()
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(modifiedHTML)))
