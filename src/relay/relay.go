@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
+	"github.com/x-way/crawlerdetect"
 )
 
 type Client struct {
@@ -461,20 +463,29 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Detect if the user agent is a bot/crawler
+	isBot := crawlerdetect.IsCrawler(r.UserAgent())
+	if isBot {
+		logger.Debug("Bot detected", "user_agent", r.UserAgent())
+	}
+
 	// Try to serve the requested file
 	path := r.URL.Path
 	if path == "/" {
 		path = "/index.html"
 	}
 
-	f, err := h.staticFS.Open(path)
-	if err == nil {
-		f.Close()
-		http.FileServer(h.staticFS).ServeHTTP(w, r)
-		return
+	// For non-index.html files (CSS, JS, images, etc.), always serve normally
+	if path != "/index.html" {
+		f, err := h.staticFS.Open(path)
+		if err == nil {
+			f.Close()
+			http.FileServer(h.staticFS).ServeHTTP(w, r)
+			return
+		}
 	}
 
-	// File not found, serve index.html for client-side routing
+	// For index.html or when file not found (SPA routing), serve index.html
 	index, err := h.staticFS.Open("/index.html")
 	if err != nil {
 		http.NotFound(w, r)
@@ -488,6 +499,26 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If this is a bot requesting index.html, inject a script to disable websockets
+	if isBot {
+		// Read the index.html content
+		htmlContent, err := io.ReadAll(index)
+		if err != nil {
+			http.Error(w, "Failed to read index.html", http.StatusInternalServerError)
+			return
+		}
+
+		// Inject a script tag before </head> to set window.__DISABLE_WEBSOCKET
+		injectScript := []byte("<script>window.__DISABLE_WEBSOCKET=true;</script>")
+		modifiedHTML := bytes.Replace(htmlContent, []byte("</head>"), append(injectScript, []byte("</head>")...), 1)
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(modifiedHTML)))
+		w.Write(modifiedHTML)
+		return
+	}
+
+	// For non-bot requests, serve index.html normally
 	http.ServeContent(w, r, "index.html", stat.ModTime(), index.(io.ReadSeeker))
 }
 
