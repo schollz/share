@@ -528,8 +528,18 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// Check if injection was successful (i.e., </head> tag was found)
 		if !bytes.Contains(modifiedHTML, injectScript) {
-			// Fallback: if no </head> tag found, append script at the beginning
-			modifiedHTML = append(append([]byte("<!DOCTYPE html><html><head>"), injectScript...), htmlContent...)
+			// Fallback: try injecting after <head> tag
+			modifiedHTML = bytes.Replace(htmlContent, []byte("<head>"), append([]byte("<head>"), injectScript...), 1)
+			
+			// If still not injected, try after opening <html> tag
+			if !bytes.Contains(modifiedHTML, injectScript) {
+				modifiedHTML = bytes.Replace(htmlContent, []byte("<html>"), append([]byte("<html>"), injectScript...), 1)
+			}
+			
+			// Final fallback: prepend to the document (only if all else fails)
+			if !bytes.Contains(modifiedHTML, injectScript) {
+				modifiedHTML = append(injectScript, htmlContent...)
+			}
 		}
 
 		// Cache the modified HTML
