@@ -94,6 +94,53 @@ jobs:
           path: e2ecp_linux.zip
           if-no-files-found: error
 
+  linux-armv7:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Install web dependencies
+        run: cd web && npm install
+
+      - name: Build web
+        run: cd web && npm run build
+
+      - name: Build server (ARM v7)
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          if [[ "$VERSION" == "refs/heads/"* ]]; then
+            VERSION="dev"
+          fi
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags "-X main.Version=$VERSION -extldflags '-static'" -o e2ecp .
+
+      - name: Verify binary exists
+        run: |
+          if [ -f e2ecp ]; then
+            echo "Binary created successfully"
+            ls -lh e2ecp
+          else
+            echo "Binary not found"
+            exit 1
+          fi
+
+      - name: Zip binary (Linux ARM v7)
+        run: zip -9 e2ecp_linux_armv7.zip e2ecp
+
+      - name: Upload artifact (Linux ARM v7)
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2ecp_linux_armv7.zip
+          path: e2ecp_linux_armv7.zip
+          if-no-files-found: error
+
   windows:
     runs-on: windows-latest
     steps:
@@ -189,7 +236,7 @@ jobs:
   release:
     name: Create GitHub Release (on tags)
     runs-on: ubuntu-latest
-    needs: [macos, linux, windows, e2e-tests]
+    needs: [macos, linux, linux-armv7, windows, e2e-tests]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
@@ -212,6 +259,7 @@ jobs:
           files: |
             dist/e2ecp_macos.zip
             dist/e2ecp_linux.zip
+            dist/e2ecp_linux_armv7.zip
             dist/e2ecp_windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
