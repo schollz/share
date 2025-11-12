@@ -5,6 +5,16 @@ OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 
 if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then
     ARCH="amd64"
+    ARCH_SUFFIX=""
+elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+    ARCH="arm64"
+    ARCH_SUFFIX="_arm64"
+elif [ "$ARCH" = "armv7l" ]; then
+    ARCH="armv7"
+    ARCH_SUFFIX="_armv7"
+elif [ "$ARCH" = "armv6l" ]; then
+    ARCH="armv6"
+    ARCH_SUFFIX="_armv6"
 else
     echo "The architecture $ARCH is not supported."
     exit 1
@@ -24,7 +34,7 @@ echo "Downloading e2ecp for $OS $ARCH..."
 
 DOWNLOAD_URL=$(curl -s https://api.github.com/repos/schollz/e2ecp/releases/latest | \
     grep 'browser_download_url' | \
-    grep "e2ecp_${OS}.zip" | \
+    grep "e2ecp_${OS}${ARCH_SUFFIX}.zip" | \
     cut -d '"' -f 4 | head -n 1)
 
 if [ -z "$DOWNLOAD_URL" ]; then

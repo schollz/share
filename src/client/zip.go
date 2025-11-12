@@ -11,7 +11,7 @@ import (
 
 const (
 	// Maximum uncompressed size: 10 GB
-	maxUncompressedSize = 10 * 1024 * 1024 * 1024
+	maxUncompressedSize int64 = 10 * 1024 * 1024 * 1024
 	// Maximum compression ratio to prevent zip bombs
 	maxCompressionRatio = 100
 )
