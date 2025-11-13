@@ -8,8 +8,12 @@
 FROM node:24-alpine AS web-builder
 
 WORKDIR /build/web
+COPY web/package-lock.json .
+COPY web/package.json .
+RUN npm install 
+
 COPY web/ ./
-RUN npm install && npm run build
+RUN npm run build
 
 # Stage 2: Build the Go binary
 FROM golang:1.25-alpine AS go-builder
