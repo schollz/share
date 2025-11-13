@@ -598,6 +598,13 @@ export default function App() {
     }
 
     const connectToRoom = useCallback(async () => {
+        // Check if websockets are disabled (for bots)
+        if (window.__DISABLE_WEBSOCKET) {
+            setStatus("WebSocket disabled (bot detected)");
+            log("WebSocket connection disabled for bot");
+            return;
+        }
+
         let room = roomId.trim().toLowerCase();
 
         // Generate random room ID if empty

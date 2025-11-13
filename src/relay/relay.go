@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
+	"github.com/x-way/crawlerdetect"
 )
 
 type Client struct {
@@ -446,8 +448,10 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // spaHandler wraps http.FileServer to handle SPA routing
 type spaHandler struct {
-	staticFS      http.FileSystem
-	installScript []byte
+	staticFS         http.FileSystem
+	installScript    []byte
+	botHTMLCache     []byte        // Cached bot-modified HTML
+	botHTMLCacheLock sync.RWMutex  // Protects botHTMLCache
 }
 
 func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -461,20 +465,29 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Detect if the user agent is a bot/crawler
+	isBot := crawlerdetect.IsCrawler(r.UserAgent())
+	if isBot {
+		logger.Debug("Bot detected", "user_agent", r.UserAgent())
+	}
+
 	// Try to serve the requested file
 	path := r.URL.Path
 	if path == "/" {
 		path = "/index.html"
 	}
 
-	f, err := h.staticFS.Open(path)
-	if err == nil {
-		f.Close()
-		http.FileServer(h.staticFS).ServeHTTP(w, r)
-		return
+	// For non-index.html files (CSS, JS, images, etc.), always serve normally
+	if path != "/index.html" {
+		f, err := h.staticFS.Open(path)
+		if err == nil {
+			f.Close()
+			http.FileServer(h.staticFS).ServeHTTP(w, r)
+			return
+		}
 	}
 
-	// File not found, serve index.html for client-side routing
+	// For index.html or when file not found (SPA routing), serve index.html
 	index, err := h.staticFS.Open("/index.html")
 	if err != nil {
 		http.NotFound(w, r)
@@ -488,6 +501,59 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If this is a bot requesting index.html, inject a script to disable websockets
+	if isBot {
+		// Check if we have cached bot HTML
+		h.botHTMLCacheLock.RLock()
+		if h.botHTMLCache != nil {
+			cachedHTML := h.botHTMLCache
+			h.botHTMLCacheLock.RUnlock()
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(cachedHTML)))
+			w.Write(cachedHTML)
+			return
+		}
+		h.botHTMLCacheLock.RUnlock()
+
+		// Read the index.html content
+		htmlContent, err := io.ReadAll(index)
+		if err != nil {
+			http.Error(w, "Failed to read index.html", http.StatusInternalServerError)
+			return
+		}
+
+		// Inject a script tag before </head> to set window.__DISABLE_WEBSOCKET
+		injectScript := []byte("<script>window.__DISABLE_WEBSOCKET=true;</script>")
+		modifiedHTML := bytes.Replace(htmlContent, []byte("</head>"), append(injectScript, []byte("</head>")...), 1)
+
+		// Check if injection was successful (i.e., </head> tag was found)
+		if !bytes.Contains(modifiedHTML, injectScript) {
+			// Fallback: try injecting after <head> tag
+			modifiedHTML = bytes.Replace(htmlContent, []byte("<head>"), append([]byte("<head>"), injectScript...), 1)
+			
+			// If still not injected, try after opening <html> tag
+			if !bytes.Contains(modifiedHTML, injectScript) {
+				modifiedHTML = bytes.Replace(htmlContent, []byte("<html>"), append([]byte("<html>"), injectScript...), 1)
+			}
+			
+			// Final fallback: prepend to the document (only if all else fails)
+			if !bytes.Contains(modifiedHTML, injectScript) {
+				modifiedHTML = append(injectScript, htmlContent...)
+			}
+		}
+
+		// Cache the modified HTML
+		h.botHTMLCacheLock.Lock()
+		h.botHTMLCache = modifiedHTML
+		h.botHTMLCacheLock.Unlock()
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(modifiedHTML)))
+		w.Write(modifiedHTML)
+		return
+	}
+
+	// For non-bot requests, serve index.html normally
 	http.ServeContent(w, r, "index.html", stat.ModTime(), index.(io.ReadSeeker))
 }
 
