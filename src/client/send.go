@@ -615,7 +615,7 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 	var peerMnemonic string
 	var transferStarted bool
 	var transferMutex sync.Mutex
-	transferReceivedChan := make(chan bool) // Channel for receiving transfer finish
+	transferReceivedChan := make(chan bool, 1) // Channel for receiving transfer finish
 
 	sendPublicKey := func() {
 		pubKeyBytes := privKey.PublicKey().Bytes()
