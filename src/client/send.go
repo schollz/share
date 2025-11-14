@@ -21,6 +21,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const maxRetries = 3
+
 // SendFile sends a file to the specified room via the relay server
 func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 	fileInfo, err := os.Stat(filePath)
@@ -433,7 +435,6 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 					}
 					pendingChunks := make(map[int]*ChunkInfo)
 					var pendingMutex sync.Mutex
-					maxRetries := 3
 					ackTimeout := 5 * time.Second
 					lastActivityTime := time.Now()
 					transferTimeout := 30 * time.Second
@@ -546,7 +547,6 @@ func SendFile(filePath, roomID, serverURL string, logger *slog.Logger) {
 						if pendingCount == 0 {
 							break
 						}
-
 						if time.Since(waitStart) > 30*time.Second {
 							stopRetransmitter <- true
 							log.Fatalf("Timeout waiting for chunk acknowledgments")
@@ -615,6 +615,7 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 	var peerMnemonic string
 	var transferStarted bool
 	var transferMutex sync.Mutex
+	transferReceivedChan := make(chan bool, 1) // Channel for receiving transfer finish
 
 	sendPublicKey := func() {
 		pubKeyBytes := privKey.PublicKey().Bytes()
@@ -669,6 +670,7 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 				if receiverName == "" {
 					receiverName = "Receiver"
 				}
+				transferReceivedChan <- true
 				fmt.Printf("%s confirmed receipt of the text.\n", receiverName)
 				return
 
@@ -768,8 +770,25 @@ func SendText(text, roomID, serverURL string, logger *slog.Logger) {
 
 					fmt.Printf("Sent encrypted text to %s\n", peerMnemonic)
 
-					// Wait for confirmation
-					time.Sleep(2 * time.Second)
+					waitRetransmitter := make(chan struct{})
+					go func() {
+						ticker := time.NewTicker(500 * time.Millisecond)
+						retries := 0
+						for {
+							select {
+							case <-transferReceivedChan:
+								waitRetransmitter <- struct{}{}
+								return
+							case <-ticker.C:
+								if retries >= maxRetries {
+									log.Fatalf("Failed to send text after %d retries", maxRetries)
+								}
+								safeSend(textMsg)
+								retries += 1
+							}
+						}
+					}()
+					<-waitRetransmitter
 				}()
 			}
 		}
