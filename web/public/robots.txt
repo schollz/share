@@ -2,5 +2,5 @@
 User-agent: *
 Allow: /
 
-# Sitemap location (if one exists in the future)
-# Sitemap: https://e2ecp.com/sitemap.xml
+# Sitemap location
+Sitemap: https://e2ecp.com/sitemap.xml
