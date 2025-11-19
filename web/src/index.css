@@ -1,54 +1,31 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-magenta-400: #ff006e;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
 }
 
-@variant dark (&:is(.dark *));
+@variant dark (&:is([data-theme="dark"] *));
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
-  }
-  
   /* Toast notification color variables */
   :root {
     --toast-bg: #fff;
-    --toast-text: #000;
-    --toast-border: 2px solid #000;
-    --toast-icon-primary: #000;
+    --toast-text: #374151;
+    --toast-border: 1px solid #e5e7eb;
+    --toast-icon-primary: #3b82f6;
     --toast-icon-secondary: #fff;
   }
-  
-  :root.dark {
-    --toast-bg: #000;
-    --toast-text: #fff;
-    --toast-border: 2px solid #fff;
-    --toast-icon-primary: #fff;
-    --toast-icon-secondary: #000;
+
+  [data-theme="dark"] {
+    --toast-bg: #1f2937;
+    --toast-text: #f3f4f6;
+    --toast-border: 1px solid #4b5563;
+    --toast-icon-primary: #60a5fa;
+    --toast-icon-secondary: #1f2937;
   }
-  
-  /* Header box shadow for dark mode */
-  .header-shadow {
-    box-shadow: 4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black;
-  }
-  
-  :root.dark .header-shadow {
-    box-shadow: 4px 4px 0px 0px #fff, 0 0 0 4px #fff;
-  }
-  
+
   /* Override FontAwesome font-display from block to swap for better performance
      This prevents FOIT (Flash of Invisible Text) and improves FCP/LCP metrics */
   @font-face {
@@ -58,7 +35,7 @@
     font-display: swap;
     src: url(@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2) format("woff2");
   }
-  
+
   @font-face {
     font-family: "Font Awesome 7 Free";
     font-style: normal;
@@ -66,7 +43,7 @@
     font-display: swap;
     src: url(@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2) format("woff2");
   }
-  
+
   @font-face {
     font-family: "Font Awesome 7 Free";
     font-style: normal;

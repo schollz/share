@@ -90,9 +90,6 @@ async function calculateSHA256(data) {
 
 /* ------------------- Protobuf Message Handling ------------------- */
 
-// Protobuf schema definition
-// NOTE: This schema is duplicated from src/relay/messages.proto for the web client.
-// Keep in sync with the proto file or consider using a build step to import it.
 const protoSchema = `
 syntax = "proto3";
 
@@ -133,75 +130,29 @@ message PBOutgoingMessage {
 
 let pbIncomingMessage, pbOutgoingMessage;
 
-// Load protobuf schema once
 const root = protobuf.parse(protoSchema).root;
 pbIncomingMessage = root.lookupType("relay.PBIncomingMessage");
 pbOutgoingMessage = root.lookupType("relay.PBOutgoingMessage");
 
-// Encode message to protobuf
 function encodeProtobuf(obj) {
-    // Create message using protobufjs - use camelCase field names
-    const pbMessage = {
-        type: obj.type || "",
-    };
+    const pbMessage = { type: obj.type || "" };
 
-    // protobufjs expects camelCase field names that map to snake_case in proto
-    if (obj.roomId !== undefined && obj.roomId !== null && obj.roomId !== "") {
-        pbMessage.roomId = obj.roomId;
-    }
-    if (
-        obj.clientId !== undefined &&
-        obj.clientId !== null &&
-        obj.clientId !== ""
-    ) {
-        pbMessage.clientId = obj.clientId;
-    }
-    if (obj.pub !== undefined && obj.pub !== null && obj.pub !== "") {
-        pbMessage.pub = obj.pub;
-    }
-    if (obj.iv_b64 !== undefined && obj.iv_b64 !== null && obj.iv_b64 !== "") {
-        pbMessage.ivB64 = obj.iv_b64;
-    }
-    if (
-        obj.data_b64 !== undefined &&
-        obj.data_b64 !== null &&
-        obj.data_b64 !== ""
-    ) {
-        pbMessage.dataB64 = obj.data_b64;
-    }
-    if (
-        obj.chunk_data !== undefined &&
-        obj.chunk_data !== null &&
-        obj.chunk_data !== ""
-    ) {
-        pbMessage.chunkData = obj.chunk_data;
-    }
-    if (obj.chunk_num !== undefined && obj.chunk_num !== null) {
-        pbMessage.chunkNum = obj.chunk_num;
-    }
-    if (
-        obj.encrypted_metadata !== undefined &&
-        obj.encrypted_metadata !== null &&
-        obj.encrypted_metadata !== ""
-    ) {
-        pbMessage.encryptedMetadata = obj.encrypted_metadata;
-    }
-    if (
-        obj.metadata_iv !== undefined &&
-        obj.metadata_iv !== null &&
-        obj.metadata_iv !== ""
-    ) {
-        pbMessage.metadataIv = obj.metadata_iv;
-    }
+    if (obj.roomId !== undefined && obj.roomId !== null && obj.roomId !== "") pbMessage.roomId = obj.roomId;
+    if (obj.clientId !== undefined && obj.clientId !== null && obj.clientId !== "") pbMessage.clientId = obj.clientId;
+    if (obj.pub !== undefined && obj.pub !== null && obj.pub !== "") pbMessage.pub = obj.pub;
+    if (obj.iv_b64 !== undefined && obj.iv_b64 !== null && obj.iv_b64 !== "") pbMessage.ivB64 = obj.iv_b64;
+    if (obj.data_b64 !== undefined && obj.data_b64 !== null && obj.data_b64 !== "") pbMessage.dataB64 = obj.data_b64;
+    if (obj.chunk_data !== undefined && obj.chunk_data !== null && obj.chunk_data !== "") pbMessage.chunkData = obj.chunk_data;
+    if (obj.chunk_num !== undefined && obj.chunk_num !== null) pbMessage.chunkNum = obj.chunk_num;
+    if (obj.encrypted_metadata !== undefined && obj.encrypted_metadata !== null && obj.encrypted_metadata !== "") pbMessage.encryptedMetadata = obj.encrypted_metadata;
+    if (obj.metadata_iv !== undefined && obj.metadata_iv !== null && obj.metadata_iv !== "") pbMessage.metadataIv = obj.metadata_iv;
 
     const message = pbIncomingMessage.create(pbMessage);
     return pbIncomingMessage.encode(message).finish();
 }
 
-// Decode protobuf message
 function decodeProtobuf(buffer) {
     const message = pbOutgoingMessage.decode(buffer);
-    // protobufjs provides camelCase properties for snake_case proto fields
     return {
         type: message.type,
         from: message.from,
@@ -361,27 +312,17 @@ const ICON_CLASSES = [
 
 function mnemonicToIcons(mnemonic) {
     if (!mnemonic) {
-        return [
-            "fa-circle-question",
-            "fa-circle-question",
-            "fa-circle-question",
-        ];
+        return ["fa-circle-question", "fa-circle-question", "fa-circle-question"];
     }
 
-    // Split mnemonic into words (format: "word1-word2-word3")
-    const words = mnemonic
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter(Boolean);
+    const words = mnemonic.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
     const icons = [];
 
-    // Map each word to its corresponding icon
     for (const word of words) {
         const directMatch = ICON_CLASSES.find((icon) => icon.includes(word));
         if (directMatch) {
             icons.push(directMatch);
         } else {
-            // Fallback: use hash-based selection for this word
             let hash = 0;
             for (let i = 0; i < word.length; i++) {
                 hash = (hash * 31 + word.charCodeAt(i)) >>> 0;
@@ -390,7 +331,6 @@ function mnemonicToIcons(mnemonic) {
         }
     }
 
-    // Ensure we always have 3 icons
     while (icons.length < 3) {
         icons.push("fa-circle-question");
     }
@@ -399,30 +339,16 @@ function mnemonicToIcons(mnemonic) {
 }
 
 function IconBadge({ mnemonic, label, className = "" }) {
-    if (!mnemonic) {
-        return null;
-    }
+    if (!mnemonic) return null;
     const iconClasses = mnemonicToIcons(mnemonic);
+
     return (
-        <div className={`relative group ${className}`}>
-            <div
-                tabIndex={0}
-                className="bg-white dark:bg-black text-black dark:text-white px-3 py-2 sm:px-4 sm:py-3 inline-flex items-center justify-center gap-2 border-2 sm:border-4 border-black dark:border-white font-black focus:outline-hidden transition-colors duration-200"
-                aria-label={`${label}: ${mnemonic}`}
-            >
+        <div className={`tooltip tooltip-bottom ${className}`} data-tip={mnemonic.toUpperCase()}>
+            <div className="badge badge-lg gap-2 px-4 py-3 shadow-md">
                 {iconClasses.map((iconClass, index) => (
-                    <i
-                        key={index}
-                        className={`fas ${iconClass} text-xl sm:text-2xl md:text-3xl`}
-                        aria-hidden="true"
-                    ></i>
+                    <i key={index} className={`fas ${iconClass} text-lg`} aria-hidden="true"></i>
                 ))}
-                {label === "You" && (
-                    <span className="text-sm sm:text-base ml-1">(YOU)</span>
-                )}
-            </div>
-            <div className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 bg-white dark:bg-black text-black dark:text-white border-2 border-black dark:border-white px-2 py-1 text-xs font-black uppercase whitespace-nowrap shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
-                {mnemonic.toUpperCase()}
+                {label === "You" && <span className="text-xs ml-1 font-bold">(YOU)</span>}
             </div>
         </div>
     );
@@ -431,42 +357,28 @@ function IconBadge({ mnemonic, label, className = "" }) {
 function ProgressBar({ progress, label }) {
     if (!progress) return null;
 
-    // Remove emoji from label
     const cleanLabel = label.replace(/[\u{1F300}-\u{1F9FF}]/gu, "").trim();
 
     return (
-        <div className="bg-white dark:bg-black border-2 sm:border-4 border-black dark:border-white p-3 sm:p-4 mb-3 sm:mb-4 transition-colors duration-200">
-            <div className="text-sm sm:text-base font-black mb-2 uppercase text-black dark:text-white">
-                {cleanLabel}
-            </div>
-            <div className="relative w-full h-6 sm:h-8 bg-gray-300 dark:bg-white border-2 sm:border-4 border-black dark:border-white">
-                <div
-                    className="absolute top-0 left-0 h-full bg-black dark:bg-black transition-all duration-300"
-                    style={{ width: `${progress.percent}%` }}
-                />
-                <div
-                    className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-bold"
-                    style={{ mixBlendMode: "difference", color: "white" }}
-                >
-                    {progress.percent}%
+        <div className="card bg-base-200 shadow-md mb-4">
+            <div className="card-body p-4">
+                <h3 className="card-title text-sm">{cleanLabel}</h3>
+                <progress
+                    className="progress progress-primary w-full"
+                    value={progress.percent}
+                    max="100"
+                ></progress>
+                <div className="flex justify-between text-xs opacity-70">
+                    <span>{progress.percent}%</span>
+                    {progress.speed > 0 && <span>{formatSpeed(progress.speed)}</span>}
+                    {progress.eta > 0 && progress.percent < 100 && <span>ETA: {formatTime(progress.eta)}</span>}
                 </div>
             </div>
-            {(progress.speed > 0 || progress.eta > 0) && (
-                <div className="mt-2 text-xs sm:text-sm font-bold flex flex-wrap gap-x-4 gap-y-1 text-black dark:text-white">
-                    {progress.speed > 0 && (
-                        <span>Speed: {formatSpeed(progress.speed)}</span>
-                    )}
-                    {progress.eta > 0 && progress.percent < 100 && (
-                        <span>ETA: {formatTime(progress.eta)}</span>
-                    )}
-                </div>
-            )}
         </div>
     );
 }
 
 export default function App() {
-    // Parse room from URL path (e.g., /myroom -> "myroom")
     const pathRoom = window.location.pathname.slice(1).toLowerCase();
     const [roomId, setRoomId] = useState(pathRoom);
     const [connected, setConnected] = useState(false);
@@ -481,8 +393,7 @@ export default function App() {
     const [downloadProgress, setDownloadProgress] = useState(null);
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [showAboutModal, setShowAboutModal] = useState(false);
-    const [showDownloadConfirmModal, setShowDownloadConfirmModal] =
-        useState(false);
+    const [showDownloadConfirmModal, setShowDownloadConfirmModal] = useState(false);
     const [pendingDownload, setPendingDownload] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [roomIdError, setRoomIdError] = useState(null);
@@ -494,15 +405,12 @@ export default function App() {
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
     const havePeerPubRef = useRef(false);
-
     const wsRef = useRef(null);
     const selfIdRef = useRef(null);
     const myMnemonicRef = useRef(null);
     const clientIdRef = useRef(crypto.randomUUID());
     const roomInputRef = useRef(null);
     const fileInputRef = useRef(null);
-
-    // For chunked file reception
     const fileChunksRef = useRef([]);
     const fileNameRef = useRef(null);
     const fileIVRef = useRef(null);
@@ -512,14 +420,10 @@ export default function App() {
     const isFolderRef = useRef(false);
     const originalFolderNameRef = useRef(null);
     const expectedHashRef = useRef(null);
-
-    // For chunk ordering and ACK tracking
     const receivedChunksRef = useRef(new Set());
     const chunkBufferRef = useRef(new Map());
     const nextExpectedChunkRef = useRef(0);
     const lastActivityTimeRef = useRef(Date.now());
-
-    // For sending with ACK/retransmission
     const pendingChunksRef = useRef(new Map());
     const ackReceivedRef = useRef(new Set());
     const retransmitTimerRef = useRef(null);
@@ -533,7 +437,6 @@ export default function App() {
 
     function sendMsg(obj) {
         if (!wsRef.current || wsRef.current.readyState !== 1) return;
-        // Send as protobuf binary
         const buffer = encodeProtobuf(obj);
         wsRef.current.send(buffer);
     }
@@ -555,10 +458,7 @@ export default function App() {
     async function handlePeerPubKey(b64) {
         const rawPeer = base64ToUint8(b64);
         const peerPub = await importPeerPubKey(rawPeer);
-        const sharedAes = await deriveSharedKey(
-            myKeyPairRef.current.privateKey,
-            peerPub,
-        );
+        const sharedAes = await deriveSharedKey(myKeyPairRef.current.privateKey, peerPub);
         aesKeyRef.current = sharedAes;
         havePeerPubRef.current = true;
         setHasAesKey(true);
@@ -566,32 +466,9 @@ export default function App() {
     }
 
     function generateRandomRoomId() {
-        const adjectives = [
-            "swift",
-            "bold",
-            "calm",
-            "bright",
-            "dark",
-            "warm",
-            "cool",
-            "wise",
-            "neat",
-            "wild",
-        ];
-        const nouns = [
-            "tiger",
-            "eagle",
-            "ocean",
-            "mountain",
-            "forest",
-            "river",
-            "storm",
-            "star",
-            "moon",
-            "sun",
-        ];
-        const randomAdjective =
-            adjectives[Math.floor(Math.random() * adjectives.length)];
+        const adjectives = ["swift", "bold", "calm", "bright", "dark", "warm", "cool", "wise", "neat", "wild"];
+        const nouns = ["tiger", "eagle", "ocean", "mountain", "forest", "river", "storm", "star", "moon", "sun"];
+        const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
         const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
         const randomNumber = Math.floor(Math.random() * 100);
         return `${randomAdjective}-${randomNoun}-${randomNumber}`;
@@ -600,28 +477,22 @@ export default function App() {
     const connectToRoom = useCallback(async () => {
         let room = roomId.trim().toLowerCase();
 
-        // Generate random room ID if empty
         if (!room) {
             room = generateRandomRoomId();
             setRoomId(room);
         }
 
-        // Validate room ID length (minimum 4 characters)
         if (room.length < 4) {
-            setRoomIdError(
-                "Room ID must be at least 4 characters. Please enter a longer room name.",
-            );
+            setRoomIdError("Room ID must be at least 4 characters. Please enter a longer room name.");
             return;
         }
 
-        // Clear any previous errors
         setRoomIdError(null);
         setRoomId(room);
         await initKeys();
 
-        // Dynamically choose ws:// or wss:// based on current page
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const host = window.location.host; // includes port if present
+        const host = window.location.host;
         const wsUrl = `${protocol}//${host}/ws`;
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
@@ -630,24 +501,17 @@ export default function App() {
             setConnected(true);
             setStatus("Connected. Waiting for peer...");
             log("WebSocket open");
-            sendMsg({
-                type: "join",
-                roomId: room,
-                clientId: clientIdRef.current,
-            });
+            sendMsg({ type: "join", roomId: room, clientId: clientIdRef.current });
         };
 
         ws.onmessage = async (event) => {
             let msg;
             try {
-                // Handle both protobuf binary and JSON messages
                 if (event.data instanceof Blob) {
-                    // Binary protobuf message
                     const arrayBuffer = await event.data.arrayBuffer();
                     const buffer = new Uint8Array(arrayBuffer);
                     msg = decodeProtobuf(buffer);
                 } else if (typeof event.data === "string") {
-                    // JSON message (fallback for compatibility)
                     msg = JSON.parse(event.data);
                 } else {
                     return;
@@ -676,16 +540,11 @@ export default function App() {
 
             if (msg.type === "peers") {
                 setPeerCount(msg.count);
-                setStatus(
-                    msg.count === 2
-                        ? "Peer connected. Secure channel ready."
-                        : `Connected as ${myMnemonicRef.current || "waiting..."}`,
-                );
+                setStatus(msg.count === 2 ? "Peer connected. Secure channel ready." : `Connected as ${myMnemonicRef.current || "waiting..."}`);
                 return;
             }
 
             if (msg.type === "chunk_ack") {
-                // Sender: mark chunk as acknowledged
                 const chunkNum = msg.chunk_num;
                 ackReceivedRef.current.add(chunkNum);
                 pendingChunksRef.current.delete(chunkNum);
@@ -699,33 +558,18 @@ export default function App() {
                 log(`Received peer public key from ${peerName}`);
                 const hadPeerPub = havePeerPubRef.current;
 
-                // Prevent duplicate processing - set flag immediately to prevent race condition
-                if (hadPeerPub) {
-                    return;
-                }
+                if (hadPeerPub) return;
                 havePeerPubRef.current = true;
 
-                // Show connection notification with peer's icons
                 const peerIcons = mnemonicToIcons(peerName);
                 toast.success(
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                        }}
-                    >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         {peerIcons.map((iconClass, index) => (
-                            <i
-                                key={index}
-                                className={`fas ${iconClass}`}
-                                aria-hidden="true"
-                                style={{ fontSize: "16px" }}
-                            ></i>
+                            <i key={index} className={`fas ${iconClass}`} aria-hidden="true" style={{ fontSize: "16px" }}></i>
                         ))}
-                        <span>{peerName.toUpperCase()} CONNECTED</span>
+                        <span>{peerName.toUpperCase()} Connected</span>
                     </div>,
-                    { duration: 3000 },
+                    { duration: 3000 }
                 );
 
                 await handlePeerPubKey(msg.pub);
@@ -734,47 +578,29 @@ export default function App() {
             }
 
             if (msg.type === "peer_disconnected") {
-                const disconnectedPeerName =
-                    msg.mnemonic || msg.peerId || "Peer";
+                const disconnectedPeerName = msg.mnemonic || msg.peerId || "Peer";
                 log(`${disconnectedPeerName} disconnected`);
 
-                // Show disconnection notification with peer's icons
                 const peerIcons = mnemonicToIcons(disconnectedPeerName);
                 toast.error(
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                        }}
-                    >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         {peerIcons.map((iconClass, index) => (
-                            <i
-                                key={index}
-                                className={`fas ${iconClass}`}
-                                aria-hidden="true"
-                                style={{ fontSize: "16px" }}
-                            ></i>
+                            <i key={index} className={`fas ${iconClass}`} aria-hidden="true" style={{ fontSize: "16px" }}></i>
                         ))}
-                        <span>
-                            {disconnectedPeerName.toUpperCase()} DISCONNECTED
-                        </span>
+                        <span>{disconnectedPeerName.toUpperCase()} Disconnected</span>
                     </div>,
-                    { duration: 4000 },
+                    { duration: 4000 }
                 );
 
-                // Reset peer state
                 setPeerMnemonic(null);
                 havePeerPubRef.current = false;
                 aesKeyRef.current = null;
                 setHasAesKey(false);
 
-                // Close current connection
                 if (wsRef.current) {
                     wsRef.current.close();
                 }
 
-                // Rejoin the same room after a short delay
                 setTimeout(() => {
                     log(`Rejoining room ${roomId}`);
                     connectToRoom();
@@ -784,58 +610,37 @@ export default function App() {
             }
 
             if (msg.type === "transfer_received") {
-                // Receiver confirmed they successfully received the file or text
                 const receiverName = msg.mnemonic || msg.from || "Receiver";
-                
-                // Default to "file" if no metadata is provided (for backward compatibility)
                 let transferType = "file";
-                
-                // Try to decrypt metadata to determine transfer type
+
                 if (msg.encrypted_metadata && msg.metadata_iv && aesKeyRef.current) {
                     try {
                         const metadataIV = base64ToUint8(msg.metadata_iv);
                         const encryptedMetadata = base64ToUint8(msg.encrypted_metadata);
-                        const metadataBytes = await decryptBytes(
-                            aesKeyRef.current,
-                            metadataIV,
-                            encryptedMetadata,
-                        );
+                        const metadataBytes = await decryptBytes(aesKeyRef.current, metadataIV, encryptedMetadata);
                         const metadataJSON = new TextDecoder().decode(metadataBytes);
                         const metadata = JSON.parse(metadataJSON);
-                        
+
                         if (metadata.transfer_type) {
                             transferType = metadata.transfer_type;
                         }
                     } catch (err) {
                         console.error("Failed to decrypt transfer_received metadata:", err);
-                        // Fall back to default "file"
                     }
                 }
-                
-                const typeLabel = transferType === "text" ? "TEXT" : "FILE";
+
+                const typeLabel = transferType === "text" ? "Text" : "File";
                 log(`${receiverName} confirmed receipt of the ${typeLabel.toLowerCase()}`);
 
-                // Show success notification with receiver's icons
                 const receiverIcons = mnemonicToIcons(receiverName);
                 toast.success(
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                        }}
-                    >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         {receiverIcons.map((iconClass, index) => (
-                            <i
-                                key={index}
-                                className={`fas ${iconClass}`}
-                                aria-hidden="true"
-                                style={{ fontSize: "16px" }}
-                            ></i>
+                            <i key={index} className={`fas ${iconClass}`} aria-hidden="true" style={{ fontSize: "16px" }}></i>
                         ))}
-                        <span>{receiverName.toUpperCase()} RECEIVED {typeLabel}</span>
+                        <span>{receiverName.toUpperCase()} Received {typeLabel}</span>
                     </div>,
-                    { duration: 4000 },
+                    { duration: 4000 }
                 );
 
                 return;
@@ -847,37 +652,21 @@ export default function App() {
                     return;
                 }
 
-                // Decrypt metadata
                 if (!msg.encrypted_metadata || !msg.metadata_iv) {
                     console.error("Missing encrypted metadata");
                     log("Missing encrypted metadata");
                     return;
                 }
 
-                let fileName,
-                    totalSize,
-                    isFolder,
-                    originalFolderName,
-                    isMultipleFiles,
-                    expectedHash;
+                let fileName, totalSize, isFolder, originalFolderName, isMultipleFiles, expectedHash;
 
                 try {
-                    // Decrypt metadata
                     const metadataIV = base64ToUint8(msg.metadata_iv);
-                    const encryptedMetadata = base64ToUint8(
-                        msg.encrypted_metadata,
-                    );
-                    const metadataBytes = await decryptBytes(
-                        aesKeyRef.current,
-                        metadataIV,
-                        encryptedMetadata,
-                    );
-                    const metadataJSON = new TextDecoder().decode(
-                        metadataBytes,
-                    );
+                    const encryptedMetadata = base64ToUint8(msg.encrypted_metadata);
+                    const metadataBytes = await decryptBytes(aesKeyRef.current, metadataIV, encryptedMetadata);
+                    const metadataJSON = new TextDecoder().decode(metadataBytes);
                     const metadata = JSON.parse(metadataJSON);
 
-                    // Use decrypted metadata
                     fileName = metadata.name;
                     totalSize = metadata.total_size;
                     isFolder = metadata.is_folder || false;
@@ -899,19 +688,14 @@ export default function App() {
                 originalFolderNameRef.current = originalFolderName;
                 expectedHashRef.current = expectedHash;
 
-                // Reset chunk tracking
                 receivedChunksRef.current = new Set();
                 chunkBufferRef.current = new Map();
                 nextExpectedChunkRef.current = 0;
                 lastActivityTimeRef.current = Date.now();
 
-                const displayName = isFolderRef.current
-                    ? originalFolderNameRef.current
-                    : fileName;
+                const displayName = isFolderRef.current ? originalFolderNameRef.current : fileName;
                 const typeLabel = isFolderRef.current ? "folder" : "file";
-                log(
-                    `Incoming encrypted ${typeLabel}: ${displayName} (${formatBytes(totalSize)})`,
-                );
+                log(`Incoming encrypted ${typeLabel}: ${displayName} (${formatBytes(totalSize)})`);
                 setDownloadProgress({
                     percent: 0,
                     speed: 0,
@@ -926,82 +710,41 @@ export default function App() {
                 try {
                     const chunkNum = msg.chunk_num;
 
-                    // Check for duplicate chunk
                     if (receivedChunksRef.current.has(chunkNum)) {
-                        // Send ACK again for idempotency
                         sendMsg({ type: "chunk_ack", chunk_num: chunkNum });
                         return;
                     }
 
-                    // Decrypt chunk immediately with its own IV
                     const chunkIV = base64ToUint8(msg.iv_b64);
                     const cipherChunk = base64ToUint8(msg.chunk_data);
+                    const plainChunk = await decryptBytes(aesKeyRef.current, chunkIV, cipherChunk);
 
-                    const plainChunk = await decryptBytes(
-                        aesKeyRef.current,
-                        chunkIV,
-                        cipherChunk,
-                    );
-
-                    // Mark as received
                     receivedChunksRef.current.add(chunkNum);
                     lastActivityTimeRef.current = Date.now();
 
-                    // Handle chunk ordering
                     if (chunkNum === nextExpectedChunkRef.current) {
-                        // This is the next expected chunk - add it
                         fileChunksRef.current.push(plainChunk);
                         receivedBytesRef.current += plainChunk.length;
                         nextExpectedChunkRef.current++;
 
-                        // Check if we have buffered chunks that can now be added
-                        while (
-                            chunkBufferRef.current.has(
-                                nextExpectedChunkRef.current,
-                            )
-                        ) {
-                            const bufferedChunk = chunkBufferRef.current.get(
-                                nextExpectedChunkRef.current,
-                            );
+                        while (chunkBufferRef.current.has(nextExpectedChunkRef.current)) {
+                            const bufferedChunk = chunkBufferRef.current.get(nextExpectedChunkRef.current);
                             fileChunksRef.current.push(bufferedChunk);
                             receivedBytesRef.current += bufferedChunk.length;
-                            chunkBufferRef.current.delete(
-                                nextExpectedChunkRef.current,
-                            );
+                            chunkBufferRef.current.delete(nextExpectedChunkRef.current);
                             nextExpectedChunkRef.current++;
                         }
                     } else if (chunkNum > nextExpectedChunkRef.current) {
-                        // Out-of-order chunk - buffer it
                         chunkBufferRef.current.set(chunkNum, plainChunk);
                     }
-                    // If chunkNum < nextExpectedChunkRef.current, it's a duplicate
 
-                    const elapsed =
-                        (Date.now() - downloadStartTimeRef.current) / 1000;
-                    const speed =
-                        elapsed > 0 ? receivedBytesRef.current / elapsed : 0;
-                    const percent =
-                        fileTotalSizeRef.current > 0
-                            ? Math.round(
-                                  (receivedBytesRef.current /
-                                      fileTotalSizeRef.current) *
-                                      100,
-                              )
-                            : 0;
-
-                    const remainingBytes =
-                        fileTotalSizeRef.current - receivedBytesRef.current;
+                    const elapsed = (Date.now() - downloadStartTimeRef.current) / 1000;
+                    const speed = elapsed > 0 ? receivedBytesRef.current / elapsed : 0;
+                    const percent = fileTotalSizeRef.current > 0 ? Math.round((receivedBytesRef.current / fileTotalSizeRef.current) * 100) : 0;
+                    const remainingBytes = fileTotalSizeRef.current - receivedBytesRef.current;
                     const eta = speed > 0 ? remainingBytes / speed : 0;
 
-                    setDownloadProgress({
-                        percent,
-                        speed,
-                        eta,
-                        startTime: downloadStartTimeRef.current,
-                        fileName: fileNameRef.current,
-                    });
-
-                    // Send ACK for this chunk
+                    setDownloadProgress({ percent, speed, eta, startTime: downloadStartTimeRef.current, fileName: fileNameRef.current });
                     sendMsg({ type: "chunk_ack", chunk_num: chunkNum });
                 } catch (err) {
                     console.error("Chunk decryption failed:", err);
@@ -1018,11 +761,7 @@ export default function App() {
                 }
 
                 try {
-                    // Reassemble plaintext from decrypted chunks
-                    const totalLen = fileChunksRef.current.reduce(
-                        (sum, chunk) => sum + chunk.length,
-                        0,
-                    );
+                    const totalLen = fileChunksRef.current.reduce((sum, chunk) => sum + chunk.length, 0);
                     const plainBytes = new Uint8Array(totalLen);
                     let offset = 0;
                     for (const chunk of fileChunksRef.current) {
@@ -1030,60 +769,38 @@ export default function App() {
                         offset += chunk.length;
                     }
 
-                    // Verify file hash if provided
                     if (expectedHashRef.current) {
                         const actualHash = await calculateSHA256(plainBytes);
                         if (actualHash !== expectedHashRef.current) {
                             log(`⚠️  WARNING: File hash mismatch!`);
                             log(`   Expected: ${expectedHashRef.current}`);
                             log(`   Received: ${actualHash}`);
-                            log(
-                                `   The file may be corrupted or tampered with.`,
-                            );
+                            log(`   The file may be corrupted or tampered with.`);
                         } else {
-                            const hashPrefix =
-                                expectedHashRef.current.substring(0, 8);
-                            const hashSuffix =
-                                expectedHashRef.current.substring(
-                                    expectedHashRef.current.length - 8,
-                                );
-                            log(
-                                `✓ File integrity verified (hash: ${hashPrefix}...${hashSuffix})`,
-                            );
+                            const hashPrefix = expectedHashRef.current.substring(0, 8);
+                            const hashSuffix = expectedHashRef.current.substring(expectedHashRef.current.length - 8);
+                            log(`✓ File integrity verified (hash: ${hashPrefix}...${hashSuffix})`);
                         }
                     }
 
-                    const elapsed =
-                        (Date.now() - downloadStartTimeRef.current) / 1000;
+                    const elapsed = (Date.now() - downloadStartTimeRef.current) / 1000;
                     const speed = elapsed > 0 ? totalLen / elapsed : 0;
 
-                    // Determine download name based on whether it's a folder
                     let downloadFileName;
                     if (isFolderRef.current && originalFolderNameRef.current) {
-                        downloadFileName =
-                            originalFolderNameRef.current + ".zip";
+                        downloadFileName = originalFolderNameRef.current + ".zip";
                     } else {
-                        downloadFileName =
-                            fileNameRef.current || "download.bin";
+                        downloadFileName = fileNameRef.current || "download.bin";
                     }
 
-                    setDownloadProgress({
-                        percent: 100,
-                        speed,
-                        eta: 0,
-                        fileName: downloadFileName,
-                    });
+                    setDownloadProgress({ percent: 100, speed, eta: 0, fileName: downloadFileName });
 
                     const blob = new Blob([plainBytes], {
-                        type: isFolderRef.current
-                            ? "application/zip"
-                            : "application/octet-stream",
+                        type: isFolderRef.current ? "application/zip" : "application/octet-stream",
                     });
                     const url = URL.createObjectURL(blob);
-
                     const typeLabel = isFolderRef.current ? "folder" : "file";
 
-                    // Store pending download and show confirmation modal
                     setPendingDownload({
                         url: url,
                         name: downloadFileName,
@@ -1092,20 +809,14 @@ export default function App() {
                     });
                     setShowDownloadConfirmModal(true);
 
-                    log(
-                        `Decrypted and prepared download "${downloadFileName}" (${typeLabel})`,
-                    );
+                    log(`Decrypted and prepared download "${downloadFileName}" (${typeLabel})`);
 
-                    // Send transfer received confirmation to sender with encrypted metadata
                     try {
-                        const transferMetadata = {
-                            transfer_type: "file",
-                        };
+                        const transferMetadata = { transfer_type: "file" };
                         const metadataJSON = JSON.stringify(transferMetadata);
                         const metadataBytes = new TextEncoder().encode(metadataJSON);
-                        const { iv: metadataIV, ciphertext: encryptedMetadataBytes } =
-                            await encryptBytes(aesKeyRef.current, metadataBytes);
-                        
+                        const { iv: metadataIV, ciphertext: encryptedMetadataBytes } = await encryptBytes(aesKeyRef.current, metadataBytes);
+
                         sendMsg({
                             type: "transfer_received",
                             encrypted_metadata: uint8ToBase64(encryptedMetadataBytes),
@@ -1113,7 +824,6 @@ export default function App() {
                         });
                     } catch (err) {
                         console.error("Failed to encrypt transfer_received metadata:", err);
-                        // Fall back to sending without metadata
                         sendMsg({ type: "transfer_received" });
                     }
                 } catch (err) {
@@ -1130,47 +840,30 @@ export default function App() {
                     return;
                 }
 
-                // Decrypt metadata to get text
                 if (!msg.encrypted_metadata || !msg.metadata_iv) {
-                    console.error(
-                        "Missing encrypted metadata for text message",
-                    );
+                    console.error("Missing encrypted metadata for text message");
                     log("Missing encrypted metadata for text message");
                     return;
                 }
 
                 try {
-                    // Decrypt metadata
                     const metadataIV = base64ToUint8(msg.metadata_iv);
-                    const encryptedMetadata = base64ToUint8(
-                        msg.encrypted_metadata,
-                    );
-                    const metadataBytes = await decryptBytes(
-                        aesKeyRef.current,
-                        metadataIV,
-                        encryptedMetadata,
-                    );
-                    const metadataJSON = new TextDecoder().decode(
-                        metadataBytes,
-                    );
+                    const encryptedMetadata = base64ToUint8(msg.encrypted_metadata);
+                    const metadataBytes = await decryptBytes(aesKeyRef.current, metadataIV, encryptedMetadata);
+                    const metadataJSON = new TextDecoder().decode(metadataBytes);
                     const metadata = JSON.parse(metadataJSON);
 
-                    // Display the text
                     if (metadata.is_text && metadata.text) {
                         setReceivedText(metadata.text);
                         setShowTextModal(true);
                         log("Received text message");
 
-                        // Send transfer received confirmation to sender with encrypted metadata
                         try {
-                            const transferMetadata = {
-                                transfer_type: "text",
-                            };
+                            const transferMetadata = { transfer_type: "text" };
                             const metadataJSON = JSON.stringify(transferMetadata);
                             const metadataBytes = new TextEncoder().encode(metadataJSON);
-                            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } =
-                                await encryptBytes(aesKeyRef.current, metadataBytes);
-                            
+                            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } = await encryptBytes(aesKeyRef.current, metadataBytes);
+
                             sendMsg({
                                 type: "transfer_received",
                                 encrypted_metadata: uint8ToBase64(encryptedMetadataBytes),
@@ -1178,7 +871,6 @@ export default function App() {
                             });
                         } catch (err) {
                             console.error("Failed to encrypt transfer_received metadata:", err);
-                            // Fall back to sending without metadata
                             sendMsg({ type: "transfer_received" });
                         }
                     }
@@ -1196,17 +888,13 @@ export default function App() {
             setPeerCount(1);
             setStatus("Not connected");
 
-            // If we were in a room, attempt to reconnect
             if (roomId) {
                 log(`Connection lost, attempting to reconnect to room ${roomId}`);
-
-                // Reset peer state
                 setPeerMnemonic(null);
                 havePeerPubRef.current = false;
                 aesKeyRef.current = null;
                 setHasAesKey(false);
 
-                // Attempt to reconnect after a short delay
                 setTimeout(() => {
                     log(`Reconnecting to room ${roomId}`);
                     connectToRoom();
@@ -1220,40 +908,30 @@ export default function App() {
         };
     }, [roomId]);
 
-    // Handler for the connect button - redirects to the room page
     function handleConnect() {
         let room = roomId.trim().toLowerCase();
 
-        // Generate random room ID if empty
         if (!room) {
             room = generateRandomRoomId();
         }
 
-        // Validate room ID length (minimum 4 characters)
         if (room.length < 4) {
-            setRoomIdError(
-                "Room ID must be at least 4 characters. Please enter a longer room name.",
-            );
+            setRoomIdError("Room ID must be at least 4 characters. Please enter a longer room name.");
             return;
         }
 
-        // Clear any previous errors and redirect to the room page
         setRoomIdError(null);
         window.location.href = `/${room}`;
     }
 
-    // Helper function to zip a folder
     async function zipFolder(files, folderName) {
         const zip = new JSZip();
         const folder = zip.folder(folderName);
 
-        // Add all files to the zip
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            // Get relative path (remove the folder name prefix if present)
             let relativePath = file.webkitRelativePath || file.name;
 
-            // Remove the first folder component to get relative path within the folder
             const parts = relativePath.split("/");
             if (parts.length > 1) {
                 relativePath = parts.slice(1).join("/");
@@ -1262,7 +940,6 @@ export default function App() {
             folder.file(relativePath, file);
         }
 
-        // Generate the zip blob
         const zipBlob = await zip.generateAsync({
             type: "blob",
             compression: "DEFLATE",
@@ -1281,9 +958,7 @@ export default function App() {
 
         log(`Selected ${files.length} file(s)`);
         for (let i = 0; i < files.length; i++) {
-            log(
-                `  File ${i + 1}: ${files[i].name}, webkitRelativePath: ${files[i].webkitRelativePath || "(none)"}`,
-            );
+            log(`  File ${i + 1}: ${files[i].name}, webkitRelativePath: ${files[i].webkitRelativePath || "(none)"}`);
         }
 
         try {
@@ -1292,26 +967,16 @@ export default function App() {
             let isMultipleFiles = false;
             let originalFolderName = null;
 
-            // Check if this is a folder (files with webkitRelativePath) or multiple individual files
-            if (
-                files.length > 1 ||
-                (files.length === 1 && files[0].webkitRelativePath)
-            ) {
-                // Get folder name from the first file's path, or detect multiple files
+            if (files.length > 1 || (files.length === 1 && files[0].webkitRelativePath)) {
                 if (files[0].webkitRelativePath) {
-                    // Real folder with directory structure
                     isFolder = true;
-                    originalFolderName =
-                        files[0].webkitRelativePath.split("/")[0];
+                    originalFolderName = files[0].webkitRelativePath.split("/")[0];
                 } else {
-                    // Multiple individual files selected (not a folder)
                     isMultipleFiles = true;
                     originalFolderName = "files";
                 }
 
-                log(
-                    `Zipping ${isFolder ? "folder" : "files"} "${originalFolderName}" (${files.length} files)...`,
-                );
+                log(`Zipping ${isFolder ? "folder" : "files"} "${originalFolderName}" (${files.length} files)...`);
                 const zipBlob = await zipFolder(files, originalFolderName);
 
                 if (!zipBlob || zipBlob.size === 0) {
@@ -1320,47 +985,23 @@ export default function App() {
                     return;
                 }
 
-                fileToSend = new File([zipBlob], originalFolderName + ".zip", {
-                    type: "application/zip",
-                });
-                log(
-                    `${isFolder ? "Folder" : "Files"} zipped successfully (${formatBytes(zipBlob.size)})`,
-                );
+                fileToSend = new File([zipBlob], originalFolderName + ".zip", { type: "application/zip" });
+                log(`${isFolder ? "Folder" : "Files"} zipped successfully (${formatBytes(zipBlob.size)})`);
             } else {
-                // Single file
                 fileToSend = files[0];
             }
 
             const startTime = Date.now();
-            const displayName =
-                isFolder || isMultipleFiles
-                    ? originalFolderName
-                    : fileToSend.name;
-            setUploadProgress({
-                percent: 0,
-                speed: 0,
-                eta: 0,
-                startTime,
-                fileName: displayName,
-            });
+            const displayName = isFolder || isMultipleFiles ? originalFolderName : fileToSend.name;
+            setUploadProgress({ percent: 0, speed: 0, eta: 0, startTime, fileName: displayName });
 
-            const typeLabel = isFolder
-                ? "folder"
-                : isMultipleFiles
-                  ? "files"
-                  : "file";
-            log(
-                `Streaming ${typeLabel} "${displayName}" (${formatBytes(fileToSend.size)})`,
-            );
+            const typeLabel = isFolder ? "folder" : isMultipleFiles ? "files" : "file";
+            log(`Streaming ${typeLabel} "${displayName}" (${formatBytes(fileToSend.size)})`);
 
-            // Calculate SHA256 hash of the file
             const fileBuffer = await fileToSend.arrayBuffer();
             const fileHash = await calculateSHA256(fileBuffer);
-            log(
-                `Calculated hash: ${fileHash.substring(0, 8)}...${fileHash.substring(fileHash.length - 8)}`,
-            );
+            log(`Calculated hash: ${fileHash.substring(0, 8)}...${fileHash.substring(fileHash.length - 8)}`);
 
-            // Create metadata object
             const metadata = {
                 name: fileToSend.name,
                 total_size: fileToSend.size,
@@ -1374,13 +1015,10 @@ export default function App() {
                 metadata.is_multiple_files = true;
             }
 
-            // Encrypt metadata
             const metadataJSON = JSON.stringify(metadata);
             const metadataBytes = new TextEncoder().encode(metadataJSON);
-            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } =
-                await encryptBytes(aesKeyRef.current, metadataBytes);
+            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } = await encryptBytes(aesKeyRef.current, metadataBytes);
 
-            // Send file_start message with encrypted metadata only
             const fileStartMsg = {
                 type: "file_start",
                 encrypted_metadata: uint8ToBase64(encryptedMetadataBytes),
@@ -1389,22 +1027,18 @@ export default function App() {
 
             sendMsg(fileStartMsg);
 
-            // Reset ACK tracking
             pendingChunksRef.current = new Map();
             ackReceivedRef.current = new Set();
             lastActivityTimeRef.current = Date.now();
 
-            // Setup retransmission logic
             const maxRetries = 3;
-            const ackTimeout = 5000; // 5 seconds
-            const transferTimeout = 30000; // 30 seconds
+            const ackTimeout = 5000;
+            const transferTimeout = 30000;
             let sendingComplete = false;
 
-            // Start retransmission checker
             retransmitTimerRef.current = setInterval(() => {
                 const now = Date.now();
 
-                // Check for transfer timeout
                 if (now - lastActivityTimeRef.current > transferTimeout) {
                     clearInterval(retransmitTimerRef.current);
                     retransmitTimerRef.current = null;
@@ -1413,23 +1047,16 @@ export default function App() {
                     return;
                 }
 
-                // Check pending chunks for retransmission
-                for (const [
-                    chunkNum,
-                    chunkInfo,
-                ] of pendingChunksRef.current.entries()) {
+                for (const [chunkNum, chunkInfo] of pendingChunksRef.current.entries()) {
                     if (now - chunkInfo.sentTime > ackTimeout) {
                         if (chunkInfo.retries >= maxRetries) {
                             clearInterval(retransmitTimerRef.current);
                             retransmitTimerRef.current = null;
-                            log(
-                                `Failed to send chunk ${chunkNum} after ${maxRetries} retries`,
-                            );
+                            log(`Failed to send chunk ${chunkNum} after ${maxRetries} retries`);
                             setUploadProgress(null);
                             return;
                         }
 
-                        // Resend chunk
                         sendMsg({
                             type: "file_chunk",
                             chunk_num: chunkNum,
@@ -1443,12 +1070,10 @@ export default function App() {
                 }
             }, 500);
 
-            // Stream file in chunks, encrypting each chunk individually
             const chunkSize = 512 * 1024;
             let sentBytes = 0;
             let chunkNum = 0;
 
-            // Use File stream API for memory-efficient reading
             const stream = fileToSend.stream();
             const reader = stream.getReader();
 
@@ -1457,16 +1082,10 @@ export default function App() {
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    // Encrypt this chunk with its own IV
-                    const { iv, ciphertext } = await encryptBytes(
-                        aesKeyRef.current,
-                        value,
-                    );
-
+                    const { iv, ciphertext } = await encryptBytes(aesKeyRef.current, value);
                     const chunkData = uint8ToBase64(ciphertext);
                     const ivB64 = uint8ToBase64(iv);
 
-                    // Track this chunk for potential retransmission
                     pendingChunksRef.current.set(chunkNum, {
                         chunkData: chunkData,
                         ivB64: ivB64,
@@ -1474,36 +1093,20 @@ export default function App() {
                         retries: 0,
                     });
 
-                    // Send chunk with its IV
-                    sendMsg({
-                        type: "file_chunk",
-                        chunk_num: chunkNum,
-                        chunk_data: chunkData,
-                        iv_b64: ivB64,
-                    });
+                    sendMsg({ type: "file_chunk", chunk_num: chunkNum, chunk_data: chunkData, iv_b64: ivB64 });
 
                     sentBytes += value.length;
                     const elapsed = (Date.now() - startTime) / 1000;
                     const speed = elapsed > 0 ? sentBytes / elapsed : 0;
-                    const percent = Math.round(
-                        (sentBytes / fileToSend.size) * 100,
-                    );
-
+                    const percent = Math.round((sentBytes / fileToSend.size) * 100);
                     const remainingBytes = fileToSend.size - sentBytes;
                     const eta = speed > 0 ? remainingBytes / speed : 0;
 
-                    setUploadProgress({
-                        percent,
-                        speed,
-                        eta,
-                        startTime,
-                        fileName: displayName,
-                    });
+                    setUploadProgress({ percent, speed, eta, startTime, fileName: displayName });
 
                     chunkNum++;
                     lastActivityTimeRef.current = Date.now();
 
-                    // Small delay to allow UI updates
                     await new Promise((resolve) => setTimeout(resolve, 10));
                 }
             } finally {
@@ -1512,7 +1115,6 @@ export default function App() {
 
             sendingComplete = true;
 
-            // Wait for all chunks to be acknowledged
             const waitStart = Date.now();
             while (pendingChunksRef.current.size > 0) {
                 if (Date.now() - waitStart > 30000) {
@@ -1525,23 +1127,14 @@ export default function App() {
                 await new Promise((resolve) => setTimeout(resolve, 100));
             }
 
-            // Stop retransmission checker
             clearInterval(retransmitTimerRef.current);
             retransmitTimerRef.current = null;
 
-            // Send file_end message
-            sendMsg({
-                type: "file_end",
-            });
+            sendMsg({ type: "file_end" });
 
             const elapsed = (Date.now() - startTime) / 1000;
             const speed = fileToSend.size / elapsed;
-            setUploadProgress({
-                percent: 100,
-                speed,
-                eta: 0,
-                fileName: displayName,
-            });
+            setUploadProgress({ percent: 100, speed, eta: 0, fileName: displayName });
 
             log(`Sent encrypted ${typeLabel} "${displayName}"`);
         } catch (err) {
@@ -1559,19 +1152,11 @@ export default function App() {
         try {
             log(`Sending text message`);
 
-            // Create metadata with text
-            const metadata = {
-                is_text: true,
-                text: textInput,
-            };
-
-            // Encrypt metadata
+            const metadata = { is_text: true, text: textInput };
             const metadataJSON = JSON.stringify(metadata);
             const metadataBytes = new TextEncoder().encode(metadataJSON);
-            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } =
-                await encryptBytes(aesKeyRef.current, metadataBytes);
+            const { iv: metadataIV, ciphertext: encryptedMetadataBytes } = await encryptBytes(aesKeyRef.current, metadataBytes);
 
-            // Send text_message with encrypted metadata
             const textMsg = {
                 type: "text_message",
                 encrypted_metadata: uint8ToBase64(encryptedMetadataBytes),
@@ -1579,13 +1164,8 @@ export default function App() {
             };
 
             sendMsg(textMsg);
-
             log(`Sent encrypted text`);
-
-            // Clear the input
             setTextInput("");
-
-            // Show success notification
             toast.success("Text sent!", { duration: 2000 });
         } catch (err) {
             console.error(err);
@@ -1594,7 +1174,6 @@ export default function App() {
         }
     }
 
-    // Drag and drop handlers
     function handleDragOver(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -1614,7 +1193,6 @@ export default function App() {
     function handleDragLeave(e) {
         e.preventDefault();
         e.stopPropagation();
-        // Only set to false if leaving the label element itself
         if (e.currentTarget === e.target) {
             setIsDragging(false);
         }
@@ -1635,7 +1213,6 @@ export default function App() {
             let folderName = null;
             let isFolder = false;
 
-            // Process each dropped item
             for (let i = 0; i < items.length; i++) {
                 const item = items[i];
                 if (item.kind === "file") {
@@ -1644,11 +1221,7 @@ export default function App() {
                         if (entry.isDirectory) {
                             isFolder = true;
                             folderName = entry.name;
-                            // Read all files from the directory
-                            const dirFiles = await readDirectory(
-                                entry,
-                                entry.name,
-                            );
+                            const dirFiles = await readDirectory(entry, entry.name);
                             allFiles.push(...dirFiles);
                         } else if (entry.isFile) {
                             const file = item.getAsFile();
@@ -1661,7 +1234,6 @@ export default function App() {
             }
 
             if (allFiles.length > 0) {
-                // Create a FileList-like object with webkitRelativePath set for folder files
                 const fileList = {
                     length: allFiles.length,
                     item: (index) => allFiles[index],
@@ -1672,16 +1244,11 @@ export default function App() {
                     },
                 };
 
-                // Add indexed properties
                 for (let i = 0; i < allFiles.length; i++) {
                     fileList[i] = allFiles[i];
                 }
 
-                const syntheticEvent = {
-                    target: {
-                        files: fileList,
-                    },
-                };
+                const syntheticEvent = { target: { files: fileList } };
                 handleFileSelect(syntheticEvent);
             }
         } catch (err) {
@@ -1690,7 +1257,6 @@ export default function App() {
         }
     }
 
-    // Helper function to recursively read directory contents
     async function readDirectory(dirEntry, basePath = "") {
         const files = [];
         const reader = dirEntry.createReader();
@@ -1707,39 +1273,20 @@ export default function App() {
                         if (entry.isFile) {
                             const file = await new Promise((res, rej) => {
                                 entry.file((f) => {
-                                    // Create a new File object with webkitRelativePath set
-                                    const path = basePath
-                                        ? `${basePath}/${f.name}`
-                                        : f.name;
-                                    const newFile = new File([f], f.name, {
-                                        type: f.type,
-                                        lastModified: f.lastModified,
-                                    });
-                                    Object.defineProperty(
-                                        newFile,
-                                        "webkitRelativePath",
-                                        {
-                                            value: path,
-                                            writable: false,
-                                        },
-                                    );
+                                    const path = basePath ? `${basePath}/${f.name}` : f.name;
+                                    const newFile = new File([f], f.name, { type: f.type, lastModified: f.lastModified });
+                                    Object.defineProperty(newFile, "webkitRelativePath", { value: path, writable: false });
                                     res(newFile);
                                 }, rej);
                             });
                             files.push(file);
                         } else if (entry.isDirectory) {
-                            const subPath = basePath
-                                ? `${basePath}/${entry.name}`
-                                : entry.name;
-                            const subFiles = await readDirectory(
-                                entry,
-                                subPath,
-                            );
+                            const subPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+                            const subFiles = await readDirectory(entry, subPath);
                             files.push(...subFiles);
                         }
                     }
 
-                    // Continue reading (directories may have many entries)
                     readEntries();
                 }, reject);
             };
@@ -1748,11 +1295,9 @@ export default function App() {
         });
     }
 
-    // Handler to confirm and trigger file download
     function handleConfirmDownload() {
         if (!pendingDownload) return;
 
-        // Trigger browser download
         const a = document.createElement("a");
         a.href = pendingDownload.url;
         a.download = pendingDownload.name;
@@ -1760,7 +1305,6 @@ export default function App() {
         a.click();
         document.body.removeChild(a);
 
-        // Update state
         setDownloadUrl(pendingDownload.url);
         setDownloadName(pendingDownload.name);
         setShowDownloadConfirmModal(false);
@@ -1768,10 +1312,8 @@ export default function App() {
         log(`Download started: "${pendingDownload.name}"`);
     }
 
-    // Handler to cancel file download
     function handleCancelDownload() {
         if (pendingDownload) {
-            // Clean up the blob URL to free memory
             URL.revokeObjectURL(pendingDownload.url);
             setPendingDownload(null);
         }
@@ -1787,95 +1329,75 @@ export default function App() {
         };
     }, []);
 
-    // Auto-connect if room is in URL
     useEffect(() => {
         if (pathRoom && !connected) {
             connectToRoom();
         }
     }, [pathRoom, connected, connectToRoom]);
 
-    // Update page title based on room
     useEffect(() => {
         document.title = roomId ? `e2ecp · ${roomId.toUpperCase()}` : "e2ecp";
     }, [roomId]);
 
-    // Auto-focus room input on page load if no room in URL
     useEffect(() => {
         if (!pathRoom && !connected && roomInputRef.current) {
             roomInputRef.current.focus();
         }
     }, []);
 
-    // Initialize dark mode from localStorage or browser preference
     useEffect(() => {
         try {
             const saved = localStorage.getItem("darkMode");
             if (saved !== null) {
                 setDarkMode(saved === "true");
             } else if (window.matchMedia) {
-                const mediaQuery = window.matchMedia(
-                    "(prefers-color-scheme: dark)",
-                );
+                const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
                 setDarkMode(mediaQuery.matches);
 
-                // Listen for system theme changes
                 const handleChange = (e) => {
-                    // Only update if user hasn't manually set a preference
                     try {
                         const userPref = localStorage.getItem("darkMode");
                         if (userPref === null) {
                             setDarkMode(e.matches);
                         }
                     } catch (error) {
-                        // If localStorage is unavailable, update based on system preference
                         setDarkMode(e.matches);
                     }
                 };
 
                 mediaQuery.addEventListener("change", handleChange);
-                return () =>
-                    mediaQuery.removeEventListener("change", handleChange);
+                return () => mediaQuery.removeEventListener("change", handleChange);
             }
         } catch (error) {
-            // localStorage might not be available in private browsing mode
-            console.warn(
-                "Could not access localStorage for dark mode preference:",
-                error,
-            );
-            // Fall back to browser preference if available
+            console.warn("Could not access localStorage for dark mode preference:", error);
             if (window.matchMedia) {
-                setDarkMode(
-                    window.matchMedia("(prefers-color-scheme: dark)").matches,
-                );
+                setDarkMode(window.matchMedia("(prefers-color-scheme: dark)").matches);
             }
         }
     }, []);
 
-    // Dark mode toggle handler
     const toggleDarkMode = () => {
         setDarkMode((prev) => {
             const newValue = !prev;
             try {
                 localStorage.setItem("darkMode", String(newValue));
             } catch (error) {
-                // localStorage might not be available in private browsing mode
                 console.warn("Could not save dark mode preference:", error);
             }
             return newValue;
         });
     };
 
-    // Apply dark mode class to document
     useEffect(() => {
         if (darkMode) {
-            document.documentElement.classList.add("dark");
+            document.documentElement.setAttribute("data-theme", "dark");
         } else {
-            document.documentElement.classList.remove("dark");
+            document.documentElement.setAttribute("data-theme", "light");
         }
     }, [darkMode]);
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black p-2 sm:p-4 md:p-8 font-mono flex flex-col items-center justify-center transition-colors duration-200">
+        <div className="min-h-screen bg-base-100 p-4 md:p-8 flex flex-col items-center justify-center">
             <Toaster
                 position="bottom-right"
                 toastOptions={{
@@ -1884,10 +1406,7 @@ export default function App() {
                         background: "var(--toast-bg)",
                         color: "var(--toast-text)",
                         border: "var(--toast-border)",
-                        fontFamily: "monospace",
-                        fontWeight: "bold",
-                        textTransform: "uppercase",
-                        fontSize: "14px",
+                        borderRadius: "0.5rem",
                         padding: "12px 16px",
                     },
                     success: {
@@ -1898,477 +1417,328 @@ export default function App() {
                     },
                 }}
             />
-            <div className="max-w-4xl w-full flex-grow flex flex-col justify-center">
+
+            <div className="max-w-5xl w-full flex-grow flex flex-col justify-center gap-6">
                 {/* Header */}
-                <div
-                    className="bg-black dark:bg-black text-white border-4 sm:border-8 border-black dark:border-white p-4 sm:p-6 mb-3 sm:mb-6 flex items-start justify-between gap-4 transition-colors duration-200 header-shadow"
-                    style={{
-                        clipPath:
-                            "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)",
-                    }}
-                >
-                    <div className="flex-1">
-                        <div className="flex items-start gap-3 mb-2 sm:mb-3">
-                            <h1 className="text-3xl sm:text-5xl md:text-6xl font-black uppercase tracking-tight">
-                                <a
-                                    href="/"
-                                    className="text-white no-underline cursor-pointer hover:text-white hover:underline"
-                                >
-                                    e2ecp
-                                </a>
-                            </h1>
-                            <button
-                                type="button"
-                                onClick={() => setShowAboutModal(true)}
-                                className="inline-flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer text-base sm:text-lg font-bold flex-shrink-0 mt-0.5 sm:mt-1"
-                                aria-label="About e2ecp"
-                            >
-                                ?
-                            </button>
-                            <button
-                                type="button"
-                                onClick={toggleDarkMode}
-                                className="inline-flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer text-base sm:text-lg font-bold flex-shrink-0 mt-0.5 sm:mt-1"
-                                aria-label={
-                                    darkMode
-                                        ? "Switch to light mode"
-                                        : "Switch to dark mode"
-                                }
-                            >
-                                <i
-                                    className={`fas ${darkMode ? "fa-sun" : "fa-moon"}`}
-                                    aria-hidden="true"
-                                ></i>
-                            </button>
-                        </div>
-                        <p className="text-sm sm:text-lg md:text-xl font-bold leading-tight mb-2 sm:mb-3">
-                            TRANSFER FILES OR FOLDERS BETWEEN MACHINES
-                        </p>
-                        {myMnemonic && (
-                            <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
-                                <IconBadge
-                                    mnemonic={myMnemonic}
-                                    label="You"
-                                    className="shrink-0"
-                                />
-                                <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
-                                <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        const url = `${window.location.protocol}//${window.location.host}/${roomId}`;
-                                        navigator.clipboard
-                                            .writeText(url)
-                                            .then(() => {
-                                                toast.success(
-                                                    "Copied to clipboard",
-                                                );
-                                            })
-                                            .catch((err) => {
-                                                toast.error("Failed to copy");
-                                                console.error(
-                                                    "Failed to copy:",
-                                                    err,
-                                                );
-                                            });
-                                    }}
-                                    className="bg-white dark:bg-black text-black dark:text-white px-2 py-1 sm:px-3 sm:py-1 inline-flex items-center justify-center border-2 sm:border-4 border-black dark:border-white font-black text-sm sm:text-lg uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-white dark:hover:text-black transition-colors"
-                                    title="Copy URL to clipboard"
-                                    type="button"
-                                >
-                                    {roomId ? roomId.toUpperCase() : "ROOM"}
-                                    <span className="sr-only">
-                                        Copy {window.location.host}/{roomId} to
-                                        clipboard
-                                    </span>
-                                </button>
-                                {peerMnemonic && (
-                                    <>
-                                        <i className="fas fa-arrows-left-right text-white text-lg sm:text-xl"></i>
-                                        <IconBadge
-                                            mnemonic={peerMnemonic}
-                                            label="Peer"
-                                            className="shrink-0"
-                                        />
-                                    </>
+                <div className="card bg-gradient-to-r from-primary to-secondary text-primary-content shadow-xl">
+                    <div className="card-body">
+                        <div className="flex items-start justify-between flex-wrap gap-4">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <h1 className="text-4xl md:text-6xl font-bold">
+                                        <a href="/" className="hover:opacity-80 transition-opacity">
+                                            e2ecp
+                                        </a>
+                                    </h1>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setShowAboutModal(true)}
+                                            className="btn btn-sm btn-circle btn-ghost"
+                                            aria-label="About e2ecp"
+                                        >
+                                            <i className="fas fa-question text-lg"></i>
+                                        </button>
+                                        <button
+                                            onClick={toggleDarkMode}
+                                            className="btn btn-sm btn-circle btn-ghost"
+                                            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+                                        >
+                                            <i className={`fas ${darkMode ? "fa-sun" : "fa-moon"} text-lg`}></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <p className="text-lg md:text-xl opacity-90 mb-4">
+                                    Transfer files or folders between machines with end-to-end encryption
+                                </p>
+                                {myMnemonic && (
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <IconBadge mnemonic={myMnemonic} label="You" />
+                                        <i className="fas fa-arrows-left-right text-2xl opacity-70"></i>
+                                        <button
+                                            onClick={() => {
+                                                const url = `${window.location.protocol}//${window.location.host}/${roomId}`;
+                                                navigator.clipboard.writeText(url).then(() => {
+                                                    toast.success("Copied to clipboard");
+                                                }).catch((err) => {
+                                                    toast.error("Failed to copy");
+                                                    console.error("Failed to copy:", err);
+                                                });
+                                            }}
+                                            className="btn btn-sm btn-outline hover:btn-accent"
+                                            title="Copy URL to clipboard"
+                                        >
+                                            {roomId ? roomId.toUpperCase() : "ROOM"}
+                                        </button>
+                                        {peerMnemonic && (
+                                            <>
+                                                <i className="fas fa-arrows-left-right text-2xl opacity-70"></i>
+                                                <IconBadge mnemonic={peerMnemonic} label="Peer" />
+                                            </>
+                                        )}
+                                    </div>
                                 )}
                             </div>
-                        )}
-                    </div>
-                    {myMnemonic && !peerMnemonic && roomId && (
-                        <div className="flex-shrink-0 ml-auto w-20 sm:w-auto">
-                            <QRCodeSVG
-                                value={`${window.location.origin}/${roomId}`}
-                                size={140}
-                                level="M"
-                                fgColor="#ffffff"
-                                bgColor="#000000"
-                                className="w-full h-auto"
-                            />
+                            {myMnemonic && !peerMnemonic && roomId && (
+                                <div className="w-32 md:w-40">
+                                    <div className="bg-white p-2 rounded-lg">
+                                        <QRCodeSVG
+                                            value={`${window.location.origin}/${roomId}`}
+                                            size={140}
+                                            level="M"
+                                            className="w-full h-auto"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
 
                 {/* Connection Panel - only show on home page */}
                 {!pathRoom && (
-                    <div className="bg-gray-200 dark:bg-black border-4 sm:border-8 border-black dark:border-white p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:sm:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] text-gray-900 dark:text-white transition-colors duration-200">
-                        {/* <h2 className="text-2xl sm:text-3xl font-black mb-3 sm:mb-4 uppercase">ROOM</h2> */}
-                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
-                            <input
-                                ref={roomInputRef}
-                                type="text"
-                                placeholder="ENTER ROOM ID OR PRESS CONNECT"
-                                value={roomId}
-                                disabled={connected}
-                                onChange={(e) => {
-                                    setRoomId(e.target.value);
-                                    setRoomIdError(null);
-                                }}
-                                onKeyDown={(e) =>
-                                    e.key === "Enter" &&
-                                    !connected &&
-                                    handleConnect()
-                                }
-                                className={`flex-1 border-2 sm:border-4 p-3 sm:p-4 text-base sm:text-xl font-bold uppercase bg-white dark:bg-black dark:text-white disabled:bg-gray-300 dark:disabled:bg-gray-500 disabled:cursor-not-allowed focus:outline-hidden focus:ring-4 transition-colors duration-200 ${roomIdError ? "border-red-600 focus:ring-red-600" : "border-black dark:border-white focus:ring-black dark:focus:ring-white"}`}
-                            />
-                            <button
-                                onClick={handleConnect}
-                                disabled={connected}
-                                className={`border-2 sm:border-4 border-black dark:border-white px-6 py-3 sm:px-8 sm:py-4 text-base sm:text-xl font-black uppercase transition-all whitespace-nowrap ${
-                                    connected
-                                        ? "bg-gray-400 dark:bg-gray-500 cursor-not-allowed"
-                                        : "bg-white dark:bg-black dark:text-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 cursor-pointer"
-                                } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]`}
-                            >
-                                {connected ? "CONNECTED" : "CONNECT"}
-                            </button>
-                        </div>
-                        <div
-                            className={`border-2 sm:border-4 border-black dark:border-white p-2 sm:p-3 font-bold text-sm sm:text-base md:text-lg break-words transition-colors duration-200 ${roomIdError ? "bg-red-600 text-white" : "bg-black dark:bg-black text-white"}`}
-                        >
-                            {roomIdError ? (
-                                <>ERROR: {roomIdError.toUpperCase()}</>
-                            ) : connected && myMnemonic ? (
-                                peerMnemonic ? (
-                                    <>
-                                        CONNECTED AS {myMnemonic.toUpperCase()}{" "}
-                                        (
-                                        <span
-                                            className="inline-flex items-center gap-1 ml-1"
-                                            title={`Your icons for ${myMnemonic}`}
-                                        >
-                                            {myIconClasses.map(
-                                                (iconClass, index) => (
-                                                    <i
-                                                        key={index}
-                                                        className={`fas ${iconClass}`}
-                                                        aria-hidden="true"
-                                                    ></i>
-                                                ),
-                                            )}
-                                        </span>
-                                        ) TO {peerMnemonic.toUpperCase()} (
-                                        <span
-                                            className="inline-flex items-center gap-1 ml-1"
-                                            title={`Peer icons for ${peerMnemonic}`}
-                                        >
-                                            {peerIconClasses.map(
-                                                (iconClass, index) => (
-                                                    <i
-                                                        key={index}
-                                                        className={`fas ${iconClass}`}
-                                                        aria-hidden="true"
-                                                    ></i>
-                                                ),
-                                            )}
-                                        </span>
-                                        )
-                                    </>
-                                ) : (
-                                    <>
-                                        CONNECTED AS {myMnemonic.toUpperCase()}{" "}
-                                        (
-                                        <span
-                                            className="inline-flex items-center gap-1 ml-1"
-                                            title={`Your icons for ${myMnemonic}`}
-                                        >
-                                            {myIconClasses.map(
-                                                (iconClass, index) => (
-                                                    <i
-                                                        key={index}
-                                                        className={`fas ${iconClass}`}
-                                                        aria-hidden="true"
-                                                    ></i>
-                                                ),
-                                            )}
-                                        </span>
-                                        )
-                                    </>
-                                )
-                            ) : (
-                                <>STATUS: {status.toUpperCase()}</>
-                            )}
+                    <div className="card bg-base-200 shadow-lg">
+                        <div className="card-body">
+                            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                                <input
+                                    ref={roomInputRef}
+                                    type="text"
+                                    placeholder="Enter room ID or press Connect"
+                                    value={roomId}
+                                    disabled={connected}
+                                    onChange={(e) => {
+                                        setRoomId(e.target.value);
+                                        setRoomIdError(null);
+                                    }}
+                                    onKeyDown={(e) => e.key === "Enter" && !connected && handleConnect()}
+                                    className={`input input-bordered flex-1 ${roomIdError ? "input-error" : ""}`}
+                                />
+                                <button
+                                    onClick={handleConnect}
+                                    disabled={connected}
+                                    className="btn btn-primary"
+                                >
+                                    {connected ? "Connected" : "Connect"}
+                                </button>
+                            </div>
+                            <div className={`alert ${roomIdError ? "alert-error" : connected && myMnemonic ? "alert-success" : "alert-info"}`}>
+                                <div className="flex items-center gap-2">
+                                    <i className={`fas ${roomIdError ? "fa-exclamation-circle" : connected && myMnemonic ? "fa-check-circle" : "fa-info-circle"}`}></i>
+                                    <span>
+                                        {roomIdError ? (
+                                            <>ERROR: {roomIdError.toUpperCase()}</>
+                                        ) : connected && myMnemonic ? (
+                                            peerMnemonic ? (
+                                                <>
+                                                    Connected as {myMnemonic.toUpperCase()} (
+                                                    {myIconClasses.map((iconClass, index) => (
+                                                        <i key={index} className={`fas ${iconClass} mx-1`} aria-hidden="true"></i>
+                                                    ))}
+                                                    ) to {peerMnemonic.toUpperCase()} (
+                                                    {peerIconClasses.map((iconClass, index) => (
+                                                        <i key={index} className={`fas ${iconClass} mx-1`} aria-hidden="true"></i>
+                                                    ))}
+                                                    )
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Connected as {myMnemonic.toUpperCase()} (
+                                                    {myIconClasses.map((iconClass, index) => (
+                                                        <i key={index} className={`fas ${iconClass} mx-1`} aria-hidden="true"></i>
+                                                    ))}
+                                                    )
+                                                </>
+                                            )
+                                        ) : (
+                                            <>Status: {status.toUpperCase()}</>
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* File Transfer Panel */}
                 {connected && (
-                    <div className="bg-gray-300 dark:bg-black border-4 sm:border-8 border-black dark:border-white p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:sm:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] text-gray-900 dark:text-white transition-colors duration-200">
-                        {uploadProgress && (
-                            <ProgressBar
-                                progress={uploadProgress}
-                                label={`Sending ${uploadProgress.fileName}`}
-                            />
-                        )}
+                    <div className="card bg-base-200 shadow-lg">
+                        <div className="card-body">
+                            {uploadProgress && <ProgressBar progress={uploadProgress} label={`Sending ${uploadProgress.fileName}`} />}
+                            {downloadProgress && <ProgressBar progress={downloadProgress} label={`Receiving ${downloadProgress.fileName}`} />}
 
-                        {downloadProgress && (
-                            <ProgressBar
-                                progress={downloadProgress}
-                                label={`Receiving ${downloadProgress.fileName}`}
-                            />
-                        )}
-
-                        <div
-                            className={`border-2 sm:border-4 border-black dark:border-white p-6 sm:p-8 text-center transition-all duration-200 ${
-                                hasAesKey
-                                    ? isDragging
-                                        ? "bg-yellow-300 dark:bg-yellow-600 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] scale-105"
-                                        : "bg-white dark:bg-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]"
-                                    : "bg-gray-400 dark:bg-gray-500"
-                            }`}
-                            onDragOver={handleDragOver}
-                            onDragEnter={handleDragEnter}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                        >
-                            {hasAesKey ? (
-                                isDragging ? (
-                                    <div className="font-black uppercase text-xl sm:text-2xl text-black dark:text-white">
-                                        📁 DROP FILES OR FOLDER HERE
-                                    </div>
-                                ) : (
-                                    <>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            className="hidden"
-                                            onChange={handleFileSelect}
-                                            disabled={!hasAesKey}
-                                            multiple
-                                        />
-                                        <button
-                                            onClick={() =>
-                                                fileInputRef.current?.click()
-                                            }
-                                            disabled={!hasAesKey}
-                                            className="block w-full border-2 border-black dark:border-white p-4 font-black uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-white dark:hover:text-black transition-colors text-sm sm:text-base md:text-lg disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-500 text-black dark:text-white"
-                                        >
-                                            CLICK OR DROP FILES HERE
-                                        </button>
-
-                                        {/* Text input section */}
-                                        <div className="mt-4 pt-4 border-t-2 border-black dark:border-white">
-                                            <div className="flex gap-2">
+                            <div
+                                className={`card ${hasAesKey ? (isDragging ? "bg-accent/20 border-accent border-dashed" : "bg-base-100") : "bg-base-300"} border-2 transition-all`}
+                                onDragOver={handleDragOver}
+                                onDragEnter={handleDragEnter}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                            >
+                                <div className="card-body text-center">
+                                    {hasAesKey ? (
+                                        isDragging ? (
+                                            <div className="text-xl font-bold flex items-center justify-center gap-2">
+                                                <i className="fas fa-folder-open text-3xl"></i>
+                                                <span>Drop files or folder here</span>
+                                            </div>
+                                        ) : (
+                                            <>
                                                 <input
-                                                    type="text"
-                                                    value={textInput}
-                                                    onChange={(e) =>
-                                                        setTextInput(
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    onKeyDown={(e) =>
-                                                        e.key === "Enter" &&
-                                                        handleTextSend()
-                                                    }
-                                                    placeholder="Type your message here..."
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    className="hidden"
+                                                    onChange={handleFileSelect}
                                                     disabled={!hasAesKey}
-                                                    className="flex-1 border-2 border-black dark:border-white p-2 text-sm sm:text-base font-bold bg-white dark:bg-black dark:text-white disabled:bg-gray-300 dark:disabled:bg-gray-500 disabled:cursor-not-allowed focus:outline-hidden focus:ring-2 focus:ring-black dark:focus:ring-white"
+                                                    multiple
                                                 />
                                                 <button
-                                                    onClick={handleTextSend}
-                                                    disabled={
-                                                        !hasAesKey ||
-                                                        !textInput.trim()
-                                                    }
-                                                    className="border-2 border-black dark:border-white px-4 py-2 text-sm sm:text-base font-black uppercase transition-all whitespace-nowrap bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-300 cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    disabled={!hasAesKey}
+                                                    className="btn btn-lg btn-outline btn-primary mb-4"
                                                 >
-                                                    SEND
+                                                    <i className="fas fa-upload mr-2"></i>
+                                                    Click or drop files here
                                                 </button>
-                                            </div>
+
+                                                <div className="divider">OR SEND TEXT</div>
+
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={textInput}
+                                                        onChange={(e) => setTextInput(e.target.value)}
+                                                        onKeyDown={(e) => e.key === "Enter" && handleTextSend()}
+                                                        placeholder="Type your message here..."
+                                                        disabled={!hasAesKey}
+                                                        className="input input-bordered flex-1"
+                                                    />
+                                                    <button
+                                                        onClick={handleTextSend}
+                                                        disabled={!hasAesKey || !textInput.trim()}
+                                                        className="btn btn-primary"
+                                                    >
+                                                        <i className="fas fa-paper-plane"></i>
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )
+                                    ) : (
+                                        <div className="flex items-center justify-center gap-2">
+                                            <div className="loading loading-spinner loading-md"></div>
+                                            <span>Waiting for peer to join {window.location.host}/{roomId}</span>
+                                            <button
+                                                onClick={() => {
+                                                    const url = `${window.location.protocol}//${window.location.host}/${roomId}`;
+                                                    navigator.clipboard.writeText(url).then(() => {
+                                                        toast.success("Copied to clipboard");
+                                                    }).catch((err) => {
+                                                        toast.error("Failed to copy");
+                                                        console.error("Failed to copy:", err);
+                                                    });
+                                                }}
+                                                className="btn btn-sm btn-ghost"
+                                                title="Copy URL to clipboard"
+                                            >
+                                                <i className="fas fa-copy"></i>
+                                            </button>
                                         </div>
-                                    </>
-                                )
-                            ) : (
-                                <div className="flex items-center justify-center gap-2 font-black uppercase text-sm sm:text-base text-gray-900 dark:text-white">
-                                    <span>
-                                        {`WAITING FOR PEER TO JOIN ${window.location.host}/${roomId}`.toUpperCase()}
-                                    </span>
-                                    <button
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            const url = `${window.location.protocol}//${window.location.host}/${roomId}`;
-                                            navigator.clipboard
-                                                .writeText(url)
-                                                .then(() => {
-                                                    toast.success(
-                                                        "Copied to clipboard",
-                                                    );
-                                                })
-                                                .catch((err) => {
-                                                    toast.error(
-                                                        "Failed to copy",
-                                                    );
-                                                    console.error(
-                                                        "Failed to copy:",
-                                                        err,
-                                                    );
-                                                });
-                                        }}
-                                        className="text-black dark:text-white hover:opacity-70 transition-opacity cursor-pointer bg-transparent"
-                                        title="Copy URL to clipboard"
-                                        type="button"
-                                    >
-                                        <i
-                                            className="fas fa-copy"
-                                            aria-hidden="true"
-                                        ></i>
-                                    </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {downloadUrl && (
+                                <div className="alert alert-success mt-4">
+                                    <div>
+                                        <div className="font-bold mb-2">File Ready:</div>
+                                        <a
+                                            href={downloadUrl}
+                                            download={downloadName}
+                                            className="link link-primary text-lg font-bold break-all"
+                                        >
+                                            {downloadName}
+                                        </a>
+                                    </div>
                                 </div>
                             )}
                         </div>
-
-                        {downloadUrl && (
-                            <div className="mt-3 sm:mt-4 bg-white dark:bg-black border-2 sm:border-4 border-black dark:border-white p-3 sm:p-4 transition-colors duration-200">
-                                <div className="text-base sm:text-xl font-black mb-2 text-black dark:text-white">
-                                    FILE READY:
-                                </div>
-                                <a
-                                    href={downloadUrl}
-                                    download={downloadName}
-                                    className="text-lg sm:text-2xl font-black underline hover:no-underline text-black dark:text-white break-all"
-                                >
-                                    {downloadName}
-                                </a>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
 
             {/* Error Modal */}
             {showErrorModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50 p-4 transition-colors duration-200">
-                    <div className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-6 sm:p-8 max-w-md w-full shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] transition-colors duration-200">
-                        <h2 className="text-2xl sm:text-4xl font-black mb-4 uppercase text-center text-black dark:text-white">
-                            MAXIMUM ROOMS
-                        </h2>
-                        <p className="text-lg sm:text-xl font-bold mb-6 text-center text-black dark:text-white">
-                            TRY AGAIN LATER
-                        </p>
-                        <button
-                            onClick={() => {
-                                setShowErrorModal(false);
-                                setRoomId("");
-                            }}
-                            className="w-full border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-6 py-3 sm:py-4 text-lg sm:text-xl font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer"
-                        >
-                            OK
-                        </button>
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-2xl mb-4 text-center">Maximum Rooms</h3>
+                        <p className="text-center mb-6">Please try again later</p>
+                        <div className="modal-action">
+                            <button
+                                onClick={() => {
+                                    setShowErrorModal(false);
+                                    setRoomId("");
+                                }}
+                                className="btn btn-primary w-full"
+                            >
+                                OK
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
             {/* About Modal */}
             {showAboutModal && (
-                <div
-                    className="fixed inset-0 bg-[rgba(15,15,15,0.7)] dark:bg-[rgba(0,0,0,0.8)] flex items-center justify-center z-50 p-4 transition-colors duration-200"
-                    onClick={() => setShowAboutModal(false)}
-                >
-                    <div
-                        className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black dark:text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] transition-colors duration-200"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-3 text-center">
-                            WHAT IS e2ecp?
-                        </h2>
-                        <p className="text-sm sm:text-base font-bold mb-3 text-center">
-                            e2ecp allows two computers to transfer files with
-                            end-to-end encryption via a zero-knowledge relay.
+                <div className="modal modal-open" onClick={() => setShowAboutModal(false)}>
+                    <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="font-bold text-2xl mb-4 text-center">What is e2ecp?</h3>
+                        <p className="mb-4 text-center">
+                            e2ecp allows two computers to transfer files with end-to-end encryption via a zero-knowledge relay.
                         </p>
-                        <p className="text-sm sm:text-base font-bold mb-4 text-center">
-                            Use the CLI to transfer files between web or
-                            terminals:
+                        <p className="mb-4 text-center">
+                            Use the CLI to transfer files between web or terminals:
                             <br />
-                            <code className="bg-gray-200 dark:bg-white dark:text-black px-2 py-1 rounded">
-                                curl https://e2ecp.com | bash
-                            </code>
+                            <code className="bg-base-300 px-2 py-1 rounded">curl https://e2ecp.com | bash</code>
                         </p>
                         <div className="mb-4 text-center">
                             <a
                                 href="https://github.com/schollz/e2ecp"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-black dark:text-white hover:text-gray-700 dark:hover:text-gray-300 transition-colors font-bold text-lg sm:text-xl"
+                                className="link link-primary text-xl"
                                 aria-label="View on GitHub"
                             >
-                                <i
-                                    className="fab fa-github text-2xl sm:text-3xl"
-                                    aria-hidden="true"
-                                ></i>
+                                <i className="fab fa-github text-3xl"></i>
                             </a>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setShowAboutModal(false)}
-                            className="w-full border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 sm:py-3 text-sm sm:text-lg font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer"
-                        >
-                            Close
-                        </button>
+                        <div className="modal-action">
+                            <button onClick={() => setShowAboutModal(false)} className="btn btn-primary w-full">
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
             {/* Download Confirmation Modal */}
             {showDownloadConfirmModal && pendingDownload && (
-                <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] dark:bg-[rgba(0,0,0,0.8)] flex items-center justify-center z-50 p-4 transition-colors duration-200">
-                    <div
-                        className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black dark:text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] transition-colors duration-200"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-4 text-center">
-                            DOWNLOAD FILE?
-                        </h2>
-                        <div className="bg-gray-200 dark:bg-white border-2 sm:border-4 border-black dark:border-black p-4 mb-4 transition-colors duration-200 dark:text-black">
-                            <p className="text-sm sm:text-base font-bold mb-2">
-                                <span className="uppercase">Name:</span>{" "}
-                                {pendingDownload.name}
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-2xl mb-4 text-center">Download File?</h3>
+                        <div className="bg-base-300 p-4 rounded-lg mb-4">
+                            <p className="mb-2">
+                                <span className="font-bold">Name:</span> {pendingDownload.name}
                             </p>
-                            <p className="text-sm sm:text-base font-bold mb-2">
-                                <span className="uppercase">Type:</span>{" "}
-                                {pendingDownload.type}
+                            <p className="mb-2">
+                                <span className="font-bold">Type:</span> {pendingDownload.type}
                             </p>
-                            <p className="text-sm sm:text-base font-bold">
-                                <span className="uppercase">Size:</span>{" "}
-                                {pendingDownload.size}
+                            <p>
+                                <span className="font-bold">Size:</span> {pendingDownload.size}
                             </p>
                         </div>
-                        <p className="text-sm sm:text-base font-bold mb-6 text-center">
-                            Do you want to download this {pendingDownload.type}?
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                            <button
-                                type="button"
-                                onClick={handleCancelDownload}
-                                className="flex-1 border-2 sm:border-4 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-200 dark:hover:bg-white dark:hover:text-black transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
-                            >
+                        <p className="text-center mb-6">Do you want to download this {pendingDownload.type}?</p>
+                        <div className="modal-action">
+                            <button onClick={handleCancelDownload} className="btn btn-ghost flex-1">
                                 Cancel
                             </button>
-                            <button
-                                type="button"
-                                onClick={handleConfirmDownload}
-                                className="flex-1 border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
-                            >
+                            <button onClick={handleConfirmDownload} className="btn btn-primary flex-1">
                                 Download
                             </button>
                         </div>
@@ -2378,55 +1748,39 @@ export default function App() {
 
             {/* Text Message Modal */}
             {showTextModal && receivedText && (
-                <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] dark:bg-[rgba(0,0,0,0.8)] flex items-center justify-center z-50 p-4">
-                    <div
-                        className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black dark:text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-4 text-center">
-                            RECEIVED TEXT
-                        </h2>
-                        <div className="bg-gray-200 dark:bg-white border-2 sm:border-4 border-black dark:border-black p-4 mb-4 relative dark:text-black">
-                            <div className="text-sm sm:text-base font-bold break-words whitespace-pre-wrap max-h-96 overflow-y-auto">
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-2xl mb-4 text-center">Received Text</h3>
+                        <div className="bg-base-300 p-4 rounded-lg mb-4 relative">
+                            <div className="whitespace-pre-wrap break-words max-h-96 overflow-y-auto">
                                 {receivedText}
                             </div>
                             <button
                                 onClick={() => {
-                                    navigator.clipboard
-                                        .writeText(receivedText)
-                                        .then(() => {
-                                            toast.success(
-                                                "Text copied to clipboard!",
-                                            );
-                                        })
-                                        .catch((err) => {
-                                            toast.error("Failed to copy text");
-                                            console.error(
-                                                "Failed to copy:",
-                                                err,
-                                            );
-                                        });
+                                    navigator.clipboard.writeText(receivedText).then(() => {
+                                        toast.success("Text copied to clipboard!");
+                                    }).catch((err) => {
+                                        toast.error("Failed to copy text");
+                                        console.error("Failed to copy:", err);
+                                    });
                                 }}
-                                className="absolute top-2 right-2 bg-black dark:bg-white text-white dark:text-black border-2 border-black dark:border-white p-2 hover:bg-gray-800 dark:hover:bg-gray-300 transition-colors cursor-pointer"
+                                className="btn btn-sm btn-circle btn-ghost absolute top-2 right-2"
                                 title="Copy to clipboard"
-                                type="button"
                             >
-                                <i
-                                    className="fas fa-copy"
-                                    aria-hidden="true"
-                                ></i>
+                                <i className="fas fa-copy"></i>
                             </button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setShowTextModal(false);
-                                setReceivedText(null);
-                            }}
-                            className="w-full border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
-                        >
-                            Close
-                        </button>
+                        <div className="modal-action">
+                            <button
+                                onClick={() => {
+                                    setShowTextModal(false);
+                                    setReceivedText(null);
+                                }}
+                                className="btn btn-primary w-full"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
