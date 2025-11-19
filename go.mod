@@ -9,7 +9,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/spf13/cobra v1.10.1
 	google.golang.org/protobuf v1.36.10
-	modernc.org/sqlite v1.40.0
+	modernc.org/sqlite v1.40.1
 	rsc.io/qr v0.2.0
 )
 
