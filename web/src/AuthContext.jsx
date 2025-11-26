@@ -17,6 +17,35 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [encryptionKey, setEncryptionKey] = useState(null);
 
+    // Restore encryption key from sessionStorage on mount
+    useEffect(() => {
+        const restoreEncryptionKey = async () => {
+            const storedKeyHex = sessionStorage.getItem("encryptionKey");
+            if (storedKeyHex) {
+                try {
+                    // Convert hex to bytes
+                    const keyBytes = new Uint8Array(
+                        storedKeyHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+                    );
+                    // Import the key
+                    const key = await window.crypto.subtle.importKey(
+                        "raw",
+                        keyBytes,
+                        { name: "AES-GCM", length: 256 },
+                        true,
+                        ["encrypt", "decrypt"]
+                    );
+                    setEncryptionKey(key);
+                } catch (error) {
+                    console.error("Failed to restore encryption key:", error);
+                    sessionStorage.removeItem("encryptionKey");
+                }
+            }
+        };
+
+        restoreEncryptionKey();
+    }, []);
+
     // Verify token on mount
     useEffect(() => {
         const verifyToken = async () => {
@@ -38,12 +67,14 @@ export const AuthProvider = ({ children }) => {
                 } else {
                     // Token is invalid, clear it
                     localStorage.removeItem("token");
+                    sessionStorage.removeItem("encryptionKey");
                     setToken(null);
                     setUser(null);
                 }
             } catch (error) {
                 console.error("Token verification failed:", error);
                 localStorage.removeItem("token");
+                sessionStorage.removeItem("encryptionKey");
                 setToken(null);
                 setUser(null);
             } finally {
@@ -77,6 +108,14 @@ export const AuthProvider = ({ children }) => {
         const key = await deriveKey(password, data.user.encryption_salt);
         setEncryptionKey(key);
 
+        // Store encryption key in sessionStorage for persistence across page refreshes
+        const exportedKey = await window.crypto.subtle.exportKey("raw", key);
+        const keyArray = new Uint8Array(exportedKey);
+        const keyHex = Array.from(keyArray)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("");
+        sessionStorage.setItem("encryptionKey", keyHex);
+
         return data;
     };
 
@@ -103,11 +142,20 @@ export const AuthProvider = ({ children }) => {
         const key = await deriveKey(password, data.user.encryption_salt);
         setEncryptionKey(key);
 
+        // Store encryption key in sessionStorage for persistence across page refreshes
+        const exportedKey = await window.crypto.subtle.exportKey("raw", key);
+        const keyArray = new Uint8Array(exportedKey);
+        const keyHex = Array.from(keyArray)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("");
+        sessionStorage.setItem("encryptionKey", keyHex);
+
         return data;
     };
 
     const logout = () => {
         localStorage.removeItem("token");
+        sessionStorage.removeItem("encryptionKey");
         setToken(null);
         setUser(null);
         setEncryptionKey(null);

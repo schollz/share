@@ -65,7 +65,7 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			email TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
-			encryption_salt TEXT NOT NULL DEFAULT '',
+			encryption_salt TEXT NOT NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
@@ -74,10 +74,10 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 		CREATE TABLE IF NOT EXISTS files (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			user_id INTEGER NOT NULL,
-			filename TEXT NOT NULL,
+			encrypted_filename TEXT NOT NULL,
 			file_path TEXT NOT NULL,
 			file_size INTEGER NOT NULL,
-			encrypted_key TEXT NOT NULL DEFAULT '',
+			encrypted_key TEXT NOT NULL,
 			share_token TEXT UNIQUE,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -8,32 +8,62 @@ export default function SharedFile() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [fileInfo, setFileInfo] = useState(null);
+    const [decryptedFilename, setDecryptedFilename] = useState(null);
     const [downloading, setDownloading] = useState(false);
 
     useEffect(() => {
-        // Get the decryption key and encrypted filename from URL fragment
-        // Format: #fileKey|encryptedFilename
-        const hashContent = window.location.hash.slice(1);
+        const initializeFile = async () => {
+            // Get the decryption key and encrypted filename from URL fragment
+            // Format: #fileKey|encryptedFilename
+            const hashContent = window.location.hash.slice(1);
 
-        if (!hashContent) {
-            toast.error("Invalid share link - missing decryption key");
+            if (!hashContent) {
+                toast.error("Invalid share link - missing decryption key");
+                setLoading(false);
+                return;
+            }
+
+            const [keyHex, encryptedFilename] = hashContent.split("|");
+
+            if (!keyHex) {
+                toast.error("Invalid share link - missing decryption key");
+                setLoading(false);
+                return;
+            }
+
+            setFileInfo({
+                keyHex,
+                encryptedFilename: encryptedFilename ? decodeURIComponent(encryptedFilename) : null
+            });
+
+            // Decrypt filename for display
+            if (encryptedFilename && keyHex) {
+                try {
+                    // Convert hex key to CryptoKey
+                    const keyBytes = new Uint8Array(
+                        keyHex.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+                    );
+                    const fileKey = await window.crypto.subtle.importKey(
+                        "raw",
+                        keyBytes,
+                        { name: "AES-GCM", length: 256 },
+                        false,
+                        ["decrypt"]
+                    );
+
+                    // Decrypt the filename
+                    const filename = await decryptString(decodeURIComponent(encryptedFilename), fileKey);
+                    setDecryptedFilename(filename);
+                } catch (error) {
+                    console.error("Failed to decrypt filename:", error);
+                    // Don't show error, just proceed without filename
+                }
+            }
+
             setLoading(false);
-            return;
-        }
+        };
 
-        const [keyHex, encryptedFilename] = hashContent.split("|");
-
-        if (!keyHex) {
-            toast.error("Invalid share link - missing decryption key");
-            setLoading(false);
-            return;
-        }
-
-        setFileInfo({
-            keyHex,
-            encryptedFilename: encryptedFilename ? decodeURIComponent(encryptedFilename) : null
-        });
-        setLoading(false);
+        initializeFile();
     }, [token]);
 
     const handleDownload = async () => {
@@ -68,16 +98,8 @@ export default function SharedFile() {
                 ["decrypt"]
             );
 
-            // Decrypt the filename if available
-            let filename = "download";
-            if (fileInfo.encryptedFilename) {
-                try {
-                    filename = await decryptString(fileInfo.encryptedFilename, fileKey);
-                } catch (error) {
-                    console.error("Failed to decrypt filename:", error);
-                    // Fall back to default name
-                }
-            }
+            // Use already decrypted filename or fall back to default
+            const filename = decryptedFilename || "download";
 
             // Decrypt the file
             const decryptedBlob = await decryptFile(encryptedBlob, fileKey);
@@ -156,7 +178,7 @@ export default function SharedFile() {
                         <div className="text-6xl">📁</div>
                     </div>
                     <h2 className="text-2xl font-black uppercase mb-4 text-center">
-                        Someone shared a file with you
+                        {decryptedFilename ? decryptedFilename : "Someone shared a file with you"}
                     </h2>
                     <p className="text-lg mb-8 text-center">
                         This file is end-to-end encrypted. Only you can decrypt it
