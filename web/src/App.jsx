@@ -2107,10 +2107,10 @@ export default function App() {
                 {showStorageCta && (
                     <div className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:sm:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] text-gray-900 dark:text-white transition-colors duration-200">
                         <div className="font-black text-lg sm:text-xl uppercase mb-2">
-                            Want cloud storage?
+                            Need to store your files temporarily to transfer?
                         </div>
                         <p className="text-sm sm:text-base mb-3">
-                            Sign in to store encrypted files and keep transfers in one place.
+                            Sign in to store encrypted files for transferring to many people.
                         </p>
                         <button
                             onClick={() => navigate("/login")}
