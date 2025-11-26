@@ -220,12 +220,17 @@ export default function Settings() {
 
     return (
         <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white p-4 sm:p-8">
-            <div className="max-w-3xl mx-auto space-y-8">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-4xl sm:text-5xl font-black uppercase">
-                        Settings
-                    </h1>
-                    <div className="flex gap-3">
+            <div className="max-w-6xl mx-auto space-y-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h1 className="text-4xl sm:text-5xl font-black uppercase">
+                            Settings
+                        </h1>
+                        {user?.email && (
+                            <p className="text-lg">{user.email}</p>
+                        )}
+                    </div>
+                    <div className="flex gap-4">
                         <button
                             onClick={() => navigate("/profile")}
                             className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
