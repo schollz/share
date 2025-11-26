@@ -200,7 +200,6 @@ export default function Settings() {
 
             toast.success("Account deleted");
             logout();
-            navigate("/");
         } catch (err) {
             toast.error(err.message || "Failed to delete account");
         } finally {
@@ -238,10 +237,7 @@ export default function Settings() {
                             Back to Files
                         </button>
                         <button
-                            onClick={() => {
-                                logout();
-                                navigate("/");
-                            }}
+                            onClick={logout}
                             className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors"
                         >
                             Logout

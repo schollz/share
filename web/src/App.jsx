@@ -1890,7 +1890,7 @@ export default function App() {
     }, [darkMode]);
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black p-2 sm:p-4 md:p-8 font-mono flex flex-col items-center justify-center transition-colors duration-200">
+        <div className="min-h-screen bg-white dark:bg-black p-2 sm:p-4 md:p-8 flex flex-col items-center justify-center transition-colors duration-200">
             <div className="max-w-4xl w-full flex-grow flex flex-col justify-center">
                 {/* Header */}
                 <div

@@ -104,7 +104,13 @@ export default function Login() {
     return (
         <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex items-center justify-center p-4">
             <div className="w-full max-w-md">
-                <div className="mb-8 text-center">
+                <div
+                    className="bg-black dark:bg-black text-white border-4 sm:border-8 border-black dark:border-white p-4 sm:p-6 mb-6 text-center header-shadow"
+                    style={{
+                        clipPath:
+                            "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)",
+                    }}
+                >
                     <h1 className="text-4xl sm:text-5xl font-black uppercase mb-2">
                         {isLogin ? "Sign In" : "Sign Up"}
                     </h1>

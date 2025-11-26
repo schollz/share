@@ -180,6 +180,7 @@ export const AuthProvider = ({ children }) => {
         setToken(null);
         setUser(null);
         setEncryptionKey(null);
+        window.location.href = "/";
     };
 
     const value = {
