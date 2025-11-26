@@ -20,7 +20,7 @@ test.describe('Web to CLI Transfer', () => {
     serverPort = 8081 + Math.floor(Math.random() * 1000); // Random port to avoid conflicts
     
     return new Promise((resolve, reject) => {
-      relayServer = spawn('./e2ecp', ['serve', '--port', serverPort.toString(), '--db-path', ''], {
+      relayServer = spawn('./e2ecp', ['serve', '--port', serverPort.toString(), '--db-url', ''], {
         cwd: path.join(__dirname, '..'),
       });
 

@@ -57,9 +57,9 @@ var serveCmd = &cobra.Command{
 		port, _ := cmd.Flags().GetInt("port")
 		maxRooms, _ := cmd.Flags().GetInt("max-rooms")
 		maxRoomsPerIP, _ := cmd.Flags().GetInt("max-rooms-per-ip")
-		dbPath, _ := cmd.Flags().GetString("db-path")
+		dbURL, _ := cmd.Flags().GetString("db-url")
 		logger := createLogger(logLevel)
-		relay.Start(port, maxRooms, maxRoomsPerIP, dbPath, staticFS, logger)
+		relay.Start(port, maxRooms, maxRoomsPerIP, dbURL, staticFS, logger)
 	},
 }
 
@@ -182,7 +182,7 @@ func init() {
 	serveCmd.Flags().IntP("port", "p", 3001, "Port to listen on")
 	serveCmd.Flags().Int("max-rooms", 10, "Maximum number of concurrent rooms allowed on the server")
 	serveCmd.Flags().Int("max-rooms-per-ip", 2, "Maximum number of rooms per IP address")
-	serveCmd.Flags().String("db-path", "relay_logs.db", "Path to SQLite database for session logging (empty to disable)")
+	serveCmd.Flags().String("db-url", "", "PostgreSQL connection string for session logging (falls back to DATABASE_URL; empty to disable)")
 	sendCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("output", "o", ".", "Output directory")

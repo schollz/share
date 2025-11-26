@@ -4,18 +4,15 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	migratedb "github.com/golang-migrate/migrate/v4/database"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-	"github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	migrationfs "github.com/schollz/e2ecp/migrations"
 	_ "github.com/lib/pq"
-	_ "modernc.org/sqlite"
+	migrationfs "github.com/schollz/e2ecp/migrations"
 )
 
 // SessionLog represents a relay session in the database
@@ -28,7 +25,7 @@ type SessionLog struct {
 	SessionEnd     *time.Time
 }
 
-// Database handles SQLite operations for relay session logging
+// Database handles PostgreSQL operations for relay session logging
 type Database struct {
 	db     *sql.DB
 	logger *slog.Logger
@@ -41,32 +38,22 @@ var (
 )
 
 // InitDatabase initializes the database for session logging
-// If DATABASE_URL is set, it uses PostgreSQL; otherwise, it uses SQLite
-func InitDatabase(dbPath string, log *slog.Logger) error {
+// Only PostgreSQL is supported.
+func InitDatabase(databaseURL string, log *slog.Logger) error {
 	var err error
 	databaseOnce.Do(func() {
+		if databaseURL == "" {
+			err = fmt.Errorf("database URL is required")
+			return
+		}
+
 		database = &Database{
 			logger: log,
 		}
 
-		// Check if DATABASE_URL is set for PostgreSQL
-		databaseURL := os.Getenv("DATABASE_URL")
-		var driver string
-		var dsn string
+		log.Info("Using PostgreSQL database", "dsn", maskPassword(databaseURL))
 
-		if databaseURL != "" {
-			// Use PostgreSQL
-			driver = "postgres"
-			dsn = databaseURL
-			log.Info("Using PostgreSQL database", "dsn", maskPassword(dsn))
-		} else {
-			// Use SQLite
-			driver = "sqlite"
-			dsn = dbPath
-			log.Info("Using SQLite database", "path", dbPath)
-		}
-
-		database.db, err = sql.Open(driver, dsn)
+		database.db, err = sql.Open("postgres", databaseURL)
 		if err != nil {
 			err = fmt.Errorf("failed to open database: %w", err)
 			return
@@ -78,12 +65,12 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 			return
 		}
 
-		if err := runMigrations(database.db, driver, log); err != nil {
+		if err := runMigrations(database.db, log); err != nil {
 			err = fmt.Errorf("failed to run migrations: %w", err)
 			return
 		}
 
-		log.Info("Database initialized successfully", "driver", driver)
+		log.Info("Database initialized successfully", "driver", "postgres")
 	})
 
 	return err
@@ -99,49 +86,30 @@ func maskPassword(dsn string) string {
 	return "***"
 }
 
-func runMigrations(db *sql.DB, driver string, log *slog.Logger) error {
-	// Select the appropriate migration subdirectory based on database type
-	migrationPath := "sqlite"
-	if driver == "postgres" {
-		migrationPath = "postgres"
-	}
-
-	// Prepare embedded migrations from the appropriate subdirectory
-	srcDriver, err := iofs.New(migrationfs.FS, migrationPath)
+func runMigrations(db *sql.DB, log *slog.Logger) error {
+	// Prepare embedded migrations from the postgres subdirectory
+	srcDriver, err := iofs.New(migrationfs.FS, "postgres")
 	if err != nil {
 		return fmt.Errorf("failed to load migrations: %w", err)
 	}
 
 	// Prepare database driver based on the database type
 	var dbDriver migratedb.Driver
-	var driverName string
-
-	if driver == "postgres" {
-		// PostgreSQL driver
-		dbDriver, err = postgres.WithInstance(db, &postgres.Config{})
-		if err != nil {
-			return fmt.Errorf("failed to init migrate postgres driver: %w", err)
-		}
-		driverName = "postgres"
-	} else {
-		// SQLite driver
-		dbDriver, err = sqlite.WithInstance(db, &sqlite.Config{})
-		if err != nil {
-			return fmt.Errorf("failed to init migrate sqlite driver: %w", err)
-		}
-		driverName = "sqlite"
+	dbDriver, err = postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to init migrate postgres driver: %w", err)
 	}
 
-	m, err := migrate.NewWithInstance("iofs", srcDriver, driverName, dbDriver)
+	m, err := migrate.NewWithInstance("iofs", srcDriver, "postgres", dbDriver)
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %w", err)
 	}
 
 	// If schema_migrations table is missing but core tables exist (legacy),
 	// mark baseline at version 1 so we can move forward with migrations.
-	hasSchemaMigrations, _ := tableExists(db, driver, "schema_migrations")
+	hasSchemaMigrations, _ := tableExists(db, "schema_migrations")
 	if !hasSchemaMigrations {
-		tablesPresent := existingSchemaPresent(db, driver)
+		tablesPresent := existingSchemaPresent(db)
 		if tablesPresent {
 			log.Warn("Detected legacy database without migration history; baselining at version 1")
 			if forceErr := m.Force(1); forceErr != nil {
@@ -154,37 +122,25 @@ func runMigrations(db *sql.DB, driver string, log *slog.Logger) error {
 		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	log.Info("Migrations completed successfully", "driver", driver)
+	log.Info("Migrations completed successfully", "driver", "postgres")
 	return nil
 }
 
-func tableExists(db *sql.DB, driver string, name string) (bool, error) {
+func tableExists(db *sql.DB, name string) (bool, error) {
 	var count int
-	var err error
-
-	if driver == "postgres" {
-		// PostgreSQL query for table existence
-		err = db.QueryRow(`
-			SELECT COUNT(1)
-			FROM information_schema.tables
-			WHERE table_schema = 'public' AND table_name = $1;
-		`, name).Scan(&count)
-	} else {
-		// SQLite query for table existence
-		err = db.QueryRow(`
-			SELECT COUNT(1)
-			FROM sqlite_master
-			WHERE type='table' AND name=?;
-		`, name).Scan(&count)
-	}
+	err := db.QueryRow(`
+		SELECT COUNT(1)
+		FROM information_schema.tables
+		WHERE table_schema = 'public' AND table_name = $1;
+	`, name).Scan(&count)
 
 	return count > 0, err
 }
 
-func existingSchemaPresent(db *sql.DB, driver string) bool {
+func existingSchemaPresent(db *sql.DB) bool {
 	// Check for any of our core tables
 	for _, tbl := range []string{"logs", "users", "files"} {
-		exists, err := tableExists(db, driver, tbl)
+		exists, err := tableExists(db, tbl)
 		if err == nil && exists {
 			return true
 		}
@@ -208,7 +164,7 @@ func (db *Database) StartSession(sessionID, ipFrom, ipTo string) error {
 
 	query := `
 		INSERT INTO logs (session_id, ip_from, ip_to, bandwidth_bytes, session_start)
-		VALUES (?, ?, ?, 0, ?)
+		VALUES ($1, $2, $3, 0, $4)
 	`
 
 	_, err := db.db.Exec(query, sessionID, ipFrom, ipTo, time.Now())
@@ -232,8 +188,8 @@ func (db *Database) UpdateBandwidth(sessionID string, bytes int64) error {
 
 	query := `
 		UPDATE logs
-		SET bandwidth_bytes = bandwidth_bytes + ?
-		WHERE session_id = ?
+		SET bandwidth_bytes = bandwidth_bytes + $1
+		WHERE session_id = $2
 	`
 
 	_, err := db.db.Exec(query, bytes, sessionID)
@@ -256,8 +212,8 @@ func (db *Database) EndSession(sessionID string) error {
 
 	query := `
 		UPDATE logs
-		SET session_end = ?
-		WHERE session_id = ?
+		SET session_end = $1
+		WHERE session_id = $2
 	`
 
 	_, err := db.db.Exec(query, time.Now(), sessionID)
@@ -282,7 +238,7 @@ func (db *Database) GetSessionStats(sessionID string) (*SessionLog, error) {
 	query := `
 		SELECT session_id, ip_from, ip_to, bandwidth_bytes, session_start, session_end
 		FROM logs
-		WHERE session_id = ?
+		WHERE session_id = $1
 	`
 
 	var log SessionLog

@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lib/pq"
 	"github.com/schollz/e2ecp/src/db"
 	"golang.org/x/crypto/bcrypt"
-	sqlite3 "modernc.org/sqlite/lib"
 )
 
 var (
@@ -214,12 +214,9 @@ func (s *Service) Register(email, password string) (*db.User, string, error) {
 		},
 	})
 	if err != nil {
-		var sqliteErr interface{ Code() int }
-		if errors.As(err, &sqliteErr) {
-			switch sqliteErr.Code() {
-			case sqlite3.SQLITE_CONSTRAINT, sqlite3.SQLITE_CONSTRAINT_UNIQUE:
-				return nil, "", ErrUserExists
-			}
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return nil, "", ErrUserExists
 		}
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.email") {
 			return nil, "", ErrUserExists

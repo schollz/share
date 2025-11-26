@@ -494,7 +494,7 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Start starts the relay server on the specified port
-func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, staticFS embed.FS, log *slog.Logger) {
+func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbURL string, staticFS embed.FS, log *slog.Logger) {
 	logger = log
 	maxRooms = maxRoomsLimit
 	maxRoomsPerIP = maxRoomsPerIPLimit
@@ -502,14 +502,19 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	freeLimit := parseStorageEnv("FREE_STORAGE_BYTES", 1*1024*1024*1024)
 
 	// Initialize database if path is provided
-	if dbPath != "" {
-		if err := InitDatabase(dbPath, log); err != nil {
-			logger.Error("Failed to initialize database", "error", err)
+	effectiveDBURL := dbURL
+	if effectiveDBURL == "" {
+		effectiveDBURL = os.Getenv("DATABASE_URL")
+	}
+
+	if effectiveDBURL != "" {
+		if err := InitDatabase(effectiveDBURL, log); err != nil {
+			logger.Error("Failed to initialize database", "error", err, "dsn", maskPassword(effectiveDBURL))
 		} else {
-			logger.Info("Session logging enabled", "database", dbPath)
+			logger.Info("Session logging enabled", "dsn", maskPassword(effectiveDBURL))
 		}
 	} else {
-		logger.Info("Session logging disabled (no database path provided)")
+		logger.Info("Session logging disabled (no PostgreSQL DATABASE_URL provided)")
 	}
 
 	mux := http.NewServeMux()
