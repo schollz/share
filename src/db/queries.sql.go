@@ -355,6 +355,30 @@ func (q *Queries) UpdateFileShareToken(ctx context.Context, arg UpdateFileShareT
 	return i, err
 }
 
+const updateFileEncryption = `-- name: UpdateFileEncryption :exec
+UPDATE files
+SET encrypted_filename = ?, encrypted_key = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ? AND user_id = ?
+`
+
+type UpdateFileEncryptionParams struct {
+	EncryptedFilename string `json:"encrypted_filename"`
+	EncryptedKey      string `json:"encrypted_key"`
+	ID                int64  `json:"id"`
+	UserID            int64  `json:"user_id"`
+}
+
+func (q *Queries) UpdateFileEncryption(ctx context.Context, arg UpdateFileEncryptionParams) error {
+	result, err := q.db.ExecContext(ctx, updateFileEncryption, arg.EncryptedFilename, arg.EncryptedKey, arg.ID, arg.UserID)
+	if err != nil {
+		return err
+	}
+	if rows, err := result.RowsAffected(); err == nil && rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET password_hash = ?, updated_at = CURRENT_TIMESTAMP

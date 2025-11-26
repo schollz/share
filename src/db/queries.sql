@@ -77,3 +77,8 @@ UPDATE files
 SET share_token = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND user_id = ?
 RETURNING *;
+
+-- name: UpdateFileEncryption :exec
+UPDATE files
+SET encrypted_filename = ?, encrypted_key = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ? AND user_id = ?;

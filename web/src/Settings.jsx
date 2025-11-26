@@ -2,15 +2,23 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
+import {
+    deriveKey,
+    decryptFileKey,
+    encryptFileKey,
+    decryptString,
+    encryptString,
+} from "./encryption";
 import { useConfig } from "./ConfigContext";
 
 export default function Settings() {
-    const { token, logout } = useAuth();
+    const { token, user, encryptionKey, setEncryptionKey, logout } = useAuth();
     const { storageEnabled, loading: configLoading } = useConfig();
     const navigate = useNavigate();
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [changingPassword, setChangingPassword] = useState(false);
+    const [changeMessage, setChangeMessage] = useState(null);
     const [deletePassword, setDeletePassword] = useState("");
     const [deleting, setDeleting] = useState(false);
 
@@ -24,11 +32,76 @@ export default function Settings() {
         }
     }, [token, navigate, storageEnabled, configLoading]);
 
+    const persistEncryptionKey = async (key) => {
+        const exportedKey = await window.crypto.subtle.exportKey("raw", key);
+        const keyArray = new Uint8Array(exportedKey);
+        const keyHex = Array.from(keyArray)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("");
+        sessionStorage.setItem("encryptionKey", keyHex);
+        setEncryptionKey(key);
+    };
+
+    const prepareReencryptedFiles = async (newMasterKey) => {
+        if (!encryptionKey) {
+            throw new Error("Encryption key not available. Please re-login and try again.");
+        }
+
+        const listRes = await fetch("/api/files/list", {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!listRes.ok) {
+            const err = await listRes.json().catch(() => ({}));
+            throw new Error(err.error || "Failed to load files for re-encryption");
+        }
+
+        const data = await listRes.json();
+        const files = data.files || [];
+
+        if (files.length === 0) {
+            return { files: [], count: 0 };
+        }
+
+        const reencrypted = await Promise.all(
+            files.map(async (file) => {
+                const fileKey = await decryptFileKey(file.encrypted_key, encryptionKey);
+                const newEncryptedKey = await encryptFileKey(fileKey, newMasterKey);
+                const filename = await decryptString(file.encrypted_filename, encryptionKey);
+                const newEncryptedFilename = await encryptString(filename, newMasterKey);
+                return {
+                    id: file.id,
+                    encrypted_key: newEncryptedKey,
+                    encrypted_filename: newEncryptedFilename,
+                };
+            })
+        );
+
+        return { files: reencrypted, count: files.length };
+    };
+
     const handleChangePassword = async (e) => {
         e.preventDefault();
         setChangingPassword(true);
+        setChangeMessage(null);
+
+        if (!user?.encryption_salt) {
+            setChangeMessage({
+                type: "error",
+                text: "Profile data unavailable. Please re-login and try again.",
+            });
+            setChangingPassword(false);
+            return;
+        }
 
         try {
+            const newMasterKey = await deriveKey(newPassword, user.encryption_salt);
+
+            const { files: reencryptedFiles, count } =
+                await prepareReencryptedFiles(newMasterKey);
+
             const res = await fetch("/api/auth/change-password", {
                 method: "POST",
                 headers: {
@@ -46,11 +119,62 @@ export default function Settings() {
                 throw new Error(err.error || "Failed to change password");
             }
 
-            toast.success("Password updated");
+            if (reencryptedFiles.length > 0) {
+                const rekeyRes = await fetch("/api/files/rekey", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ files: reencryptedFiles }),
+                });
+
+                if (!rekeyRes.ok) {
+                    const rekeyErr = await rekeyRes.json().catch(() => ({}));
+                    // Attempt to roll back password to keep files accessible
+                    let rollbackSucceeded = false;
+                    try {
+                        const rollbackRes = await fetch("/api/auth/change-password", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                current_password: newPassword,
+                                new_password: currentPassword,
+                            }),
+                        });
+                        rollbackSucceeded = rollbackRes.ok;
+                    } catch {
+                        rollbackSucceeded = false;
+                    }
+
+                    const baseMessage = rekeyErr.error || "Failed to re-encrypt files with new password";
+                    const rollbackMessage = rollbackSucceeded
+                        ? " Password was reverted to keep your files accessible. Please try again."
+                        : " Password change may have completed without re-encrypting files. Please log in with your previous password and try again.";
+
+                    throw new Error(baseMessage + rollbackMessage);
+                }
+            }
+
+            await persistEncryptionKey(newMasterKey);
+
+            setChangeMessage({
+                type: "success",
+                text:
+                    count > 0
+                        ? `Password changed and ${count} file${count === 1 ? "" : "s"} re-encrypted.`
+                        : "Password changed successfully.",
+            });
             setCurrentPassword("");
             setNewPassword("");
         } catch (err) {
-            toast.error(err.message || "Failed to change password");
+            setChangeMessage({
+                type: "error",
+                text: err.message || "Failed to change password",
+            });
         } finally {
             setChangingPassword(false);
         }
@@ -119,6 +243,17 @@ export default function Settings() {
                     <h2 className="text-2xl font-black uppercase mb-4">
                         Change Password
                     </h2>
+                    {changeMessage && (
+                        <div
+                            className={`mb-4 border-2 px-3 py-2 font-bold uppercase text-sm ${
+                                changeMessage.type === "success"
+                                    ? "border-green-600 text-green-700 dark:text-green-300"
+                                    : "border-red-600 text-red-700 dark:text-red-300"
+                            }`}
+                        >
+                            {changeMessage.text}
+                        </div>
+                    )}
                     <form onSubmit={handleChangePassword} className="space-y-4">
                         <div>
                             <label className="block text-sm font-bold mb-2 uppercase">

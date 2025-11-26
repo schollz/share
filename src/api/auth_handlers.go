@@ -315,9 +315,10 @@ func (h *AuthHandlers) Verify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.writeJSON(w, User{
-		ID:         user.ID,
-		Email:      user.Email,
-		Subscriber: user.Subscriber == 1,
+		ID:             user.ID,
+		Email:          user.Email,
+		EncryptionSalt: user.EncryptionSalt,
+		Subscriber:     user.Subscriber == 1,
 	}, http.StatusOK)
 }
 

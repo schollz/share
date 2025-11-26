@@ -45,6 +45,7 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger, enab
 	// File routes (authentication required)
 	mux.Handle("/api/files/upload", authMiddleware(http.HandlerFunc(fileHandlers.Upload)))
 	mux.Handle("/api/files/list", authMiddleware(http.HandlerFunc(fileHandlers.List)))
+	mux.Handle("/api/files/rekey", authMiddleware(http.HandlerFunc(fileHandlers.Rekey)))
 
 	// File download route (authentication required)
 	mux.Handle("/api/files/download/", authMiddleware(http.HandlerFunc(fileHandlers.Download)))
@@ -86,6 +87,7 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger, enab
 		"/api/auth/verify",
 		"/api/files/upload",
 		"/api/files/list",
+		"/api/files/rekey",
 		"/api/files/download/{id}",
 		"/api/files/{id} (DELETE)",
 		"/api/files/share/generate/{id}",

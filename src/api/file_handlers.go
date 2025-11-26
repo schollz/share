@@ -410,6 +410,62 @@ func (h *FileHandlers) GenerateShareLink(w http.ResponseWriter, r *http.Request)
 	}, http.StatusOK)
 }
 
+// Rekey updates encrypted metadata (filename and file key) after a password change
+func (h *FileHandlers) Rekey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := GetUserID(r)
+	if userID == 0 {
+		h.writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var body struct {
+		Files []struct {
+			ID                int64  `json:"id"`
+			EncryptedFilename string `json:"encrypted_filename"`
+			EncryptedKey      string `json:"encrypted_key"`
+		} `json:"files"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(body.Files) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	for _, f := range body.Files {
+		if f.ID == 0 || f.EncryptedFilename == "" || f.EncryptedKey == "" {
+			h.writeError(w, "Each file must include id, encrypted_filename, and encrypted_key", http.StatusBadRequest)
+			return
+		}
+
+		if err := h.queries.UpdateFileEncryption(context.Background(), db.UpdateFileEncryptionParams{
+			EncryptedFilename: f.EncryptedFilename,
+			EncryptedKey:      f.EncryptedKey,
+			ID:                f.ID,
+			UserID:            userID,
+		}); err != nil {
+			if err == sql.ErrNoRows {
+				h.writeError(w, "File not found", http.StatusNotFound)
+				return
+			}
+			h.logger.Error("Failed to re-encrypt file metadata", "error", err, "user_id", userID, "file_id", f.ID)
+			h.writeError(w, "Failed to update files", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	h.logger.Info("Re-encrypted files after password change", "user_id", userID, "count", len(body.Files))
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // Delete handles file deletion
 func (h *FileHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
