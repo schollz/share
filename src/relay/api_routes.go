@@ -12,7 +12,12 @@ import (
 )
 
 // SetupAPIRoutes initializes all API routes for authentication and file management
-func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger) {
+func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger, enabled bool) {
+	if !enabled {
+		log.Info("Storage/profile endpoints disabled (set ALLOW_STORAGE_PROFILE=yes to enable)")
+		return
+	}
+
 	// Get JWT secret from environment or use default
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
@@ -30,6 +35,7 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger) {
 	mux.HandleFunc("/api/auth/register", authHandlers.Register)
 	mux.HandleFunc("/api/auth/login", authHandlers.Login)
 	mux.HandleFunc("/api/auth/verify-email", authHandlers.VerifyEmailToken)
+	mux.HandleFunc("/api/auth/captcha", authHandlers.Captcha)
 
 	// Auth verify route (authentication required)
 	mux.Handle("/api/auth/verify", authMiddleware(http.HandlerFunc(authHandlers.Verify)))
@@ -76,6 +82,7 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger) {
 		"/api/auth/register",
 		"/api/auth/login",
 		"/api/auth/verify-email",
+		"/api/auth/captcha",
 		"/api/auth/verify",
 		"/api/files/upload",
 		"/api/files/list",
@@ -84,4 +91,19 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger) {
 		"/api/files/share/generate/{id}",
 		"/api/files/share/{token}",
 	})
+}
+
+func allowStorageProfile(log *slog.Logger) bool {
+	val, ok := os.LookupEnv("ALLOW_STORAGE_PROFILE")
+	if !ok {
+		log.Info("ALLOW_STORAGE_PROFILE not set; storage/profile endpoints disabled by default")
+		return false
+	}
+
+	if strings.EqualFold(val, "yes") {
+		return true
+	}
+
+	log.Info("Storage/profile endpoints disabled (set ALLOW_STORAGE_PROFILE=yes to enable)", "value", val)
+	return false
 }

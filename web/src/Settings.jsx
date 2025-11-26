@@ -2,9 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
+import { useConfig } from "./ConfigContext";
 
 export default function Settings() {
     const { token, logout } = useAuth();
+    const { storageEnabled, loading: configLoading } = useConfig();
     const navigate = useNavigate();
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
@@ -13,10 +15,14 @@ export default function Settings() {
     const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
+        if (!configLoading && !storageEnabled) {
+            navigate("/");
+            return;
+        }
         if (!token) {
             navigate("/login");
         }
-    }, [token, navigate]);
+    }, [token, navigate, storageEnabled, configLoading]);
 
     const handleChangePassword = async (e) => {
         e.preventDefault();

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
+import { useConfig } from "./ConfigContext";
 
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
@@ -9,21 +10,54 @@ export default function Login() {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [captchaPrompt, setCaptchaPrompt] = useState("");
+    const [captchaToken, setCaptchaToken] = useState("");
+    const [captchaAnswer, setCaptchaAnswer] = useState("");
+    const [captchaLoading, setCaptchaLoading] = useState(false);
     const { login, register, isAuthenticated, loading: authLoading } =
         useAuth();
+    const { storageEnabled, loading: configLoading } = useConfig();
     const navigate = useNavigate();
 
     // If already signed in, bounce to profile
     React.useEffect(() => {
-        if (!authLoading && isAuthenticated) {
+        if (!configLoading && !storageEnabled) {
+            navigate("/", { replace: true });
+        } else if (!authLoading && isAuthenticated) {
             navigate("/profile", { replace: true });
         }
-    }, [authLoading, isAuthenticated, navigate]);
+    }, [authLoading, isAuthenticated, navigate, storageEnabled, configLoading]);
 
     // Clear error when switching mode
     React.useEffect(() => {
         setErrorMessage("");
     }, [isLogin]);
+
+    const loadCaptcha = React.useCallback(async () => {
+        setCaptchaLoading(true);
+        try {
+            const response = await fetch("/api/auth/captcha");
+            if (!response.ok) {
+                throw new Error("Failed to load captcha");
+            }
+            const data = await response.json();
+            setCaptchaPrompt(data.prompt || "");
+            setCaptchaToken(data.token || "");
+            setCaptchaAnswer("");
+        } catch (error) {
+            const message = error.message || "Could not load captcha";
+            toast.error(message);
+            setErrorMessage(message);
+        } finally {
+            setCaptchaLoading(false);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        if (!isLogin) {
+            loadCaptcha();
+        }
+    }, [isLogin, loadCaptcha]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -36,9 +70,14 @@ export default function Login() {
                 toast.success("Logged in successfully!");
                 navigate("/profile");
             } else {
-                const res = await register(email, password);
-                toast.success(res?.message || "Check your email to verify your account.");
-                setIsLogin(true);
+                if (!captchaToken || !captchaAnswer.trim()) {
+                    setErrorMessage("Please solve the captcha to continue.");
+                    setLoading(false);
+                    return;
+                }
+
+                await register(email, password, captchaToken, captchaAnswer);
+                navigate("/signup-success", { state: { email } });
             }
         } catch (error) {
             const message = error.message || "Something went wrong";
@@ -126,6 +165,37 @@ export default function Login() {
                             </p>
                         )}
                     </div>
+
+                    {!isLogin && (
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-lg font-bold uppercase">
+                                    Captcha
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={loadCaptcha}
+                                    disabled={captchaLoading}
+                                    className="text-sm font-bold underline disabled:opacity-60"
+                                >
+                                    {captchaLoading ? "Refreshing..." : "New question"}
+                                </button>
+                            </div>
+                            <p className="text-sm mb-3">
+                                {captchaPrompt || "Loading challenge..."}
+                            </p>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={captchaAnswer}
+                                onChange={(e) => setCaptchaAnswer(e.target.value)}
+                                required={!isLogin}
+                                className="w-full border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+                                placeholder="Enter your answer"
+                            />
+                        </div>
+                    )}
 
                     <button
                         type="submit"

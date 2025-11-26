@@ -3,15 +3,19 @@ package auth
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +30,8 @@ var (
 	ErrUserExists         = errors.New("user already exists")
 	ErrInvalidToken       = errors.New("invalid or expired token")
 	ErrEmailNotVerified   = errors.New("email not verified")
+	ErrInvalidCaptcha     = errors.New("invalid captcha token")
+	ErrCaptchaMismatch    = errors.New("captcha answer incorrect")
 )
 
 // Service handles authentication operations
@@ -98,6 +104,60 @@ func (s *Service) ValidateJWT(tokenString string) (int64, string, error) {
 	return 0, "", ErrInvalidToken
 }
 
+// GenerateCaptcha creates a simple math captcha challenge with a signed token
+func (s *Service) GenerateCaptcha() (string, string, error) {
+	first, err := randomInt(2, 9)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate captcha: %w", err)
+	}
+	second, err := randomInt(1, 9)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate captcha: %w", err)
+	}
+
+	payload := fmt.Sprintf("%d:%d", first, second)
+	mac := hmac.New(sha256.New, s.jwtSecret)
+	mac.Write([]byte(payload))
+	token := fmt.Sprintf("%s:%s", payload, hex.EncodeToString(mac.Sum(nil)))
+
+	return fmt.Sprintf("What is %d + %d?", first, second), token, nil
+}
+
+// VerifyCaptcha validates the token signature and supplied answer
+func (s *Service) VerifyCaptcha(token string, answer int) error {
+	parts := strings.Split(token, ":")
+	if len(parts) != 3 {
+		return ErrInvalidCaptcha
+	}
+
+	payload := strings.Join(parts[:2], ":")
+	expectedSig, err := hex.DecodeString(parts[2])
+	if err != nil {
+		return ErrInvalidCaptcha
+	}
+
+	mac := hmac.New(sha256.New, s.jwtSecret)
+	mac.Write([]byte(payload))
+	if !hmac.Equal(expectedSig, mac.Sum(nil)) {
+		return ErrInvalidCaptcha
+	}
+
+	first, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return ErrInvalidCaptcha
+	}
+	second, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return ErrInvalidCaptcha
+	}
+
+	if first+second != answer {
+		return ErrCaptchaMismatch
+	}
+
+	return nil
+}
+
 // generateSalt generates a random salt for encryption key derivation
 func generateSalt() (string, error) {
 	salt := make([]byte, 32)
@@ -105,6 +165,20 @@ func generateSalt() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(salt), nil
+}
+
+func randomInt(min, max int) (int, error) {
+	if min > max {
+		return 0, fmt.Errorf("invalid range %d-%d", min, max)
+	}
+
+	diff := max - min + 1
+	nBig, err := rand.Int(rand.Reader, big.NewInt(int64(diff)))
+	if err != nil {
+		return 0, err
+	}
+
+	return int(nBig.Int64()) + min, nil
 }
 
 // Register creates a new user account

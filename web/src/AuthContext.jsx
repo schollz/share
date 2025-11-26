@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { deriveKey } from "./encryption";
+import { useConfig } from "./ConfigContext";
 
 const AuthContext = createContext(null);
 
@@ -12,6 +13,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
+    const { storageEnabled, loading: configLoading } = useConfig();
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem("token"));
     const [loading, setLoading] = useState(true);
@@ -46,14 +48,20 @@ export const AuthProvider = ({ children }) => {
         restoreEncryptionKey();
     }, []);
 
-    // Verify token on mount
+    // Verify token on mount (only when storage/profile is enabled)
     useEffect(() => {
         const verifyToken = async () => {
+            if (configLoading) return;
+            if (!storageEnabled) {
+                setLoading(false);
+                return;
+            }
             if (!token) {
                 setLoading(false);
                 return;
             }
 
+            setLoading(true);
             try {
                 const response = await fetch("/api/auth/verify", {
                     headers: {
@@ -83,9 +91,12 @@ export const AuthProvider = ({ children }) => {
         };
 
         verifyToken();
-    }, [token]);
+    }, [token, storageEnabled, configLoading]);
 
     const login = async (email, password) => {
+        if (!storageEnabled) {
+            throw new Error("Profiles are disabled on this server");
+        }
         const response = await fetch("/api/auth/login", {
             method: "POST",
             headers: {
@@ -119,13 +130,21 @@ export const AuthProvider = ({ children }) => {
         return data;
     };
 
-    const register = async (email, password) => {
+    const register = async (email, password, captchaToken, captchaAnswer) => {
+        if (!storageEnabled) {
+            throw new Error("Profiles are disabled on this server");
+        }
         const response = await fetch("/api/auth/register", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({
+                email,
+                password,
+                captcha_token: captchaToken,
+                captcha_answer: Number(captchaAnswer),
+            }),
         });
 
         if (!response.ok) {

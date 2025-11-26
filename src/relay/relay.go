@@ -23,7 +23,7 @@ type Client struct {
 	Conn         *websocket.Conn
 	RoomID       string
 	IP           string
-	UseProtobuf  bool      // Track if client uses protobuf
+	UseProtobuf  bool       // Track if client uses protobuf
 	WriteMutex   sync.Mutex // Protects concurrent writes to Conn
 	SessionStart time.Time  // When the client joined
 	BytesRelayed int64      // Total bytes relayed for this client
@@ -496,6 +496,7 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	logger = log
 	maxRooms = maxRoomsLimit
 	maxRoomsPerIP = maxRoomsPerIPLimit
+	profileAllowed := allowStorageProfile(log)
 
 	// Initialize database if path is provided
 	if dbPath != "" {
@@ -512,9 +513,16 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	mux.HandleFunc("/ws", wsHandler)
 	mux.HandleFunc("/health", healthHandler)
 
+	// Config endpoint always available to frontends
+	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		enabled := profileAllowed && GetDatabase() != nil && GetDatabase().db != nil
+		fmt.Fprintf(w, `{"storage_profile_enabled": %t}`, enabled)
+	})
+
 	// Initialize auth and file management API if database is available
 	if db := GetDatabase(); db != nil && db.db != nil {
-		SetupAPIRoutes(mux, db.db, log)
+		SetupAPIRoutes(mux, db.db, log, profileAllowed)
 	} else {
 		logger.Warn("API endpoints disabled (database not initialized)")
 	}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { useConfig } from "./ConfigContext";
 import {
     generateFileKey,
     encryptFileKey,
@@ -14,6 +15,7 @@ import toast from "react-hot-toast";
 
 export default function Profile() {
     const { user, token, encryptionKey, logout } = useAuth();
+    const { storageEnabled, loading: configLoading } = useConfig();
     const navigate = useNavigate();
     const [files, setFiles] = useState([]);
     const [totalStorage, setTotalStorage] = useState(0);
@@ -22,12 +24,16 @@ export default function Profile() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!configLoading && !storageEnabled) {
+            navigate("/");
+            return;
+        }
         if (!user) {
             navigate("/login");
             return;
         }
         fetchFiles();
-    }, [user, navigate]);
+    }, [user, navigate, storageEnabled, configLoading]);
 
     const fetchFiles = async () => {
         try {

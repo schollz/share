@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -24,8 +25,10 @@ func NewAuthHandlers(authService *auth.Service, logger *slog.Logger) *AuthHandle
 }
 
 type RegisterRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email         string `json:"email"`
+	Password      string `json:"password"`
+	CaptchaAnswer int    `json:"captcha_answer"`
+	CaptchaToken  string `json:"captcha_token"`
 }
 
 type LoginRequest struct {
@@ -74,6 +77,25 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.CaptchaToken == "" {
+		h.writeError(w, "Captcha is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.authService.VerifyCaptcha(req.CaptchaToken, req.CaptchaAnswer); err != nil {
+		if errors.Is(err, auth.ErrInvalidCaptcha) {
+			h.writeError(w, "Captcha is invalid or expired", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, auth.ErrCaptchaMismatch) {
+			h.writeError(w, "Captcha answer incorrect", http.StatusBadRequest)
+			return
+		}
+		h.logger.Error("Captcha validation failed", "error", err)
+		h.writeError(w, "Captcha validation failed", http.StatusInternalServerError)
+		return
+	}
+
 	_, _, err := h.authService.Register(req.Email, req.Password)
 	if err != nil {
 		if err == auth.ErrUserExists {
@@ -88,6 +110,26 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, map[string]string{
 		"message": "Verification email sent. Please check your inbox.",
 	}, http.StatusAccepted)
+}
+
+// Captcha returns a simple math challenge and token for registration
+func (h *AuthHandlers) Captcha(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	prompt, token, err := h.authService.GenerateCaptcha()
+	if err != nil {
+		h.logger.Error("Failed to generate captcha", "error", err)
+		h.writeError(w, "Failed to generate captcha", http.StatusInternalServerError)
+		return
+	}
+
+	h.writeJSON(w, map[string]string{
+		"prompt": prompt,
+		"token":  token,
+	}, http.StatusOK)
 }
 
 // Login handles user login
