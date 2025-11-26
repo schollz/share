@@ -13,13 +13,13 @@ type File struct {
 	ID                int64          `json:"id"`
 	UserID            int64          `json:"user_id"`
 	EncryptedFilename string         `json:"encrypted_filename"`
-	FilePath          string         `json:"file_path"`
 	FileSize          int64          `json:"file_size"`
 	EncryptedKey      string         `json:"encrypted_key"`
 	ShareToken        sql.NullString `json:"share_token"`
 	DownloadCount     int64          `json:"download_count"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
+	FileData          []byte         `json:"file_data"`
 }
 
 type Log struct {

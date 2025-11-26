@@ -11,15 +11,11 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/schollz/e2ecp/src/db"
 )
-
-const UploadDir = "./uploads"
 
 type FileHandlers struct {
 	queries           *db.Queries
@@ -29,11 +25,6 @@ type FileHandlers struct {
 }
 
 func NewFileHandlers(database *sql.DB, logger *slog.Logger) *FileHandlers {
-	// Create upload directory if it doesn't exist
-	if err := os.MkdirAll(UploadDir, 0755); err != nil {
-		logger.Error("Failed to create upload directory", "error", err)
-	}
-
 	freeLimit := parseStorageEnv("FREE_STORAGE_BYTES", 1*1024*1024*1024)               // 1GB default
 	subscriberLimit := parseStorageEnv("SUBSCRIBER_STORAGE_BYTES", 100*1024*1024*1024) // 100GB default
 
@@ -147,56 +138,34 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create user directory
-	userDir := filepath.Join(UploadDir, fmt.Sprintf("user_%d", userID))
-	if err := os.MkdirAll(userDir, 0755); err != nil {
-		h.logger.Error("Failed to create user directory", "error", err)
-		h.writeError(w, "Failed to save file", http.StatusInternalServerError)
-		return
-	}
-	h.logger.Info("Ensured user upload directory", "user_id", userID, "dir", userDir)
-
-	// Generate random UUID for file storage (server never knows the real filename)
-	fileUUID := uuid.New().String()
-	filePath := filepath.Join(userDir, fileUUID)
-
-	// Save file to disk
-	dst, err := os.Create(filePath)
+	// Read file data into memory
+	fileData, err := io.ReadAll(file)
 	if err != nil {
-		h.logger.Error("Failed to create file", "error", err)
-		h.writeError(w, "Failed to save file", http.StatusInternalServerError)
+		h.logger.Error("Failed to read file data", "error", err)
+		h.writeError(w, "Failed to read file", http.StatusInternalServerError)
 		return
 	}
-	defer dst.Close()
+	h.logger.Info("Read encrypted file data", "user_id", userID, "size_bytes", len(fileData))
 
-	if _, err := io.Copy(dst, file); err != nil {
-		h.logger.Error("Failed to write file", "error", err)
-		os.Remove(filePath)
-		h.writeError(w, "Failed to save file", http.StatusInternalServerError)
-		return
-	}
-	h.logger.Info("Wrote encrypted file to disk", "user_id", userID, "path", filePath, "size_bytes", header.Size)
-
-	// Save file metadata to database
+	// Save file metadata and data to database
 	fileRecord, err := h.queries.CreateFile(context.Background(), db.CreateFileParams{
 		UserID:            userID,
 		EncryptedFilename: encryptedFilename,
-		FilePath:          filePath,
 		FileSize:          header.Size,
 		EncryptedKey:      encryptedKey,
 		ShareToken: sql.NullString{
 			String: "",
 			Valid:  false,
 		},
+		FileData: fileData,
 	})
 	if err != nil {
-		h.logger.Error("Failed to save file metadata", "error", err)
-		os.Remove(filePath)
-		h.writeError(w, "Failed to save file metadata", http.StatusInternalServerError)
+		h.logger.Error("Failed to save file to database", "error", err)
+		h.writeError(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
 
-	h.logger.Info("File uploaded", "user_id", userID, "size", header.Size, "file_id", fileRecord.ID, "path", filePath)
+	h.logger.Info("File uploaded to database", "user_id", userID, "size", header.Size, "file_id", fileRecord.ID)
 	h.writeJSON(w, FileInfo{
 		ID:                fileRecord.ID,
 		EncryptedFilename: fileRecord.EncryptedFilename,
@@ -300,7 +269,7 @@ func (h *FileHandlers) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveFile(w, r, file.FilePath)
+	h.serveFileData(w, file.FileData)
 }
 
 // DownloadByToken handles file download by share token (no authentication required)
@@ -334,7 +303,7 @@ func (h *FileHandlers) DownloadByToken(w http.ResponseWriter, r *http.Request) {
 		h.logger.Warn("Failed to increment download count", "error", err, "token", token)
 	}
 
-	h.serveFile(w, r, file.FilePath)
+	h.serveFileData(w, file.FileData)
 }
 
 // GenerateShareLink generates a shareable link for a file
@@ -479,22 +448,7 @@ func (h *FileHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get file info first
-	file, err := h.queries.GetFileByID(context.Background(), db.GetFileByIDParams{
-		ID:     fileID,
-		UserID: userID,
-	})
-	if err != nil {
-		if err == sql.ErrNoRows {
-			h.writeError(w, "File not found", http.StatusNotFound)
-			return
-		}
-		h.logger.Error("Failed to get file", "error", err)
-		h.writeError(w, "Failed to get file", http.StatusInternalServerError)
-		return
-	}
-
-	// Delete from database
+	// Delete from database (file data is stored in the database)
 	if err := h.queries.DeleteFile(context.Background(), db.DeleteFileParams{
 		ID:     fileID,
 		UserID: userID,
@@ -503,41 +457,25 @@ func (h *FileHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "Failed to delete file", http.StatusInternalServerError)
 		return
 	}
-	h.logger.Info("Deleted file metadata", "user_id", userID, "file_id", fileID)
 
-	// Delete from filesystem
-	if err := os.Remove(file.FilePath); err != nil {
-		h.logger.Warn("Failed to delete file from disk", "error", err, "path", file.FilePath)
-	} else {
-		h.logger.Info("Deleted file from disk", "user_id", userID, "file_id", fileID, "path", file.FilePath)
-	}
-
-	h.logger.Info("File deleted", "user_id", userID, "file_id", fileID)
+	h.logger.Info("File deleted from database", "user_id", userID, "file_id", fileID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *FileHandlers) serveFile(w http.ResponseWriter, r *http.Request, filePath string) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		h.logger.Error("Failed to open file", "error", err)
-		h.writeError(w, "File not found", http.StatusNotFound)
-		return
-	}
-	defer file.Close()
-
-	stat, err := file.Stat()
-	if err != nil {
-		h.logger.Error("Failed to stat file", "error", err)
-		h.writeError(w, "Failed to get file info", http.StatusInternalServerError)
+func (h *FileHandlers) serveFileData(w http.ResponseWriter, fileData []byte) {
+	if len(fileData) == 0 {
+		h.writeError(w, "File data not found", http.StatusNotFound)
 		return
 	}
 
 	// Don't expose filename - client already has the encrypted filename
 	w.Header().Set("Content-Disposition", "attachment")
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
+	w.Header().Set("Content-Length", strconv.Itoa(len(fileData)))
 
-	http.ServeContent(w, r, "", stat.ModTime(), file)
+	if _, err := w.Write(fileData); err != nil {
+		h.logger.Error("Failed to write file data", "error", err)
+	}
 }
 
 func (h *FileHandlers) writeJSON(w http.ResponseWriter, data interface{}, status int) {

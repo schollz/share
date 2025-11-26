@@ -3,11 +3,8 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/schollz/e2ecp/src/auth"
 )
@@ -255,12 +252,7 @@ func (h *AuthHandlers) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete user upload directory (best-effort; after DB delete)
-	userDir := filepath.Join(UploadDir, fmt.Sprintf("user_%d", userID))
-	if err := os.RemoveAll(userDir); err != nil {
-		h.logger.Warn("Failed to remove user directory", "error", err, "dir", userDir)
-	}
-
+	// File data is stored in database and will be deleted via CASCADE
 	w.WriteHeader(http.StatusNoContent)
 }
 

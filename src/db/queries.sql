@@ -34,8 +34,8 @@ DELETE FROM users
 WHERE id = $1;
 
 -- name: CreateFile :one
-INSERT INTO files (user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count)
-VALUES ($1, $2, $3, $4, $5, $6, 0)
+INSERT INTO files (user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, file_data)
+VALUES ($1, $2, $3, $4, $5, 0, $6)
 RETURNING *;
 
 -- name: GetFilesByUserID :many

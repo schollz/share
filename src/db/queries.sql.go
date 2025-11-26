@@ -11,41 +11,41 @@ import (
 )
 
 const createFile = `-- name: CreateFile :one
-INSERT INTO files (user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count)
-VALUES ($1, $2, $3, $4, $5, $6, 0)
-RETURNING id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at
+INSERT INTO files (user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, file_data)
+VALUES ($1, $2, $3, $4, $5, 0, $6)
+RETURNING id, user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, created_at, updated_at, file_data
 `
 
 type CreateFileParams struct {
 	UserID            int64          `json:"user_id"`
 	EncryptedFilename string         `json:"encrypted_filename"`
-	FilePath          string         `json:"file_path"`
 	FileSize          int64          `json:"file_size"`
 	EncryptedKey      string         `json:"encrypted_key"`
 	ShareToken        sql.NullString `json:"share_token"`
+	FileData          []byte         `json:"file_data"`
 }
 
 func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, error) {
 	row := q.db.QueryRowContext(ctx, createFile,
 		arg.UserID,
 		arg.EncryptedFilename,
-		arg.FilePath,
 		arg.FileSize,
 		arg.EncryptedKey,
 		arg.ShareToken,
+		arg.FileData,
 	)
 	var i File
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.EncryptedFilename,
-		&i.FilePath,
 		&i.FileSize,
 		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.DownloadCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FileData,
 	)
 	return i, err
 }
@@ -125,7 +125,7 @@ func (q *Queries) DeleteUserByID(ctx context.Context, id int64) error {
 }
 
 const getFileByID = `-- name: GetFileByID :one
-SELECT id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at FROM files
+SELECT id, user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, created_at, updated_at, file_data FROM files
 WHERE id = $1 AND user_id = $2
 LIMIT 1
 `
@@ -142,19 +142,19 @@ func (q *Queries) GetFileByID(ctx context.Context, arg GetFileByIDParams) (File,
 		&i.ID,
 		&i.UserID,
 		&i.EncryptedFilename,
-		&i.FilePath,
 		&i.FileSize,
 		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.DownloadCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FileData,
 	)
 	return i, err
 }
 
 const getFileByShareToken = `-- name: GetFileByShareToken :one
-SELECT id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at FROM files
+SELECT id, user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, created_at, updated_at, file_data FROM files
 WHERE share_token = $1
 LIMIT 1
 `
@@ -166,19 +166,19 @@ func (q *Queries) GetFileByShareToken(ctx context.Context, shareToken sql.NullSt
 		&i.ID,
 		&i.UserID,
 		&i.EncryptedFilename,
-		&i.FilePath,
 		&i.FileSize,
 		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.DownloadCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FileData,
 	)
 	return i, err
 }
 
 const getFilesByUserID = `-- name: GetFilesByUserID :many
-SELECT id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at FROM files
+SELECT id, user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, created_at, updated_at, file_data FROM files
 WHERE user_id = $1
 ORDER BY created_at DESC
 `
@@ -196,13 +196,13 @@ func (q *Queries) GetFilesByUserID(ctx context.Context, userID int64) ([]File, e
 			&i.ID,
 			&i.UserID,
 			&i.EncryptedFilename,
-			&i.FilePath,
 			&i.FileSize,
 			&i.EncryptedKey,
 			&i.ShareToken,
 			&i.DownloadCount,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.FileData,
 		); err != nil {
 			return nil, err
 		}
@@ -303,7 +303,7 @@ const incrementDownloadCountByToken = `-- name: IncrementDownloadCountByToken :o
 UPDATE files
 SET download_count = download_count + 1, updated_at = CURRENT_TIMESTAMP
 WHERE share_token = $1
-RETURNING id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at
+RETURNING id, user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, created_at, updated_at, file_data
 `
 
 func (q *Queries) IncrementDownloadCountByToken(ctx context.Context, shareToken sql.NullString) (File, error) {
@@ -313,13 +313,13 @@ func (q *Queries) IncrementDownloadCountByToken(ctx context.Context, shareToken 
 		&i.ID,
 		&i.UserID,
 		&i.EncryptedFilename,
-		&i.FilePath,
 		&i.FileSize,
 		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.DownloadCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FileData,
 	)
 	return i, err
 }
@@ -351,7 +351,7 @@ const updateFileShareToken = `-- name: UpdateFileShareToken :one
 UPDATE files
 SET share_token = $1, updated_at = CURRENT_TIMESTAMP
 WHERE id = $2 AND user_id = $3
-RETURNING id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at
+RETURNING id, user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, created_at, updated_at, file_data
 `
 
 type UpdateFileShareTokenParams struct {
@@ -367,13 +367,13 @@ func (q *Queries) UpdateFileShareToken(ctx context.Context, arg UpdateFileShareT
 		&i.ID,
 		&i.UserID,
 		&i.EncryptedFilename,
-		&i.FilePath,
 		&i.FileSize,
 		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.DownloadCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FileData,
 	)
 	return i, err
 }
