@@ -57,8 +57,10 @@ var serveCmd = &cobra.Command{
 		maxRooms, _ := cmd.Flags().GetInt("max-rooms")
 		maxRoomsPerIP, _ := cmd.Flags().GetInt("max-rooms-per-ip")
 		dbPath, _ := cmd.Flags().GetString("db-path")
+		jwtSecret, _ := cmd.Flags().GetString("jwt-secret")
+		authDBPath, _ := cmd.Flags().GetString("auth-db-path")
 		logger := createLogger(logLevel)
-		relay.Start(port, maxRooms, maxRoomsPerIP, dbPath, staticFS, logger)
+		relay.Start(port, maxRooms, maxRoomsPerIP, dbPath, jwtSecret, authDBPath, staticFS, logger)
 	},
 }
 
@@ -182,6 +184,8 @@ func init() {
 	serveCmd.Flags().Int("max-rooms", 10, "Maximum number of concurrent rooms allowed on the server")
 	serveCmd.Flags().Int("max-rooms-per-ip", 2, "Maximum number of rooms per IP address")
 	serveCmd.Flags().String("db-path", "relay_logs.db", "Path to SQLite database for session logging (empty to disable)")
+	serveCmd.Flags().String("jwt-secret", "e2ecp-secret-change-in-production", "JWT signing secret for authentication")
+	serveCmd.Flags().String("auth-db-path", "auth.db", "Path to SQLite database for user authentication and file storage")
 	sendCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("output", "o", ".", "Output directory")

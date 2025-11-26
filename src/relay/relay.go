@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
+	"github.com/schollz/e2ecp/src/auth"
 )
 
 type Client struct {
@@ -492,7 +493,7 @@ func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Start starts the relay server on the specified port
-func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, staticFS embed.FS, log *slog.Logger) {
+func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, jwtSecret string, authDBPath string, staticFS embed.FS, log *slog.Logger) {
 	logger = log
 	maxRooms = maxRoomsLimit
 	maxRoomsPerIP = maxRoomsPerIPLimit
@@ -508,9 +509,26 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 		logger.Info("Session logging disabled (no database path provided)")
 	}
 
+	// Initialize auth service if paths are provided
+	if authDBPath != "" && jwtSecret != "" {
+		if err := auth.InitAuthService(authDBPath, jwtSecret, log); err != nil {
+			logger.Error("Failed to initialize auth service", "error", err)
+		} else {
+			logger.Info("Auth service enabled", "database", authDBPath)
+		}
+	} else {
+		logger.Info("Auth service disabled (no auth-db-path or jwt-secret provided)")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsHandler)
 	mux.HandleFunc("/health", healthHandler)
+
+	// Register auth handlers if auth service is enabled
+	if auth.GetAuthService() != nil {
+		RegisterAuthHandlers(mux)
+		logger.Info("Auth API endpoints registered")
+	}
 
 	installScript, err := staticFS.ReadFile("install.sh")
 	if err != nil {

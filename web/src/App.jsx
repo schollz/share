@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import protobuf from "protobufjs";
 import { QRCodeSVG } from "qrcode.react";
 import JSZip from "jszip";
 import toast, { Toaster } from "react-hot-toast";
+import { useAuth } from "./AuthContext";
 
 /* ---------- Crypto helpers (ECDH + AES-GCM) ---------- */
 
@@ -468,6 +470,13 @@ function ProgressBar({ progress, label }) {
 export default function App() {
     // Parse room from URL path (e.g., /myroom -> "myroom")
     const pathRoom = window.location.pathname.slice(1).toLowerCase();
+    
+    // Skip auth pages
+    if (pathRoom === 'auth' || pathRoom === 'profile') {
+        return null;
+    }
+    
+    const { isAuthenticated } = useAuth();
     const [roomId, setRoomId] = useState(pathRoom);
     const [connected, setConnected] = useState(false);
     const [peerCount, setPeerCount] = useState(1);
@@ -1940,6 +1949,17 @@ export default function App() {
                                     aria-hidden="true"
                                 ></i>
                             </button>
+                            <Link
+                                to={isAuthenticated ? "/profile" : "/auth"}
+                                className="inline-flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full border-2 border-white text-white hover:bg-white hover:text-black transition-colors cursor-pointer text-base sm:text-lg font-bold flex-shrink-0 mt-0.5 sm:mt-1 no-underline"
+                                aria-label={isAuthenticated ? "Go to profile" : "Sign in"}
+                                title={isAuthenticated ? "Profile" : "Sign in"}
+                            >
+                                <i
+                                    className={`fas ${isAuthenticated ? "fa-user" : "fa-right-to-bracket"}`}
+                                    aria-hidden="true"
+                                ></i>
+                            </Link>
                         </div>
                         <p className="text-sm sm:text-lg md:text-xl font-bold leading-tight mb-2 sm:mb-3">
                             TRANSFER FILES OR FOLDERS BETWEEN MACHINES
