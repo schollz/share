@@ -134,16 +134,9 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 	storageLimit := h.storageLimitForUser(user)
 
 	// Check current storage usage
-	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
+	totalStorage, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
 	if err != nil {
 		h.logger.Error("Failed to get storage", "error", err)
-		h.writeError(w, "Failed to check storage", http.StatusInternalServerError)
-		return
-	}
-
-	totalStorage, ok := totalStorageRaw.(int64)
-	if !ok {
-		h.logger.Error("Invalid storage type", "type", fmt.Sprintf("%T", totalStorageRaw))
 		h.writeError(w, "Failed to check storage", http.StatusInternalServerError)
 		return
 	}
@@ -241,16 +234,9 @@ func (h *FileHandlers) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
+	totalStorage, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
 	if err != nil {
 		h.logger.Error("Failed to get storage", "error", err)
-		h.writeError(w, "Failed to get storage", http.StatusInternalServerError)
-		return
-	}
-
-	totalStorage, ok := totalStorageRaw.(int64)
-	if !ok {
-		h.logger.Error("Invalid storage type", "type", fmt.Sprintf("%T", totalStorageRaw))
 		h.writeError(w, "Failed to get storage", http.StatusInternalServerError)
 		return
 	}

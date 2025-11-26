@@ -12,7 +12,7 @@ import (
 
 const createFile = `-- name: CreateFile :one
 INSERT INTO files (user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count)
-VALUES (?, ?, ?, ?, ?, ?, 0)
+VALUES ($1, $2, $3, $4, $5, $6, 0)
 RETURNING id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at
 `
 
@@ -52,7 +52,7 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, e
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, encryption_salt, subscriber, verified, verification_token)
-VALUES (?, ?, ?, ?, ?, ?)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token
 `
 
@@ -60,8 +60,8 @@ type CreateUserParams struct {
 	Email             string         `json:"email"`
 	PasswordHash      string         `json:"password_hash"`
 	EncryptionSalt    string         `json:"encryption_salt"`
-	Subscriber        int64          `json:"subscriber"`
-	Verified          int64          `json:"verified"`
+	Subscriber        int32          `json:"subscriber"`
+	Verified          int32          `json:"verified"`
 	VerificationToken sql.NullString `json:"verification_token"`
 }
 
@@ -91,7 +91,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 
 const deleteFile = `-- name: DeleteFile :exec
 DELETE FROM files
-WHERE id = ? AND user_id = ?
+WHERE id = $1 AND user_id = $2
 `
 
 type DeleteFileParams struct {
@@ -106,7 +106,7 @@ func (q *Queries) DeleteFile(ctx context.Context, arg DeleteFileParams) error {
 
 const deleteFileByID = `-- name: DeleteFileByID :exec
 DELETE FROM files
-WHERE id = ?
+WHERE id = $1
 `
 
 func (q *Queries) DeleteFileByID(ctx context.Context, id int64) error {
@@ -116,7 +116,7 @@ func (q *Queries) DeleteFileByID(ctx context.Context, id int64) error {
 
 const deleteUserByID = `-- name: DeleteUserByID :exec
 DELETE FROM users
-WHERE id = ?
+WHERE id = $1
 `
 
 func (q *Queries) DeleteUserByID(ctx context.Context, id int64) error {
@@ -126,7 +126,7 @@ func (q *Queries) DeleteUserByID(ctx context.Context, id int64) error {
 
 const getFileByID = `-- name: GetFileByID :one
 SELECT id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at FROM files
-WHERE id = ? AND user_id = ?
+WHERE id = $1 AND user_id = $2
 LIMIT 1
 `
 
@@ -155,7 +155,7 @@ func (q *Queries) GetFileByID(ctx context.Context, arg GetFileByIDParams) (File,
 
 const getFileByShareToken = `-- name: GetFileByShareToken :one
 SELECT id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at FROM files
-WHERE share_token = ?
+WHERE share_token = $1
 LIMIT 1
 `
 
@@ -179,7 +179,7 @@ func (q *Queries) GetFileByShareToken(ctx context.Context, shareToken sql.NullSt
 
 const getFilesByUserID = `-- name: GetFilesByUserID :many
 SELECT id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at FROM files
-WHERE user_id = ?
+WHERE user_id = $1
 ORDER BY created_at DESC
 `
 
@@ -218,21 +218,21 @@ func (q *Queries) GetFilesByUserID(ctx context.Context, userID int64) ([]File, e
 }
 
 const getTotalStorageByUserID = `-- name: GetTotalStorageByUserID :one
-SELECT COALESCE(SUM(file_size), 0) as total_storage
+SELECT COALESCE(SUM(file_size), 0)::bigint as total_storage
 FROM files
-WHERE user_id = ?
+WHERE user_id = $1
 `
 
-func (q *Queries) GetTotalStorageByUserID(ctx context.Context, userID int64) (interface{}, error) {
+func (q *Queries) GetTotalStorageByUserID(ctx context.Context, userID int64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, getTotalStorageByUserID, userID)
-	var total_storage interface{}
+	var total_storage int64
 	err := row.Scan(&total_storage)
 	return total_storage, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token FROM users
-WHERE email = ?
+WHERE email = $1
 LIMIT 1
 `
 
@@ -255,7 +255,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token FROM users
-WHERE id = ?
+WHERE id = $1
 LIMIT 1
 `
 
@@ -278,7 +278,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 
 const getUserByVerificationToken = `-- name: GetUserByVerificationToken :one
 SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token FROM users
-WHERE verification_token = ?
+WHERE verification_token = $1
 LIMIT 1
 `
 
@@ -302,7 +302,7 @@ func (q *Queries) GetUserByVerificationToken(ctx context.Context, verificationTo
 const incrementDownloadCountByToken = `-- name: IncrementDownloadCountByToken :one
 UPDATE files
 SET download_count = download_count + 1, updated_at = CURRENT_TIMESTAMP
-WHERE share_token = ?
+WHERE share_token = $1
 RETURNING id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at
 `
 
@@ -324,10 +324,33 @@ func (q *Queries) IncrementDownloadCountByToken(ctx context.Context, shareToken 
 	return i, err
 }
 
+const updateFileEncryption = `-- name: UpdateFileEncryption :exec
+UPDATE files
+SET encrypted_filename = $1, encrypted_key = $2, updated_at = CURRENT_TIMESTAMP
+WHERE id = $3 AND user_id = $4
+`
+
+type UpdateFileEncryptionParams struct {
+	EncryptedFilename string `json:"encrypted_filename"`
+	EncryptedKey      string `json:"encrypted_key"`
+	ID                int64  `json:"id"`
+	UserID            int64  `json:"user_id"`
+}
+
+func (q *Queries) UpdateFileEncryption(ctx context.Context, arg UpdateFileEncryptionParams) error {
+	_, err := q.db.ExecContext(ctx, updateFileEncryption,
+		arg.EncryptedFilename,
+		arg.EncryptedKey,
+		arg.ID,
+		arg.UserID,
+	)
+	return err
+}
+
 const updateFileShareToken = `-- name: UpdateFileShareToken :one
 UPDATE files
-SET share_token = ?, updated_at = CURRENT_TIMESTAMP
-WHERE id = ? AND user_id = ?
+SET share_token = $1, updated_at = CURRENT_TIMESTAMP
+WHERE id = $2 AND user_id = $3
 RETURNING id, user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count, created_at, updated_at
 `
 
@@ -355,34 +378,10 @@ func (q *Queries) UpdateFileShareToken(ctx context.Context, arg UpdateFileShareT
 	return i, err
 }
 
-const updateFileEncryption = `-- name: UpdateFileEncryption :exec
-UPDATE files
-SET encrypted_filename = ?, encrypted_key = ?, updated_at = CURRENT_TIMESTAMP
-WHERE id = ? AND user_id = ?
-`
-
-type UpdateFileEncryptionParams struct {
-	EncryptedFilename string `json:"encrypted_filename"`
-	EncryptedKey      string `json:"encrypted_key"`
-	ID                int64  `json:"id"`
-	UserID            int64  `json:"user_id"`
-}
-
-func (q *Queries) UpdateFileEncryption(ctx context.Context, arg UpdateFileEncryptionParams) error {
-	result, err := q.db.ExecContext(ctx, updateFileEncryption, arg.EncryptedFilename, arg.EncryptedKey, arg.ID, arg.UserID)
-	if err != nil {
-		return err
-	}
-	if rows, err := result.RowsAffected(); err == nil && rows == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
-}
-
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
-SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
-WHERE id = ?
+SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+WHERE id = $2
 `
 
 type UpdateUserPasswordParams struct {
@@ -398,7 +397,7 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 const verifyUserByToken = `-- name: VerifyUserByToken :one
 UPDATE users
 SET verified = 1, verification_token = NULL, updated_at = CURRENT_TIMESTAMP
-WHERE verification_token = ?
+WHERE verification_token = $1
 RETURNING id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token
 `
 

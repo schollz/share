@@ -1,8 +1,8 @@
 version: "2"
 sql:
-  - engine: "sqlite"
+  - engine: "postgresql"
     queries: "src/db/queries.sql"
-    schema: "migrations/*.up.sql"
+    schema: "migrations/postgres/*.up.sql"
     gen:
       go:
         package: "db"

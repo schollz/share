@@ -343,7 +343,7 @@ export default function Profile() {
         return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
     };
 
-    const storagePercentage = (totalStorage / storageLimit) * 100;
+    const storagePercentage = storageLimit > 0 ? (totalStorage / storageLimit) * 100 : 0;
 
         if (loading) {
             return (

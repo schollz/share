@@ -38,7 +38,7 @@ type User struct {
 	EncryptionSalt    string         `json:"encryption_salt"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
-	Subscriber        int64          `json:"subscriber"`
-	Verified          int64          `json:"verified"`
+	Subscriber        int32          `json:"subscriber"`
+	Verified          int32          `json:"verified"`
 	VerificationToken sql.NullString `json:"verification_token"`
 }
