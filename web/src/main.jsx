@@ -31,6 +31,7 @@ createRoot(document.getElementById("root")).render(
                     <Route path="/login" element={<Login />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/share/:token" element={<SharedFile />} />
+                    <Route path="/:room" element={<Landing />} />
                 </Routes>
             </AuthProvider>
         </BrowserRouter>
