@@ -20,6 +20,11 @@ export default function Login() {
         }
     }, [authLoading, isAuthenticated, navigate]);
 
+    // Clear error when switching mode
+    React.useEffect(() => {
+        setErrorMessage("");
+    }, [isLogin]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -136,7 +141,10 @@ export default function Login() {
                     <div className="mt-6 text-center">
                         <button
                             type="button"
-                            onClick={() => setIsLogin(!isLogin)}
+                            onClick={() => {
+                                setIsLogin(!isLogin);
+                                setErrorMessage("");
+                            }}
                             className="text-base font-bold hover:underline"
                         >
                             {isLogin

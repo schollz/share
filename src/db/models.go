@@ -38,4 +38,5 @@ type User struct {
 	EncryptionSalt string    `json:"encryption_salt"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+	Subscriber     int64     `json:"subscriber"`
 }

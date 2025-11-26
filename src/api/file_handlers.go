@@ -19,14 +19,13 @@ import (
 	"github.com/schollz/e2ecp/src/db"
 )
 
-const (
-	MaxStorageBytes = 2 * 1024 * 1024 * 1024 // 2GB
-	UploadDir       = "./uploads"
-)
+const UploadDir = "./uploads"
 
 type FileHandlers struct {
-	queries *db.Queries
-	logger  *slog.Logger
+	queries           *db.Queries
+	logger            *slog.Logger
+	freeStorageLimit  int64
+	subscriberStorage int64
 }
 
 func NewFileHandlers(database *sql.DB, logger *slog.Logger) *FileHandlers {
@@ -35,9 +34,14 @@ func NewFileHandlers(database *sql.DB, logger *slog.Logger) *FileHandlers {
 		logger.Error("Failed to create upload directory", "error", err)
 	}
 
+	freeLimit := parseStorageEnv("FREE_STORAGE_BYTES", 1*1024*1024*1024)               // 1GB default
+	subscriberLimit := parseStorageEnv("SUBSCRIBER_STORAGE_BYTES", 100*1024*1024*1024) // 100GB default
+
 	return &FileHandlers{
-		queries: db.New(database),
-		logger:  logger,
+		queries:           db.New(database),
+		logger:            logger,
+		freeStorageLimit:  freeLimit,
+		subscriberStorage: subscriberLimit,
 	}
 }
 
@@ -52,9 +56,12 @@ type FileInfo struct {
 }
 
 type FilesListResponse struct {
-	Files        []FileInfo `json:"files"`
-	TotalStorage int64      `json:"total_storage"`
-	StorageLimit int64      `json:"storage_limit"`
+	Files           []FileInfo `json:"files"`
+	TotalStorage    int64      `json:"total_storage"`
+	StorageLimit    int64      `json:"storage_limit"`
+	IsSubscriber    bool       `json:"is_subscriber"`
+	FreeLimit       int64      `json:"free_limit"`
+	SubscriberLimit int64      `json:"subscriber_limit"`
 }
 
 type ShareLinkResponse struct {
@@ -112,6 +119,15 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user and determine storage limit
+	user, err := h.queries.GetUserByID(context.Background(), userID)
+	if err != nil {
+		h.logger.Error("Failed to get user", "error", err)
+		h.writeError(w, "Failed to get user", http.StatusInternalServerError)
+		return
+	}
+	storageLimit := h.storageLimitForUser(user)
+
 	// Check current storage usage
 	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
 	if err != nil {
@@ -127,8 +143,8 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if totalStorage+header.Size > MaxStorageBytes {
-		remaining := MaxStorageBytes - totalStorage
+	if totalStorage+header.Size > storageLimit {
+		remaining := storageLimit - totalStorage
 		h.writeError(w, fmt.Sprintf("Storage limit exceeded. You have %d bytes remaining", remaining), http.StatusForbidden)
 		return
 	}
@@ -204,6 +220,13 @@ func (h *FileHandlers) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := h.queries.GetUserByID(context.Background(), userID)
+	if err != nil {
+		h.logger.Error("Failed to get user", "error", err)
+		h.writeError(w, "Failed to get files", http.StatusInternalServerError)
+		return
+	}
+
 	files, err := h.queries.GetFilesByUserID(context.Background(), userID)
 	if err != nil {
 		h.logger.Error("Failed to get files", "error", err)
@@ -238,10 +261,15 @@ func (h *FileHandlers) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	storageLimit := h.storageLimitForUser(user)
+
 	h.writeJSON(w, FilesListResponse{
-		Files:        fileList,
-		TotalStorage: totalStorage,
-		StorageLimit: MaxStorageBytes,
+		Files:           fileList,
+		TotalStorage:    totalStorage,
+		StorageLimit:    storageLimit,
+		IsSubscriber:    user.Subscriber == 1,
+		FreeLimit:       h.freeStorageLimit,
+		SubscriberLimit: h.subscriberStorage,
 	}, http.StatusOK)
 }
 
@@ -470,4 +498,23 @@ func (h *FileHandlers) writeError(w http.ResponseWriter, message string, status 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
+}
+
+func parseStorageEnv(key string, defaultVal int64) int64 {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.ParseInt(val, 10, 64)
+	if err != nil || parsed <= 0 {
+		return defaultVal
+	}
+	return parsed
+}
+
+func (h *FileHandlers) storageLimitForUser(user db.User) int64 {
+	if user.Subscriber == 1 {
+		return h.subscriberStorage
+	}
+	return h.freeStorageLimit
 }

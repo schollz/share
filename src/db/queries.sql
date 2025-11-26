@@ -1,17 +1,26 @@
 -- name: CreateUser :one
-INSERT INTO users (email, password_hash, encryption_salt)
-VALUES (?, ?, ?)
-RETURNING *;
+INSERT INTO users (email, password_hash, encryption_salt, subscriber)
+VALUES (?, ?, ?, ?)
+RETURNING id, email, password_hash, encryption_salt, created_at, updated_at, subscriber;
 
 -- name: GetUserByEmail :one
-SELECT * FROM users
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber FROM users
 WHERE email = ?
 LIMIT 1;
 
 -- name: GetUserByID :one
-SELECT * FROM users
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber FROM users
 WHERE id = ?
 LIMIT 1;
+
+-- name: UpdateUserPassword :exec
+UPDATE users
+SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?;
+
+-- name: DeleteUserByID :exec
+DELETE FROM users
+WHERE id = ?;
 
 -- name: CreateFile :one
 INSERT INTO files (user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count)

@@ -2,8 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/schollz/e2ecp/src/auth"
 )
@@ -39,6 +42,7 @@ type User struct {
 	ID             int64  `json:"id"`
 	Email          string `json:"email"`
 	EncryptionSalt string `json:"encryption_salt"`
+	Subscriber     bool   `json:"subscriber"`
 }
 
 type ErrorResponse struct {
@@ -85,6 +89,7 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 			ID:             user.ID,
 			Email:          user.Email,
 			EncryptionSalt: user.EncryptionSalt,
+			Subscriber:     user.Subscriber == 1,
 		},
 	}, http.StatusCreated)
 }
@@ -124,8 +129,97 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 			ID:             user.ID,
 			Email:          user.Email,
 			EncryptionSalt: user.EncryptionSalt,
+			Subscriber:     user.Subscriber == 1,
 		},
 	}, http.StatusOK)
+}
+
+// ChangePassword handles password updates for authenticated users
+func (h *AuthHandlers) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := GetUserID(r)
+	if userID == 0 {
+		h.writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var body struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if body.CurrentPassword == "" || body.NewPassword == "" {
+		h.writeError(w, "Current password and new password are required", http.StatusBadRequest)
+		return
+	}
+	if len(body.NewPassword) < 6 {
+		h.writeError(w, "Password must be at least 6 characters", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.authService.ChangePassword(userID, body.CurrentPassword, body.NewPassword); err != nil {
+		if err == auth.ErrInvalidCredentials {
+			h.writeError(w, "Current password is incorrect", http.StatusUnauthorized)
+			return
+		}
+		h.logger.Error("Change password failed", "error", err)
+		h.writeError(w, "Failed to change password", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DeleteAccount deletes a user and all associated data (requires password)
+func (h *AuthHandlers) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := GetUserID(r)
+	if userID == 0 {
+		h.writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var body struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if body.Password == "" {
+		h.writeError(w, "Password is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.authService.DeleteAccount(userID, body.Password); err != nil {
+		if err == auth.ErrInvalidCredentials {
+			h.writeError(w, "Password is incorrect", http.StatusUnauthorized)
+			return
+		}
+		h.logger.Error("Delete account failed", "error", err)
+		h.writeError(w, "Failed to delete account", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete user upload directory (best-effort; after DB delete)
+	userDir := filepath.Join(UploadDir, fmt.Sprintf("user_%d", userID))
+	if err := os.RemoveAll(userDir); err != nil {
+		h.logger.Warn("Failed to remove user directory", "error", err, "dir", userDir)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Verify handles JWT token verification
@@ -136,11 +230,22 @@ func (h *AuthHandlers) Verify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := GetUserID(r)
-	email := GetUserEmail(r)
+	if userID == 0 {
+		h.writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.authService.GetUserByID(userID)
+	if err != nil {
+		h.logger.Error("Failed to fetch user", "error", err)
+		h.writeError(w, "Failed to verify user", http.StatusInternalServerError)
+		return
+	}
 
 	h.writeJSON(w, User{
-		ID:    userID,
-		Email: email,
+		ID:         user.ID,
+		Email:      user.Email,
+		Subscriber: user.Subscriber == 1,
 	}, http.StatusOK)
 }
 

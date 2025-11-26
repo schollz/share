@@ -300,13 +300,13 @@ export default function Profile() {
 
     const storagePercentage = (totalStorage / storageLimit) * 100;
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex items-center justify-center">
-                <div className="text-2xl font-bold">Loading...</div>
-            </div>
-        );
-    }
+        if (loading) {
+            return (
+                <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex items-center justify-center">
+                    <div className="text-2xl font-bold">Loading...</div>
+                </div>
+            );
+        }
 
     return (
         <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white p-4 sm:p-8">
@@ -327,6 +327,12 @@ export default function Profile() {
                             Home
                         </button>
                         <button
+                            onClick={() => navigate("/settings")}
+                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                        >
+                            Settings
+                        </button>
+                        <button
                             onClick={() => {
                                 logout();
                                 navigate("/");
@@ -345,7 +351,8 @@ export default function Profile() {
                             <span>Storage Used</span>
                             <span>
                                 {formatBytes(totalStorage)} /{" "}
-                                {formatBytes(storageLimit)}
+                                {formatBytes(storageLimit)} (
+                                {storagePercentage.toFixed(1)}%)
                             </span>
                         </div>
                         <div className="w-full h-4 border-2 border-black dark:border-white bg-white dark:bg-black">

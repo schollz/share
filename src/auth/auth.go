@@ -121,6 +121,7 @@ func (s *Service) Register(email, password string) (*db.User, string, error) {
 		Email:          email,
 		PasswordHash:   hashedPassword,
 		EncryptionSalt: encryptionSalt,
+		Subscriber:     0,
 	})
 	if err != nil {
 		var sqliteErr interface{ Code() int }
@@ -182,4 +183,61 @@ func (s *Service) GetUserByID(userID int64) (*db.User, error) {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 	return &user, nil
+}
+
+// ChangePassword updates the user's password after verifying the current password
+func (s *Service) ChangePassword(userID int64, currentPassword, newPassword string) error {
+	user, err := s.queries.GetUserByID(context.Background(), userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("user not found")
+		}
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Verify current password
+	if err := VerifyPassword(user.PasswordHash, currentPassword); err != nil {
+		return ErrInvalidCredentials
+	}
+
+	// Hash new password
+	hashed, err := HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update in DB
+	if err := s.queries.UpdateUserPassword(context.Background(), db.UpdateUserPasswordParams{
+		PasswordHash: hashed,
+		ID:           userID,
+	}); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	s.logger.Info("Password changed", "user_id", userID)
+	return nil
+}
+
+// DeleteAccount removes a user and their data after verifying password
+func (s *Service) DeleteAccount(userID int64, currentPassword string) error {
+	user, err := s.queries.GetUserByID(context.Background(), userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("user not found")
+		}
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Verify current password
+	if err := VerifyPassword(user.PasswordHash, currentPassword); err != nil {
+		return ErrInvalidCredentials
+	}
+
+	// Delete user (cascades to files)
+	if err := s.queries.DeleteUserByID(context.Background(), userID); err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+
+	s.logger.Info("User deleted", "user_id", userID, "email", user.Email)
+	return nil
 }

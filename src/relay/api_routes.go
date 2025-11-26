@@ -32,6 +32,8 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger) {
 
 	// Auth verify route (authentication required)
 	mux.Handle("/api/auth/verify", authMiddleware(http.HandlerFunc(authHandlers.Verify)))
+	mux.Handle("/api/auth/change-password", authMiddleware(http.HandlerFunc(authHandlers.ChangePassword)))
+	mux.Handle("/api/auth/delete-account", authMiddleware(http.HandlerFunc(authHandlers.DeleteAccount)))
 
 	// File routes (authentication required)
 	mux.Handle("/api/files/upload", authMiddleware(http.HandlerFunc(fileHandlers.Upload)))

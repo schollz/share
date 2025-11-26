@@ -51,19 +51,25 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, e
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, password_hash, encryption_salt)
-VALUES (?, ?, ?)
-RETURNING id, email, password_hash, encryption_salt, created_at, updated_at
+INSERT INTO users (email, password_hash, encryption_salt, subscriber)
+VALUES (?, ?, ?, ?)
+RETURNING id, email, password_hash, encryption_salt, created_at, updated_at, subscriber
 `
 
 type CreateUserParams struct {
 	Email          string `json:"email"`
 	PasswordHash   string `json:"password_hash"`
 	EncryptionSalt string `json:"encryption_salt"`
+	Subscriber     int64  `json:"subscriber"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.PasswordHash, arg.EncryptionSalt)
+	row := q.db.QueryRowContext(ctx, createUser,
+		arg.Email,
+		arg.PasswordHash,
+		arg.EncryptionSalt,
+		arg.Subscriber,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -72,6 +78,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.EncryptionSalt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subscriber,
 	)
 	return i, err
 }
@@ -98,6 +105,16 @@ WHERE id = ?
 
 func (q *Queries) DeleteFileByID(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteFileByID, id)
+	return err
+}
+
+const deleteUserByID = `-- name: DeleteUserByID :exec
+DELETE FROM users
+WHERE id = ?
+`
+
+func (q *Queries) DeleteUserByID(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteUserByID, id)
 	return err
 }
 
@@ -208,7 +225,7 @@ func (q *Queries) GetTotalStorageByUserID(ctx context.Context, userID int64) (in
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, encryption_salt, created_at, updated_at FROM users
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber FROM users
 WHERE email = ?
 LIMIT 1
 `
@@ -223,12 +240,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.EncryptionSalt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subscriber,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, encryption_salt, created_at, updated_at FROM users
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber FROM users
 WHERE id = ?
 LIMIT 1
 `
@@ -243,6 +261,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.EncryptionSalt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Subscriber,
 	)
 	return i, err
 }
@@ -301,4 +320,20 @@ func (q *Queries) UpdateFileShareToken(ctx context.Context, arg UpdateFileShareT
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users
+SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`
+
+type UpdateUserPasswordParams struct {
+	PasswordHash string `json:"password_hash"`
+	ID           int64  `json:"id"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
+	return err
 }
