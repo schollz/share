@@ -64,6 +64,11 @@ type FilesListResponse struct {
 	SubscriberLimit int64      `json:"subscriber_limit"`
 }
 
+type ConfigResponse struct {
+	StorageProfileEnabled bool  `json:"storage_profile_enabled"`
+	FreeStorageLimit      int64 `json:"free_storage_limit"`
+}
+
 type ShareLinkResponse struct {
 	ShareToken string `json:"share_token"`
 	ShareURL   string `json:"share_url"`
@@ -554,6 +559,14 @@ func (h *FileHandlers) writeError(w http.ResponseWriter, message string, status 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
+}
+
+// WriteConfig responds with public configuration values
+func (h *FileHandlers) WriteConfig(w http.ResponseWriter) {
+	h.writeJSON(w, ConfigResponse{
+		StorageProfileEnabled: true,
+		FreeStorageLimit:      h.freeStorageLimit,
+	}, http.StatusOK)
 }
 
 func parseStorageEnv(key string, defaultVal int64) int64 {

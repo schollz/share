@@ -16,8 +16,16 @@ export default function Login() {
     const [captchaLoading, setCaptchaLoading] = useState(false);
     const { login, register, isAuthenticated, loading: authLoading } =
         useAuth();
-    const { storageEnabled, loading: configLoading } = useConfig();
+    const { storageEnabled, loading: configLoading, freeLimitBytes } = useConfig();
     const navigate = useNavigate();
+    const humanizeBytes = (bytes) => {
+        if (!bytes || bytes <= 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB", "TB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        const value = bytes / Math.pow(1024, i);
+        const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
+        return `${rounded} ${units[i]}`;
+    };
 
     // If already signed in, bounce to profile
     React.useEffect(() => {
@@ -101,7 +109,7 @@ export default function Login() {
                         {isLogin ? "Sign In" : "Sign Up"}
                     </h1>
                     <p className="text-lg">
-                        Secure file storage with 2GB free space
+                        Secure file storage with {humanizeBytes(freeLimitBytes || 2 * 1024 * 1024 * 1024)} free space
                     </p>
                 </div>
 

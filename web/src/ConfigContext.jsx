@@ -13,6 +13,7 @@ export const useConfig = () => {
 export const ConfigProvider = ({ children }) => {
     const [storageEnabled, setStorageEnabled] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [freeLimitBytes, setFreeLimitBytes] = useState(null);
 
     useEffect(() => {
         const loadConfig = async () => {
@@ -21,6 +22,9 @@ export const ConfigProvider = ({ children }) => {
                 if (!res.ok) throw new Error("Failed to load config");
                 const data = await res.json();
                 setStorageEnabled(Boolean(data.storage_profile_enabled));
+                if (typeof data.free_storage_limit === "number") {
+                    setFreeLimitBytes(data.free_storage_limit);
+                }
             } catch (error) {
                 setStorageEnabled(false);
             } finally {
@@ -31,7 +35,7 @@ export const ConfigProvider = ({ children }) => {
     }, []);
 
     return (
-        <ConfigContext.Provider value={{ storageEnabled, loading }}>
+        <ConfigContext.Provider value={{ storageEnabled, loading, freeLimitBytes }}>
             {children}
         </ConfigContext.Provider>
     );

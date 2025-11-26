@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -497,6 +499,7 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	maxRooms = maxRoomsLimit
 	maxRoomsPerIP = maxRoomsPerIPLimit
 	profileAllowed := allowStorageProfile(log)
+	freeLimit := parseStorageEnv("FREE_STORAGE_BYTES", 1*1024*1024*1024)
 
 	// Initialize database if path is provided
 	if dbPath != "" {
@@ -517,7 +520,7 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		enabled := profileAllowed && GetDatabase() != nil && GetDatabase().db != nil
-		fmt.Fprintf(w, `{"storage_profile_enabled": %t}`, enabled)
+		fmt.Fprintf(w, `{"storage_profile_enabled": %t, "free_storage_limit": %d}`, enabled, freeLimit)
 	})
 
 	// Initialize auth and file management API if database is available
@@ -554,6 +557,18 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		logger.Error("Server failed", "error", err)
 	}
+}
+
+func parseStorageEnv(key string, defaultVal int64) int64 {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.ParseInt(val, 10, 64)
+	if err != nil || parsed <= 0 {
+		return defaultVal
+	}
+	return parsed
 }
 
 // StartLocal starts a minimal local relay server on a random available port
