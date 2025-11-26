@@ -32,7 +32,7 @@ export async function deriveKey(password, saltHex) {
         },
         keyMaterial,
         { name: "AES-GCM", length: KEY_LENGTH },
-        false,
+        true, // mark extractable so we can persist it in sessionStorage
         ["encrypt", "decrypt"]
     );
 
