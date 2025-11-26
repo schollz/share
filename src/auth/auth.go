@@ -387,6 +387,43 @@ func (s *Service) sendVerificationEmail(email, token string) error {
 	appBase = strings.TrimRight(appBase, "/")
 	verifyLink := fmt.Sprintf("%s/verify-email?token=%s", appBase, token)
 
+	htmlPart := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify your email</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Inter',Arial,sans-serif;color:#0b0b0b;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%%" style="padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="640" style="background:#ffffff;border:4px solid #0b0b0b;box-shadow:12px 12px 0 #0b0b0b;padding:32px;">
+          <tr>
+            <td style="text-align:center;">
+              <div style="font-size:28px;font-weight:900;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;color:#0b0b0b;">E2ECP</div>
+              <div style="font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#16a34a;margin-bottom:24px;">
+                Secure end-to-end encrypted file transfer
+              </div>
+              <div style="font-size:16px;font-weight:600;line-height:24px;margin-bottom:28px;color:#111827;">
+                Verify your email to finish setting up your encrypted storage.
+              </div>
+              <a href="%s" style="display:inline-block;background:#000;color:#fff;border:3px solid #000;padding:14px 24px;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-decoration:none;box-shadow:6px 6px 0 #0b0b0b;">
+                Verify Email
+              </a>
+              <div style="margin-top:24px;font-size:12px;color:#374151;line-height:18px;">
+                Or copy and paste this link:<br />
+                <span style="word-break:break-all;color:#111827;">%s</span>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`, verifyLink, verifyLink)
+
 	payload := map[string]interface{}{
 		"Messages": []map[string]interface{}{
 			{
@@ -400,8 +437,8 @@ func (s *Service) sendVerificationEmail(email, token string) error {
 					},
 				},
 				"Subject":  "Verify your email",
-				"TextPart": fmt.Sprintf("Verify your email: %s", verifyLink),
-				"HTMLPart": fmt.Sprintf("<p>Click to verify your email:</p><p><a href=\"%s\">Verify Email</a></p>", verifyLink),
+				"TextPart": fmt.Sprintf("Verify your email to finish setting up E2ECP: %s", verifyLink),
+				"HTMLPart": htmlPart,
 			},
 		},
 	}
