@@ -177,3 +177,44 @@ function bytesToBase64(bytes) {
     }
     return btoa(binary);
 }
+
+/**
+ * Encrypt a string (like filename) with the user's master key
+ * Returns base64-encoded encrypted string with IV
+ */
+export async function encryptString(plaintext, masterKey) {
+    const encoder = new TextEncoder();
+    const plaintextBytes = encoder.encode(plaintext);
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+    const encryptedData = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        masterKey,
+        plaintextBytes
+    );
+
+    // Prepend IV to encrypted data
+    const result = new Uint8Array(iv.length + encryptedData.byteLength);
+    result.set(iv, 0);
+    result.set(new Uint8Array(encryptedData), iv.length);
+
+    return bytesToBase64(result);
+}
+
+/**
+ * Decrypt a string (like filename) with the user's master key
+ */
+export async function decryptString(encryptedBase64, masterKey) {
+    const encryptedBytes = base64ToBytes(encryptedBase64);
+    const iv = encryptedBytes.slice(0, 12);
+    const encryptedData = encryptedBytes.slice(12);
+
+    const decryptedData = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv },
+        masterKey,
+        encryptedData
+    );
+
+    const decoder = new TextDecoder();
+    return decoder.decode(decryptedData);
+}

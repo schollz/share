@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
-    filename TEXT NOT NULL,
+    encrypted_filename TEXT NOT NULL,
     file_path TEXT NOT NULL,
     file_size INTEGER NOT NULL,
     encrypted_key TEXT NOT NULL,

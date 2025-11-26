@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/schollz/e2ecp/src/db"
 )
 
@@ -41,12 +42,12 @@ func NewFileHandlers(database *sql.DB, logger *slog.Logger) *FileHandlers {
 }
 
 type FileInfo struct {
-	ID           int64  `json:"id"`
-	Filename     string `json:"filename"`
-	FileSize     int64  `json:"file_size"`
-	EncryptedKey string `json:"encrypted_key"`
-	ShareToken   string `json:"share_token,omitempty"`
-	CreatedAt    string `json:"created_at"`
+	ID                int64  `json:"id"`
+	EncryptedFilename string `json:"encrypted_filename"`
+	FileSize          int64  `json:"file_size"`
+	EncryptedKey      string `json:"encrypted_key"`
+	ShareToken        string `json:"share_token,omitempty"`
+	CreatedAt         string `json:"created_at"`
 }
 
 type FilesListResponse struct {
@@ -103,6 +104,13 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get encrypted filename from form
+	encryptedFilename := r.FormValue("encrypted_filename")
+	if encryptedFilename == "" {
+		h.writeError(w, "Encrypted filename is required", http.StatusBadRequest)
+		return
+	}
+
 	// Check current storage usage
 	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
 	if err != nil {
@@ -132,10 +140,9 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate unique filename
-	timestamp := strconv.FormatInt(header.Size, 10)
-	safeFilename := filepath.Base(header.Filename)
-	filePath := filepath.Join(userDir, fmt.Sprintf("%s_%s", timestamp, safeFilename))
+	// Generate random UUID for file storage (server never knows the real filename)
+	fileUUID := uuid.New().String()
+	filePath := filepath.Join(userDir, fileUUID)
 
 	// Save file to disk
 	dst, err := os.Create(filePath)
@@ -155,11 +162,11 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 
 	// Save file metadata to database
 	fileRecord, err := h.queries.CreateFile(context.Background(), db.CreateFileParams{
-		UserID:       userID,
-		Filename:     header.Filename,
-		FilePath:     filePath,
-		FileSize:     header.Size,
-		EncryptedKey: encryptedKey,
+		UserID:            userID,
+		EncryptedFilename: encryptedFilename,
+		FilePath:          filePath,
+		FileSize:          header.Size,
+		EncryptedKey:      encryptedKey,
 		ShareToken: sql.NullString{
 			String: "",
 			Valid:  false,
@@ -172,13 +179,13 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info("File uploaded", "user_id", userID, "filename", header.Filename, "size", header.Size)
+	h.logger.Info("File uploaded", "user_id", userID, "size", header.Size)
 	h.writeJSON(w, FileInfo{
-		ID:           fileRecord.ID,
-		Filename:     fileRecord.Filename,
-		FileSize:     fileRecord.FileSize,
-		EncryptedKey: fileRecord.EncryptedKey,
-		CreatedAt:    fileRecord.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:                fileRecord.ID,
+		EncryptedFilename: fileRecord.EncryptedFilename,
+		FileSize:          fileRecord.FileSize,
+		EncryptedKey:      fileRecord.EncryptedKey,
+		CreatedAt:         fileRecord.CreatedAt.Format("2006-01-02 15:04:05"),
 	}, http.StatusCreated)
 }
 
@@ -219,12 +226,12 @@ func (h *FileHandlers) List(w http.ResponseWriter, r *http.Request) {
 	fileList := make([]FileInfo, len(files))
 	for i, f := range files {
 		fileList[i] = FileInfo{
-			ID:           f.ID,
-			Filename:     f.Filename,
-			FileSize:     f.FileSize,
-			EncryptedKey: f.EncryptedKey,
-			ShareToken:   f.ShareToken.String,
-			CreatedAt:    f.CreatedAt.Format("2006-01-02 15:04:05"),
+			ID:                f.ID,
+			EncryptedFilename: f.EncryptedFilename,
+			FileSize:          f.FileSize,
+			EncryptedKey:      f.EncryptedKey,
+			ShareToken:        f.ShareToken.String,
+			CreatedAt:         f.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 	}
 
@@ -269,7 +276,7 @@ func (h *FileHandlers) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveFile(w, r, file.FilePath, file.Filename)
+	h.serveFile(w, r, file.FilePath)
 }
 
 // DownloadByToken handles file download by share token (no authentication required)
@@ -295,7 +302,7 @@ func (h *FileHandlers) DownloadByToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveFile(w, r, file.FilePath, file.Filename)
+	h.serveFile(w, r, file.FilePath)
 }
 
 // GenerateShareLink generates a shareable link for a file
@@ -414,11 +421,11 @@ func (h *FileHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 		h.logger.Warn("Failed to delete file from disk", "error", err, "path", file.FilePath)
 	}
 
-	h.logger.Info("File deleted", "user_id", userID, "file_id", fileID, "filename", file.Filename)
+	h.logger.Info("File deleted", "user_id", userID, "file_id", fileID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *FileHandlers) serveFile(w http.ResponseWriter, r *http.Request, filePath, filename string) {
+func (h *FileHandlers) serveFile(w http.ResponseWriter, r *http.Request, filePath string) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		h.logger.Error("Failed to open file", "error", err)
@@ -434,11 +441,12 @@ func (h *FileHandlers) serveFile(w http.ResponseWriter, r *http.Request, filePat
 		return
 	}
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	// Don't expose filename - client already has the encrypted filename
+	w.Header().Set("Content-Disposition", "attachment")
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
 
-	http.ServeContent(w, r, filename, stat.ModTime(), file)
+	http.ServeContent(w, r, "", stat.ModTime(), file)
 }
 
 func (h *FileHandlers) writeJSON(w http.ResponseWriter, data interface{}, status int) {

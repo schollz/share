@@ -14,7 +14,7 @@ WHERE id = ?
 LIMIT 1;
 
 -- name: CreateFile :one
-INSERT INTO files (user_id, filename, file_path, file_size, encrypted_key, share_token)
+INSERT INTO files (user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token)
 VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 

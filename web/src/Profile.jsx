@@ -7,6 +7,8 @@ import {
     decryptFileKey,
     encryptFile,
     decryptFile,
+    encryptString,
+    decryptString,
 } from "./encryption";
 import toast from "react-hot-toast";
 
@@ -40,7 +42,24 @@ export default function Profile() {
             }
 
             const data = await response.json();
-            setFiles(data.files || []);
+
+            // Decrypt filenames for display
+            const filesWithDecryptedNames = await Promise.all(
+                (data.files || []).map(async (file) => {
+                    try {
+                        const decryptedFilename = await decryptString(
+                            file.encrypted_filename,
+                            encryptionKey
+                        );
+                        return { ...file, filename: decryptedFilename };
+                    } catch (error) {
+                        console.error("Failed to decrypt filename:", error);
+                        return { ...file, filename: "[Encrypted]" };
+                    }
+                })
+            );
+
+            setFiles(filesWithDecryptedNames);
             setTotalStorage(data.total_storage);
             setStorageLimit(data.storage_limit);
         } catch (error) {
@@ -85,13 +104,18 @@ export default function Profile() {
                 fileKey,
                 encryptionKey,
             );
+
+            // Encrypt the filename with the user's master key
+            const encryptedFilename = await encryptString(file.name, encryptionKey);
             toast.success("File encrypted", { id: "encrypt" });
 
             const formData = new FormData();
-            // Send encrypted blob with original filename
-            formData.append("file", encryptedBlob, file.name);
+            // Send encrypted blob (server never sees the real filename)
+            formData.append("file", encryptedBlob);
             // Send the encrypted file key
             formData.append("encrypted_key", encryptedFileKey);
+            // Send the encrypted filename
+            formData.append("encrypted_filename", encryptedFilename);
 
             toast.loading("Uploading encrypted file...", { id: "upload" });
             const response = await fetch("/api/files/upload", {
@@ -143,7 +167,7 @@ export default function Profile() {
         }
     };
 
-    const handleGenerateShareLink = async (fileId) => {
+    const handleGenerateShareLink = async (fileId, encryptedFilename) => {
         console.log("Share button clicked, fileId:", fileId);
 
         if (!encryptionKey) {
@@ -187,6 +211,10 @@ export default function Profile() {
             );
             console.log("File key decrypted successfully");
 
+            // Decrypt the filename with master key, then re-encrypt with file key for sharing
+            const decryptedFilename = await decryptString(encryptedFilename, encryptionKey);
+            const filenameForShare = await encryptString(decryptedFilename, fileKey);
+
             // Export the file key as raw bytes for sharing
             const exportedKey = await window.crypto.subtle.exportKey(
                 "raw",
@@ -198,10 +226,11 @@ export default function Profile() {
                 keyHex += keyArray[i].toString(16).padStart(2, "0");
             }
 
-            // Create share URL with the decryption key
+            // Create share URL with the decryption key and filename encrypted with file key
             // Extract token from API URL: /api/files/share/token -> /share/token
             const shareToken = data.share_url.split("/").pop();
-            const shareURL = `${window.location.origin}/share/${shareToken}#${keyHex}`;
+            // Format: #fileKey|filenameEncryptedWithFileKey
+            const shareURL = `${window.location.origin}/share/${shareToken}#${keyHex}|${encodeURIComponent(filenameForShare)}`;
 
             // Copy to clipboard
             await navigator.clipboard.writeText(shareURL);
@@ -396,6 +425,7 @@ export default function Profile() {
                                                 onClick={() =>
                                                     handleGenerateShareLink(
                                                         file.id,
+                                                        file.encrypted_filename,
                                                     )
                                                 }
                                                 className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-1 font-bold text-sm uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"

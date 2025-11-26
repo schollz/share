@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { decryptFile } from "./encryption";
+import { decryptFile, decryptString, deriveKey } from "./encryption";
 import toast from "react-hot-toast";
 
 export default function SharedFile() {
@@ -11,8 +11,17 @@ export default function SharedFile() {
     const [downloading, setDownloading] = useState(false);
 
     useEffect(() => {
-        // Get the decryption key from URL fragment
-        const keyHex = window.location.hash.slice(1);
+        // Get the decryption key and encrypted filename from URL fragment
+        // Format: #fileKey|encryptedFilename
+        const hashContent = window.location.hash.slice(1);
+
+        if (!hashContent) {
+            toast.error("Invalid share link - missing decryption key");
+            setLoading(false);
+            return;
+        }
+
+        const [keyHex, encryptedFilename] = hashContent.split("|");
 
         if (!keyHex) {
             toast.error("Invalid share link - missing decryption key");
@@ -20,8 +29,10 @@ export default function SharedFile() {
             return;
         }
 
-        // Fetch file info (we'll get filename from Content-Disposition header)
-        setFileInfo({ keyHex });
+        setFileInfo({
+            keyHex,
+            encryptedFilename: encryptedFilename ? decodeURIComponent(encryptedFilename) : null
+        });
         setLoading(false);
     }, [token]);
 
@@ -42,16 +53,6 @@ export default function SharedFile() {
                 throw new Error("Failed to download file");
             }
 
-            // Extract filename from Content-Disposition header
-            const disposition = response.headers.get("Content-Disposition");
-            let filename = "download";
-            if (disposition) {
-                const filenameMatch = disposition.match(/filename="(.+)"/);
-                if (filenameMatch) {
-                    filename = filenameMatch[1];
-                }
-            }
-
             const encryptedBlob = await response.blob();
 
             // Convert hex key to CryptoKey
@@ -66,6 +67,17 @@ export default function SharedFile() {
                 false,
                 ["decrypt"]
             );
+
+            // Decrypt the filename if available
+            let filename = "download";
+            if (fileInfo.encryptedFilename) {
+                try {
+                    filename = await decryptString(fileInfo.encryptedFilename, fileKey);
+                } catch (error) {
+                    console.error("Failed to decrypt filename:", error);
+                    // Fall back to default name
+                }
+            }
 
             // Decrypt the file
             const decryptedBlob = await decryptFile(encryptedBlob, fileKey);
