@@ -14,8 +14,8 @@ WHERE id = ?
 LIMIT 1;
 
 -- name: CreateFile :one
-INSERT INTO files (user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO files (user_id, encrypted_filename, file_path, file_size, encrypted_key, share_token, download_count)
+VALUES (?, ?, ?, ?, ?, ?, 0)
 RETURNING *;
 
 -- name: GetFilesByUserID :many
@@ -32,6 +32,12 @@ LIMIT 1;
 SELECT * FROM files
 WHERE share_token = ?
 LIMIT 1;
+
+-- name: IncrementDownloadCountByToken :one
+UPDATE files
+SET download_count = download_count + 1, updated_at = CURRENT_TIMESTAMP
+WHERE share_token = ?
+RETURNING *;
 
 -- name: GetTotalStorageByUserID :one
 SELECT COALESCE(SUM(file_size), 0) as total_storage

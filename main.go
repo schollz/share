@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/schollz/e2ecp/src/client"
 	"github.com/schollz/e2ecp/src/relay"
 
@@ -80,7 +81,7 @@ var sendCmd = &cobra.Command{
 			server = getWebSocketURL(domain)
 		}
 		logger := createLogger(logLevel)
-		
+
 		// Check if input is a file or folder
 		_, err := os.Stat(input)
 		if err != nil {
@@ -193,6 +194,9 @@ func init() {
 }
 
 func main() {
+	// Load environment variables from .env if present
+	_ = godotenv.Load(".env")
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

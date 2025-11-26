@@ -8,12 +8,22 @@ export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
-    const { login, register } = useAuth();
+    const [errorMessage, setErrorMessage] = useState("");
+    const { login, register, isAuthenticated, loading: authLoading } =
+        useAuth();
     const navigate = useNavigate();
+
+    // If already signed in, bounce to profile
+    React.useEffect(() => {
+        if (!authLoading && isAuthenticated) {
+            navigate("/profile", { replace: true });
+        }
+    }, [authLoading, isAuthenticated, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setErrorMessage("");
 
         try {
             if (isLogin) {
@@ -25,7 +35,14 @@ export default function Login() {
             }
             navigate("/profile");
         } catch (error) {
-            toast.error(error.message);
+            const message = error.message || "Something went wrong";
+            toast.error(message);
+            setErrorMessage(message);
+
+            // If the email already exists, switch to sign in to guide the user
+            if (message.toLowerCase().includes("exists")) {
+                setIsLogin(true);
+            }
         } finally {
             setLoading(false);
         }
@@ -47,6 +64,21 @@ export default function Login() {
                     onSubmit={handleSubmit}
                     className="border-4 border-black dark:border-white p-6 sm:p-8 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]"
                 >
+                    {errorMessage && (
+                        <div className="mb-4 border-2 border-red-500 text-red-700 dark:text-red-300 px-4 py-3 bg-red-50 dark:bg-red-900/30">
+                            <p className="font-semibold">{errorMessage}</p>
+                            {!isLogin && (
+                                <button
+                                    type="button"
+                                    className="mt-2 underline font-bold"
+                                    onClick={() => setIsLogin(true)}
+                                >
+                                    Email exists — try signing in
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     <div className="mb-6">
                         <label
                             htmlFor="email"

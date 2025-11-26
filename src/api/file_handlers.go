@@ -47,6 +47,7 @@ type FileInfo struct {
 	FileSize          int64  `json:"file_size"`
 	EncryptedKey      string `json:"encrypted_key"`
 	ShareToken        string `json:"share_token,omitempty"`
+	DownloadCount     int64  `json:"download_count"`
 	CreatedAt         string `json:"created_at"`
 }
 
@@ -185,6 +186,7 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		EncryptedFilename: fileRecord.EncryptedFilename,
 		FileSize:          fileRecord.FileSize,
 		EncryptedKey:      fileRecord.EncryptedKey,
+		DownloadCount:     fileRecord.DownloadCount,
 		CreatedAt:         fileRecord.CreatedAt.Format("2006-01-02 15:04:05"),
 	}, http.StatusCreated)
 }
@@ -231,6 +233,7 @@ func (h *FileHandlers) List(w http.ResponseWriter, r *http.Request) {
 			FileSize:          f.FileSize,
 			EncryptedKey:      f.EncryptedKey,
 			ShareToken:        f.ShareToken.String,
+			DownloadCount:     f.DownloadCount,
 			CreatedAt:         f.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 	}
@@ -300,6 +303,14 @@ func (h *FileHandlers) DownloadByToken(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("Failed to get file by token", "error", err)
 		h.writeError(w, "Failed to get file", http.StatusInternalServerError)
 		return
+	}
+
+	// Increment download counter for share links
+	if _, err := h.queries.IncrementDownloadCountByToken(context.Background(), sql.NullString{
+		String: token,
+		Valid:  true,
+	}); err != nil {
+		h.logger.Warn("Failed to increment download count", "error", err, "token", token)
 	}
 
 	h.serveFile(w, r, file.FilePath)

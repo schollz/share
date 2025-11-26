@@ -395,17 +395,29 @@ export default function Profile() {
                                             <h3 className="text-lg font-bold break-all">
                                                 {file.filename}
                                             </h3>
-                                            <p className="text-sm">
-                                                {formatBytes(file.file_size)} •{" "}
-                                                {new Date(
-                                                    file.created_at,
-                                                ).toLocaleDateString()}
+                                            <p className="text-sm flex flex-wrap items-center gap-2">
+                                                <span>
+                                                    {formatBytes(file.file_size)}
+                                                </span>
+                                                <span>•</span>
+                                                <span>
+                                                    {new Date(
+                                                        file.created_at,
+                                                    ).toLocaleDateString()}
+                                                </span>
+                                                {file.share_token && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="text-green-600 dark:text-green-400 font-semibold">
+                                                            Share link generated
+                                                        </span>
+                                                        <span>•</span>
+                                                        <span className="text-blue-600 dark:text-blue-300">
+                                                            {file.download_count || 0} downloads
+                                                        </span>
+                                                    </>
+                                                )}
                                             </p>
-                                            {file.share_token && (
-                                                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                                                    ✓ Share link generated
-                                                </p>
-                                            )}
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             <button

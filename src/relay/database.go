@@ -79,6 +79,7 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 			file_size INTEGER NOT NULL,
 			encrypted_key TEXT NOT NULL,
 			share_token TEXT UNIQUE,
+			download_count INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -94,6 +95,12 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 		if err != nil {
 			err = fmt.Errorf("failed to create tables: %w", err)
 			return
+		}
+
+		// Add download_count column for existing deployments (noop if present)
+		if _, alterErr := database.db.Exec(`ALTER TABLE files ADD COLUMN download_count INTEGER NOT NULL DEFAULT 0`); alterErr != nil {
+			// SQLite will return an error if the column already exists; ignore in that case
+			database.logger.Debug("download_count column check", "result", alterErr)
 		}
 
 		log.Info("Database initialized", "path", dbPath)
