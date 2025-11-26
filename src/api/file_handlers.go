@@ -161,6 +161,7 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
+	h.logger.Info("Ensured user upload directory", "user_id", userID, "dir", userDir)
 
 	// Generate random UUID for file storage (server never knows the real filename)
 	fileUUID := uuid.New().String()
@@ -181,6 +182,7 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
+	h.logger.Info("Wrote encrypted file to disk", "user_id", userID, "path", filePath, "size_bytes", header.Size)
 
 	// Save file metadata to database
 	fileRecord, err := h.queries.CreateFile(context.Background(), db.CreateFileParams{
@@ -201,7 +203,7 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info("File uploaded", "user_id", userID, "size", header.Size)
+	h.logger.Info("File uploaded", "user_id", userID, "size", header.Size, "file_id", fileRecord.ID, "path", filePath)
 	h.writeJSON(w, FileInfo{
 		ID:                fileRecord.ID,
 		EncryptedFilename: fileRecord.EncryptedFilename,
@@ -515,10 +517,13 @@ func (h *FileHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, "Failed to delete file", http.StatusInternalServerError)
 		return
 	}
+	h.logger.Info("Deleted file metadata", "user_id", userID, "file_id", fileID)
 
 	// Delete from filesystem
 	if err := os.Remove(file.FilePath); err != nil {
 		h.logger.Warn("Failed to delete file from disk", "error", err, "path", file.FilePath)
+	} else {
+		h.logger.Info("Deleted file from disk", "user_id", userID, "file_id", fileID, "path", file.FilePath)
 	}
 
 	h.logger.Info("File deleted", "user_id", userID, "file_id", fileID)

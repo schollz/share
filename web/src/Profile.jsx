@@ -13,6 +13,41 @@ import {
 } from "./encryption";
 import toast from "react-hot-toast";
 
+function ConfirmModal({ open, title, message, confirmLabel, cancelLabel, onConfirm, onCancel }) {
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] dark:bg-[rgba(0,0,0,0.8)] flex items-center justify-center z-50 p-4 transition-colors duration-200">
+            <div
+                className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black dark:text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] transition-colors duration-200"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h2 className="text-2xl sm:text-3xl font-black uppercase mb-4 text-center">
+                    {title}
+                </h2>
+                <p className="text-sm sm:text-base font-bold mb-6 text-center">
+                    {message}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="flex-1 border-2 sm:border-4 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-200 dark:hover:bg-white dark:hover:text-black transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                    >
+                        {cancelLabel || "Cancel"}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        className="flex-1 border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                    >
+                        {confirmLabel || "Confirm"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function Profile() {
     const { user, token, encryptionKey, logout } = useAuth();
     const { storageEnabled, loading: configLoading } = useConfig();
@@ -22,6 +57,11 @@ export default function Profile() {
     const [storageLimit, setStorageLimit] = useState(0);
     const [uploading, setUploading] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [confirmState, setConfirmState] = useState({
+        open: false,
+        fileId: null,
+        filename: "",
+    });
 
     useEffect(() => {
         if (!configLoading && !storageEnabled) {
@@ -153,12 +193,6 @@ export default function Profile() {
     };
 
     const handleDelete = async (fileId, filename) => {
-        if (
-            !confirm(`Are you sure you want to delete "${filename}"?`)
-        ) {
-            return;
-        }
-
         try {
             const response = await fetch(`/api/files/${fileId}`, {
                 method: "DELETE",
@@ -357,6 +391,15 @@ export default function Profile() {
 
                 {/* Storage Info */}
                 <div className="border-4 border-black dark:border-white p-6 mb-8 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
+                    <h2 className="text-2xl font-black uppercase mb-3">
+                        How storage works
+                    </h2>
+                    <p className="text-sm sm:text-base leading-relaxed">
+                        Your files and filenames are encrypted in the browser before upload. The server stores only encrypted blobs and cannot decrypt them—only you hold the key derived from your password. Share links include the encryption key so recipients can decrypt, but the server still cannot.
+                    </p>
+                </div>
+
+                <div className="border-4 border-black dark:border-white p-6 mb-8 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
                     <div className="mb-4">
                         <div className="flex justify-between text-lg font-bold mb-2">
                             <span>Storage Used</span>
@@ -465,10 +508,11 @@ export default function Profile() {
                                             </button>
                                             <button
                                                 onClick={() =>
-                                                    handleDelete(
-                                                        file.id,
-                                                        file.filename,
-                                                    )
+                                                    setConfirmState({
+                                                        open: true,
+                                                        fileId: file.id,
+                                                        filename: file.filename,
+                                                    })
                                                 }
                                                 className="border-2 border-black dark:border-white bg-red-600 text-white px-3 py-1 font-bold text-sm uppercase hover:bg-red-700 transition-colors"
                                                 title="Delete"
@@ -483,6 +527,22 @@ export default function Profile() {
                     )}
                 </div>
             </div>
+            <ConfirmModal
+                open={confirmState.open}
+                title="Delete file?"
+                message={`Are you sure you want to delete "${confirmState.filename}"?`}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                onConfirm={() => {
+                    if (confirmState.fileId) {
+                        handleDelete(confirmState.fileId, confirmState.filename);
+                    }
+                    setConfirmState({ open: false, fileId: null, filename: "" });
+                }}
+                onCancel={() =>
+                    setConfirmState({ open: false, fileId: null, filename: "" })
+                }
+            />
         </div>
     );
 }

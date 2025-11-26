@@ -21,6 +21,7 @@ export default function Settings() {
     const [changeMessage, setChangeMessage] = useState(null);
     const [deletePassword, setDeletePassword] = useState("");
     const [deleting, setDeleting] = useState(false);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
     useEffect(() => {
         if (!configLoading && !storageEnabled) {
@@ -180,14 +181,8 @@ export default function Settings() {
         }
     };
 
-    const handleDeleteAccount = async (e) => {
-        e.preventDefault();
-        const confirmed = confirm(
-            "This will delete your account and all uploaded files. This cannot be undone. Continue?",
-        );
-        if (!confirmed) return;
+    const performDeleteAccount = async () => {
         setDeleting(true);
-
         try {
             const res = await fetch("/api/auth/delete-account", {
                 method: "POST",
@@ -210,7 +205,17 @@ export default function Settings() {
             toast.error(err.message || "Failed to delete account");
         } finally {
             setDeleting(false);
+            setConfirmDeleteOpen(false);
         }
+    };
+
+    const handleDeleteAccount = (e) => {
+        e.preventDefault();
+        if (!confirmDeleteOpen) {
+            setConfirmDeleteOpen(true);
+            return;
+        }
+        performDeleteAccount();
     };
 
     return (
@@ -321,6 +326,37 @@ export default function Settings() {
                     </form>
                 </div>
             </div>
+            {confirmDeleteOpen && (
+                <div className="fixed inset-0 bg-[rgba(15,15,15,0.7)] dark:bg-[rgba(0,0,0,0.8)] flex items-center justify-center z-50 p-4 transition-colors duration-200">
+                    <div
+                        className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-6 sm:p-8 max-w-md sm:max-w-lg w-full text-black dark:text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] transition-colors duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 className="text-2xl sm:text-3xl font-black uppercase mb-4 text-center">
+                            Delete account?
+                        </h2>
+                        <p className="text-sm sm:text-base font-bold mb-6 text-center">
+                            This will delete your account and all uploaded files. This cannot be undone. Continue?
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setConfirmDeleteOpen(false)}
+                                className="flex-1 border-2 sm:border-4 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-200 dark:hover:bg-white dark:hover:text-black transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={performDeleteAccount}
+                                className="flex-1 border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-3 sm:py-4 text-base sm:text-lg font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
