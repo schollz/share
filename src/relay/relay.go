@@ -512,6 +512,13 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	mux.HandleFunc("/ws", wsHandler)
 	mux.HandleFunc("/health", healthHandler)
 
+	// Initialize auth and file management API if database is available
+	if db := GetDatabase(); db != nil && db.db != nil {
+		SetupAPIRoutes(mux, db.db, log)
+	} else {
+		logger.Warn("API endpoints disabled (database not initialized)")
+	}
+
 	installScript, err := staticFS.ReadFile("install.sh")
 	if err != nil {
 		logger.Warn("Install script missing", "error", err)
