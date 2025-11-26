@@ -32,11 +32,13 @@ type Log struct {
 }
 
 type User struct {
-	ID             int64     `json:"id"`
-	Email          string    `json:"email"`
-	PasswordHash   string    `json:"password_hash"`
-	EncryptionSalt string    `json:"encryption_salt"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	Subscriber     int64     `json:"subscriber"`
+	ID                int64          `json:"id"`
+	Email             string         `json:"email"`
+	PasswordHash      string         `json:"password_hash"`
+	EncryptionSalt    string         `json:"encryption_salt"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	Subscriber        int64          `json:"subscriber"`
+	Verified          int64          `json:"verified"`
+	VerificationToken sql.NullString `json:"verification_token"`
 }

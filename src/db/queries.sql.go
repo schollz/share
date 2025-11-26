@@ -51,16 +51,18 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, e
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, password_hash, encryption_salt, subscriber)
-VALUES (?, ?, ?, ?)
-RETURNING id, email, password_hash, encryption_salt, created_at, updated_at, subscriber
+INSERT INTO users (email, password_hash, encryption_salt, subscriber, verified, verification_token)
+VALUES (?, ?, ?, ?, ?, ?)
+RETURNING id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token
 `
 
 type CreateUserParams struct {
-	Email          string `json:"email"`
-	PasswordHash   string `json:"password_hash"`
-	EncryptionSalt string `json:"encryption_salt"`
-	Subscriber     int64  `json:"subscriber"`
+	Email             string         `json:"email"`
+	PasswordHash      string         `json:"password_hash"`
+	EncryptionSalt    string         `json:"encryption_salt"`
+	Subscriber        int64          `json:"subscriber"`
+	Verified          int64          `json:"verified"`
+	VerificationToken sql.NullString `json:"verification_token"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -69,6 +71,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.PasswordHash,
 		arg.EncryptionSalt,
 		arg.Subscriber,
+		arg.Verified,
+		arg.VerificationToken,
 	)
 	var i User
 	err := row.Scan(
@@ -79,6 +83,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Subscriber,
+		&i.Verified,
+		&i.VerificationToken,
 	)
 	return i, err
 }
@@ -225,7 +231,7 @@ func (q *Queries) GetTotalStorageByUserID(ctx context.Context, userID int64) (in
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber FROM users
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token FROM users
 WHERE email = ?
 LIMIT 1
 `
@@ -241,12 +247,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Subscriber,
+		&i.Verified,
+		&i.VerificationToken,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber FROM users
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token FROM users
 WHERE id = ?
 LIMIT 1
 `
@@ -262,6 +270,31 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Subscriber,
+		&i.Verified,
+		&i.VerificationToken,
+	)
+	return i, err
+}
+
+const getUserByVerificationToken = `-- name: GetUserByVerificationToken :one
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token FROM users
+WHERE verification_token = ?
+LIMIT 1
+`
+
+func (q *Queries) GetUserByVerificationToken(ctx context.Context, verificationToken sql.NullString) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByVerificationToken, verificationToken)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.EncryptionSalt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Subscriber,
+		&i.Verified,
+		&i.VerificationToken,
 	)
 	return i, err
 }
@@ -336,4 +369,28 @@ type UpdateUserPasswordParams struct {
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
 	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
 	return err
+}
+
+const verifyUserByToken = `-- name: VerifyUserByToken :one
+UPDATE users
+SET verified = 1, verification_token = NULL, updated_at = CURRENT_TIMESTAMP
+WHERE verification_token = ?
+RETURNING id, email, password_hash, encryption_salt, created_at, updated_at, subscriber, verified, verification_token
+`
+
+func (q *Queries) VerifyUserByToken(ctx context.Context, verificationToken sql.NullString) (User, error) {
+	row := q.db.QueryRowContext(ctx, verifyUserByToken, verificationToken)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.EncryptionSalt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Subscriber,
+		&i.Verified,
+		&i.VerificationToken,
+	)
+	return i, err
 }

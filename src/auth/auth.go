@@ -1,13 +1,17 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -21,6 +25,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrUserExists         = errors.New("user already exists")
 	ErrInvalidToken       = errors.New("invalid or expired token")
+	ErrEmailNotVerified   = errors.New("email not verified")
 )
 
 // Service handles authentication operations
@@ -116,12 +121,23 @@ func (s *Service) Register(email, password string) (*db.User, string, error) {
 		return nil, "", fmt.Errorf("failed to generate encryption salt: %w", err)
 	}
 
+	// Generate verification token
+	verificationToken, err := generateSalt()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate verification token: %w", err)
+	}
+
 	// Create the user
 	user, err := s.queries.CreateUser(context.Background(), db.CreateUserParams{
 		Email:          email,
 		PasswordHash:   hashedPassword,
 		EncryptionSalt: encryptionSalt,
 		Subscriber:     0,
+		Verified:       0,
+		VerificationToken: sql.NullString{
+			String: verificationToken,
+			Valid:  true,
+		},
 	})
 	if err != nil {
 		var sqliteErr interface{ Code() int }
@@ -137,14 +153,13 @@ func (s *Service) Register(email, password string) (*db.User, string, error) {
 		return nil, "", fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Generate JWT token
-	token, err := s.GenerateJWT(user.ID, user.Email)
-	if err != nil {
-		return nil, "", err
+	// Send verification email
+	if err := s.sendVerificationEmail(user.Email, verificationToken); err != nil {
+		s.logger.Warn("Failed to send verification email", "error", err, "email", email)
 	}
 
-	s.logger.Info("User registered", "email", email, "user_id", user.ID)
-	return &user, token, nil
+	s.logger.Info("User registered", "email", email, "user_id", user.ID, "needs_verification", true)
+	return &user, "", nil
 }
 
 // Login authenticates a user and returns a JWT token
@@ -161,6 +176,10 @@ func (s *Service) Login(email, password string) (*db.User, string, error) {
 	// Verify password
 	if err := VerifyPassword(user.PasswordHash, password); err != nil {
 		return nil, "", ErrInvalidCredentials
+	}
+
+	if user.Verified == 0 {
+		return nil, "", ErrEmailNotVerified
 	}
 
 	// Generate JWT token
@@ -239,5 +258,96 @@ func (s *Service) DeleteAccount(userID int64, currentPassword string) error {
 	}
 
 	s.logger.Info("User deleted", "user_id", userID, "email", user.Email)
+	return nil
+}
+
+// VerifyEmail verifies a user by verification token and issues a JWT
+func (s *Service) VerifyEmail(token string) (*db.User, string, error) {
+	if token == "" {
+		return nil, "", ErrInvalidToken
+	}
+
+	// Get user by token
+	user, err := s.queries.GetUserByVerificationToken(context.Background(), sql.NullString{
+		String: token,
+		Valid:  true,
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, "", ErrInvalidToken
+		}
+		return nil, "", fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// If already verified, continue
+	if user.Verified == 0 {
+		// Mark verified
+		user, err = s.queries.VerifyUserByToken(context.Background(), sql.NullString{
+			String: token,
+			Valid:  true,
+		})
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to verify user: %w", err)
+		}
+	}
+
+	jwtToken, err := s.GenerateJWT(user.ID, user.Email)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return &user, jwtToken, nil
+}
+
+func (s *Service) sendVerificationEmail(email, token string) error {
+	apiKey := os.Getenv("MAILJET_API_KEY")
+	apiSecret := os.Getenv("MAILJET_API_SECRET")
+	if apiKey == "" || apiSecret == "" {
+		return fmt.Errorf("mailjet credentials not configured")
+	}
+
+	appBase := os.Getenv("APP_BASE_URL")
+	if appBase == "" {
+		appBase = "https://e2ecp.com"
+	}
+	appBase = strings.TrimRight(appBase, "/")
+	verifyLink := fmt.Sprintf("%s/verify-email?token=%s", appBase, token)
+
+	payload := map[string]interface{}{
+		"Messages": []map[string]interface{}{
+			{
+				"From": map[string]string{
+					"Email": "no-reply@e2ecp.com",
+					"Name":  "E2ECP",
+				},
+				"To": []map[string]string{
+					{
+						"Email": email,
+					},
+				},
+				"Subject":  "Verify your email",
+				"TextPart": fmt.Sprintf("Verify your email: %s", verifyLink),
+				"HTMLPart": fmt.Sprintf("<p>Click to verify your email:</p><p><a href=\"%s\">Verify Email</a></p>", verifyLink),
+			},
+		},
+	}
+
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", "https://api.mailjet.com/v3.1/send", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(apiKey, apiSecret)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("mailjet send failed: %s", resp.Status)
+	}
 	return nil
 }

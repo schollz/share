@@ -134,22 +134,24 @@ export const AuthProvider = ({ children }) => {
         }
 
         const data = await response.json();
-        localStorage.setItem("token", data.token);
-        setToken(data.token);
-        setUser(data.user);
+        return data;
+    };
 
-        // Derive encryption key from password and salt
-        const key = await deriveKey(password, data.user.encryption_salt);
-        setEncryptionKey(key);
+    const verifyEmailToken = async (tokenParam) => {
+        const response = await fetch(`/api/auth/verify-email?token=${encodeURIComponent(tokenParam)}`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || "Verification failed");
+        }
 
-        // Store encryption key in sessionStorage for persistence across page refreshes
-        const exportedKey = await window.crypto.subtle.exportKey("raw", key);
-        const keyArray = new Uint8Array(exportedKey);
-        const keyHex = Array.from(keyArray)
-            .map((b) => b.toString(16).padStart(2, "0"))
-            .join("");
-        sessionStorage.setItem("encryptionKey", keyHex);
-
+        const data = await response.json();
+        if (data?.token && data?.user) {
+            localStorage.setItem("token", data.token);
+            setToken(data.token);
+            setUser(data.user);
+        } else {
+            throw new Error("Verification response invalid");
+        }
         return data;
     };
 
@@ -166,8 +168,10 @@ export const AuthProvider = ({ children }) => {
         token,
         loading,
         encryptionKey,
+        setEncryptionKey,
         login,
         register,
+        verifyEmailToken,
         logout,
         isAuthenticated: !!user,
     };

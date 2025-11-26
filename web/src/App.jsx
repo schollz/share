@@ -467,8 +467,10 @@ function ProgressBar({ progress, label }) {
 
 export default function App() {
     // Parse room from URL path (e.g., /myroom -> "myroom")
-    const pathRoom = window.location.pathname.slice(1).toLowerCase();
-    const [roomId, setRoomId] = useState(pathRoom);
+const rawPath = window.location.pathname.slice(1).toLowerCase();
+const reservedPaths = ["login", "profile", "settings", "verify-email"];
+const pathRoom = reservedPaths.includes(rawPath) ? "" : rawPath;
+const [roomId, setRoomId] = useState(pathRoom);
     const [connected, setConnected] = useState(false);
     const [peerCount, setPeerCount] = useState(1);
     const [status, setStatus] = useState("Not connected");

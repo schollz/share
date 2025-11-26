@@ -62,6 +62,8 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Accept RFC-5322-friendly emails (including +) by relying on downstream validation
+
 	if req.Email == "" || req.Password == "" {
 		h.writeError(w, "Email and password are required", http.StatusBadRequest)
 		return
@@ -72,7 +74,7 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, token, err := h.authService.Register(req.Email, req.Password)
+	_, _, err := h.authService.Register(req.Email, req.Password)
 	if err != nil {
 		if err == auth.ErrUserExists {
 			h.writeError(w, "User already exists", http.StatusConflict)
@@ -83,15 +85,9 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writeJSON(w, AuthResponse{
-		Token: token,
-		User: User{
-			ID:             user.ID,
-			Email:          user.Email,
-			EncryptionSalt: user.EncryptionSalt,
-			Subscriber:     user.Subscriber == 1,
-		},
-	}, http.StatusCreated)
+	h.writeJSON(w, map[string]string{
+		"message": "Verification email sent. Please check your inbox.",
+	}, http.StatusAccepted)
 }
 
 // Login handles user login
@@ -116,6 +112,10 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == auth.ErrInvalidCredentials {
 			h.writeError(w, "Invalid email or password", http.StatusUnauthorized)
+			return
+		}
+		if err == auth.ErrEmailNotVerified {
+			h.writeError(w, "Email not verified. Please check your email.", http.StatusForbidden)
 			return
 		}
 		h.logger.Error("Login failed", "error", err)
@@ -220,6 +220,36 @@ func (h *AuthHandlers) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// VerifyEmailToken verifies an email via token and signs user in
+func (h *AuthHandlers) VerifyEmailToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+	user, jwtToken, err := h.authService.VerifyEmail(token)
+	if err != nil {
+		if err == auth.ErrInvalidToken {
+			h.writeError(w, "Invalid or expired token", http.StatusBadRequest)
+			return
+		}
+		h.logger.Error("Email verification failed", "error", err)
+		h.writeError(w, "Verification failed", http.StatusInternalServerError)
+		return
+	}
+
+	h.writeJSON(w, AuthResponse{
+		Token: jwtToken,
+		User: User{
+			ID:             user.ID,
+			Email:          user.Email,
+			EncryptionSalt: user.EncryptionSalt,
+			Subscriber:     user.Subscriber == 1,
+		},
+	}, http.StatusOK)
 }
 
 // Verify handles JWT token verification

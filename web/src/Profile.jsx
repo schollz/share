@@ -31,6 +31,11 @@ export default function Profile() {
 
     const fetchFiles = async () => {
         try {
+            if (!encryptionKey) {
+                toast.error("Encryption key not available. Please log in with your password to access files.");
+                setLoading(false);
+                return;
+            }
             const response = await fetch("/api/files/list", {
                 headers: {
                     Authorization: `Bearer ${token}`,

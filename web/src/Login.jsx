@@ -34,11 +34,12 @@ export default function Login() {
             if (isLogin) {
                 await login(email, password);
                 toast.success("Logged in successfully!");
+                navigate("/profile");
             } else {
-                await register(email, password);
-                toast.success("Account created successfully!");
+                const res = await register(email, password);
+                toast.success(res?.message || "Check your email to verify your account.");
+                setIsLogin(true);
             }
-            navigate("/profile");
         } catch (error) {
             const message = error.message || "Something went wrong";
             toast.error(message);

@@ -29,6 +29,7 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger) {
 	// Auth routes (no authentication required)
 	mux.HandleFunc("/api/auth/register", authHandlers.Register)
 	mux.HandleFunc("/api/auth/login", authHandlers.Login)
+	mux.HandleFunc("/api/auth/verify-email", authHandlers.VerifyEmailToken)
 
 	// Auth verify route (authentication required)
 	mux.Handle("/api/auth/verify", authMiddleware(http.HandlerFunc(authHandlers.Verify)))
@@ -74,6 +75,7 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger) {
 	log.Info("API routes initialized", "endpoints", []string{
 		"/api/auth/register",
 		"/api/auth/login",
+		"/api/auth/verify-email",
 		"/api/auth/verify",
 		"/api/files/upload",
 		"/api/files/list",
