@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
@@ -94,7 +95,7 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	// Check current storage usage
-	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(nil, userID)
+	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
 	if err != nil {
 		h.logger.Error("Failed to get storage", "error", err)
 		h.writeError(w, "Failed to check storage", http.StatusInternalServerError)
@@ -144,7 +145,7 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Save file metadata to database
-	fileRecord, err := h.queries.CreateFile(nil, db.CreateFileParams{
+	fileRecord, err := h.queries.CreateFile(context.Background(), db.CreateFileParams{
 		UserID:   userID,
 		Filename: header.Filename,
 		FilePath: filePath,
@@ -183,14 +184,14 @@ func (h *FileHandlers) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files, err := h.queries.GetFilesByUserID(nil, userID)
+	files, err := h.queries.GetFilesByUserID(context.Background(), userID)
 	if err != nil {
 		h.logger.Error("Failed to get files", "error", err)
 		h.writeError(w, "Failed to get files", http.StatusInternalServerError)
 		return
 	}
 
-	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(nil, userID)
+	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
 	if err != nil {
 		h.logger.Error("Failed to get storage", "error", err)
 		h.writeError(w, "Failed to get storage", http.StatusInternalServerError)
@@ -242,7 +243,7 @@ func (h *FileHandlers) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.queries.GetFileByID(nil, db.GetFileByIDParams{
+	file, err := h.queries.GetFileByID(context.Background(), db.GetFileByIDParams{
 		ID:     fileID,
 		UserID: userID,
 	})
@@ -256,7 +257,7 @@ func (h *FileHandlers) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveFile(w, file.FilePath, file.Filename)
+	h.serveFile(w, r, file.FilePath, file.Filename)
 }
 
 // DownloadByToken handles file download by share token (no authentication required)
@@ -268,7 +269,7 @@ func (h *FileHandlers) DownloadByToken(w http.ResponseWriter, r *http.Request) {
 
 	token := strings.TrimPrefix(r.URL.Path, "/api/files/share/")
 
-	file, err := h.queries.GetFileByShareToken(nil, sql.NullString{
+	file, err := h.queries.GetFileByShareToken(context.Background(), sql.NullString{
 		String: token,
 		Valid:  true,
 	})
@@ -282,7 +283,7 @@ func (h *FileHandlers) DownloadByToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveFile(w, file.FilePath, file.Filename)
+	h.serveFile(w, r, file.FilePath, file.Filename)
 }
 
 // GenerateShareLink generates a shareable link for a file
@@ -306,7 +307,7 @@ func (h *FileHandlers) GenerateShareLink(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Verify file ownership
-	_, err = h.queries.GetFileByID(nil, db.GetFileByIDParams{
+	_, err = h.queries.GetFileByID(context.Background(), db.GetFileByIDParams{
 		ID:     fileID,
 		UserID: userID,
 	})
@@ -329,7 +330,7 @@ func (h *FileHandlers) GenerateShareLink(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Update file with share token
-	file, err := h.queries.UpdateFileShareToken(nil, db.UpdateFileShareTokenParams{
+	file, err := h.queries.UpdateFileShareToken(context.Background(), db.UpdateFileShareTokenParams{
 		ShareToken: sql.NullString{
 			String: shareToken,
 			Valid:  true,
@@ -371,7 +372,7 @@ func (h *FileHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get file info first
-	file, err := h.queries.GetFileByID(nil, db.GetFileByIDParams{
+	file, err := h.queries.GetFileByID(context.Background(), db.GetFileByIDParams{
 		ID:     fileID,
 		UserID: userID,
 	})
@@ -386,7 +387,7 @@ func (h *FileHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete from database
-	if err := h.queries.DeleteFile(nil, db.DeleteFileParams{
+	if err := h.queries.DeleteFile(context.Background(), db.DeleteFileParams{
 		ID:     fileID,
 		UserID: userID,
 	}); err != nil {
@@ -404,7 +405,7 @@ func (h *FileHandlers) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *FileHandlers) serveFile(w http.ResponseWriter, filePath, filename string) {
+func (h *FileHandlers) serveFile(w http.ResponseWriter, r *http.Request, filePath, filename string) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		h.logger.Error("Failed to open file", "error", err)
@@ -424,7 +425,7 @@ func (h *FileHandlers) serveFile(w http.ResponseWriter, filePath, filename strin
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
 
-	http.ServeContent(w, nil, filename, stat.ModTime(), file)
+	http.ServeContent(w, r, filename, stat.ModTime(), file)
 }
 
 func (h *FileHandlers) writeJSON(w http.ResponseWriter, data interface{}, status int) {

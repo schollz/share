@@ -139,11 +139,30 @@ export default function Profile() {
         }
     };
 
-    const handleDownload = (fileId, filename) => {
-        const link = document.createElement("a");
-        link.href = `/api/files/download/${fileId}`;
-        link.download = filename;
-        link.click();
+    const handleDownload = async (fileId, filename) => {
+        try {
+            const response = await fetch(`/api/files/download/${fileId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error("Download failed");
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            toast.error("Failed to download file");
+        }
     };
 
     const formatBytes = (bytes) => {

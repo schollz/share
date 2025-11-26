@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -97,7 +98,7 @@ func (s *Service) Register(email, password string) (*db.User, string, error) {
 	}
 
 	// Create the user
-	user, err := s.queries.CreateUser(nil, db.CreateUserParams{
+	user, err := s.queries.CreateUser(context.Background(), db.CreateUserParams{
 		Email:        email,
 		PasswordHash: hashedPassword,
 	})
@@ -121,7 +122,7 @@ func (s *Service) Register(email, password string) (*db.User, string, error) {
 // Login authenticates a user and returns a JWT token
 func (s *Service) Login(email, password string) (*db.User, string, error) {
 	// Get user by email
-	user, err := s.queries.GetUserByEmail(nil, email)
+	user, err := s.queries.GetUserByEmail(context.Background(), email)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, "", ErrInvalidCredentials
@@ -146,7 +147,7 @@ func (s *Service) Login(email, password string) (*db.User, string, error) {
 
 // GetUserByID retrieves a user by their ID
 func (s *Service) GetUserByID(userID int64) (*db.User, error) {
-	user, err := s.queries.GetUserByID(nil, userID)
+	user, err := s.queries.GetUserByID(context.Background(), userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("user not found")
