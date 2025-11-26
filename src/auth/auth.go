@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -89,6 +91,15 @@ func (s *Service) ValidateJWT(tokenString string) (int64, string, error) {
 	return 0, "", ErrInvalidToken
 }
 
+// generateSalt generates a random salt for encryption key derivation
+func generateSalt() (string, error) {
+	salt := make([]byte, 32)
+	if _, err := rand.Read(salt); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(salt), nil
+}
+
 // Register creates a new user account
 func (s *Service) Register(email, password string) (*db.User, string, error) {
 	// Hash the password
@@ -97,10 +108,17 @@ func (s *Service) Register(email, password string) (*db.User, string, error) {
 		return nil, "", err
 	}
 
+	// Generate encryption salt for client-side file encryption
+	encryptionSalt, err := generateSalt()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate encryption salt: %w", err)
+	}
+
 	// Create the user
 	user, err := s.queries.CreateUser(context.Background(), db.CreateUserParams{
-		Email:        email,
-		PasswordHash: hashedPassword,
+		Email:          email,
+		PasswordHash:   hashedPassword,
+		EncryptionSalt: encryptionSalt,
 	})
 	if err != nil {
 		if err.Error() == "UNIQUE constraint failed: users.email" {

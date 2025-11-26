@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-INSERT INTO users (email, password_hash)
-VALUES (?, ?)
+INSERT INTO users (email, password_hash, encryption_salt)
+VALUES (?, ?, ?)
 RETURNING *;
 
 -- name: GetUserByEmail :one
@@ -14,8 +14,8 @@ WHERE id = ?
 LIMIT 1;
 
 -- name: CreateFile :one
-INSERT INTO files (user_id, filename, file_path, file_size, share_token)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO files (user_id, filename, file_path, file_size, encrypted_key, share_token)
+VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetFilesByUserID :many

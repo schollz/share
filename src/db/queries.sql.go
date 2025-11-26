@@ -11,17 +11,18 @@ import (
 )
 
 const createFile = `-- name: CreateFile :one
-INSERT INTO files (user_id, filename, file_path, file_size, share_token)
-VALUES (?, ?, ?, ?, ?)
-RETURNING id, user_id, filename, file_path, file_size, share_token, created_at, updated_at
+INSERT INTO files (user_id, filename, file_path, file_size, encrypted_key, share_token)
+VALUES (?, ?, ?, ?, ?, ?)
+RETURNING id, user_id, filename, file_path, file_size, encrypted_key, share_token, created_at, updated_at
 `
 
 type CreateFileParams struct {
-	UserID     int64          `json:"user_id"`
-	Filename   string         `json:"filename"`
-	FilePath   string         `json:"file_path"`
-	FileSize   int64          `json:"file_size"`
-	ShareToken sql.NullString `json:"share_token"`
+	UserID       int64          `json:"user_id"`
+	Filename     string         `json:"filename"`
+	FilePath     string         `json:"file_path"`
+	FileSize     int64          `json:"file_size"`
+	EncryptedKey string         `json:"encrypted_key"`
+	ShareToken   sql.NullString `json:"share_token"`
 }
 
 func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, error) {
@@ -30,6 +31,7 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, e
 		arg.Filename,
 		arg.FilePath,
 		arg.FileSize,
+		arg.EncryptedKey,
 		arg.ShareToken,
 	)
 	var i File
@@ -39,6 +41,7 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, e
 		&i.Filename,
 		&i.FilePath,
 		&i.FileSize,
+		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -47,23 +50,25 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, e
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, password_hash)
-VALUES (?, ?)
-RETURNING id, email, password_hash, created_at, updated_at
+INSERT INTO users (email, password_hash, encryption_salt)
+VALUES (?, ?, ?)
+RETURNING id, email, password_hash, encryption_salt, created_at, updated_at
 `
 
 type CreateUserParams struct {
-	Email        string `json:"email"`
-	PasswordHash string `json:"password_hash"`
+	Email          string `json:"email"`
+	PasswordHash   string `json:"password_hash"`
+	EncryptionSalt string `json:"encryption_salt"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.PasswordHash)
+	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.PasswordHash, arg.EncryptionSalt)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
+		&i.EncryptionSalt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -96,7 +101,7 @@ func (q *Queries) DeleteFileByID(ctx context.Context, id int64) error {
 }
 
 const getFileByID = `-- name: GetFileByID :one
-SELECT id, user_id, filename, file_path, file_size, share_token, created_at, updated_at FROM files
+SELECT id, user_id, filename, file_path, file_size, encrypted_key, share_token, created_at, updated_at FROM files
 WHERE id = ? AND user_id = ?
 LIMIT 1
 `
@@ -115,6 +120,7 @@ func (q *Queries) GetFileByID(ctx context.Context, arg GetFileByIDParams) (File,
 		&i.Filename,
 		&i.FilePath,
 		&i.FileSize,
+		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -123,7 +129,7 @@ func (q *Queries) GetFileByID(ctx context.Context, arg GetFileByIDParams) (File,
 }
 
 const getFileByShareToken = `-- name: GetFileByShareToken :one
-SELECT id, user_id, filename, file_path, file_size, share_token, created_at, updated_at FROM files
+SELECT id, user_id, filename, file_path, file_size, encrypted_key, share_token, created_at, updated_at FROM files
 WHERE share_token = ?
 LIMIT 1
 `
@@ -137,6 +143,7 @@ func (q *Queries) GetFileByShareToken(ctx context.Context, shareToken sql.NullSt
 		&i.Filename,
 		&i.FilePath,
 		&i.FileSize,
+		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -145,7 +152,7 @@ func (q *Queries) GetFileByShareToken(ctx context.Context, shareToken sql.NullSt
 }
 
 const getFilesByUserID = `-- name: GetFilesByUserID :many
-SELECT id, user_id, filename, file_path, file_size, share_token, created_at, updated_at FROM files
+SELECT id, user_id, filename, file_path, file_size, encrypted_key, share_token, created_at, updated_at FROM files
 WHERE user_id = ?
 ORDER BY created_at DESC
 `
@@ -165,6 +172,7 @@ func (q *Queries) GetFilesByUserID(ctx context.Context, userID int64) ([]File, e
 			&i.Filename,
 			&i.FilePath,
 			&i.FileSize,
+			&i.EncryptedKey,
 			&i.ShareToken,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -196,7 +204,7 @@ func (q *Queries) GetTotalStorageByUserID(ctx context.Context, userID int64) (in
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, created_at, updated_at FROM users
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at FROM users
 WHERE email = ?
 LIMIT 1
 `
@@ -208,6 +216,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
+		&i.EncryptionSalt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -215,7 +224,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, created_at, updated_at FROM users
+SELECT id, email, password_hash, encryption_salt, created_at, updated_at FROM users
 WHERE id = ?
 LIMIT 1
 `
@@ -227,6 +236,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
+		&i.EncryptionSalt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -237,7 +247,7 @@ const updateFileShareToken = `-- name: UpdateFileShareToken :one
 UPDATE files
 SET share_token = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ? AND user_id = ?
-RETURNING id, user_id, filename, file_path, file_size, share_token, created_at, updated_at
+RETURNING id, user_id, filename, file_path, file_size, encrypted_key, share_token, created_at, updated_at
 `
 
 type UpdateFileShareTokenParams struct {
@@ -255,6 +265,7 @@ func (q *Queries) UpdateFileShareToken(ctx context.Context, arg UpdateFileShareT
 		&i.Filename,
 		&i.FilePath,
 		&i.FileSize,
+		&i.EncryptedKey,
 		&i.ShareToken,
 		&i.CreatedAt,
 		&i.UpdatedAt,

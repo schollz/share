@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import {
+    generateFileKey,
+    encryptFileKey,
+    decryptFileKey,
+    encryptFile,
+    decryptFile,
+} from "./encryption";
 import toast from "react-hot-toast";
 
 export default function Profile() {
-    const { user, token, logout } = useAuth();
+    const { user, token, encryptionKey, logout } = useAuth();
     const navigate = useNavigate();
     const [files, setFiles] = useState([]);
     const [totalStorage, setTotalStorage] = useState(0);
@@ -48,6 +55,11 @@ export default function Profile() {
         const file = e.target.files[0];
         if (!file) return;
 
+        if (!encryptionKey) {
+            toast.error("Encryption key not available. Please log in again.");
+            return;
+        }
+
         // Check if adding this file would exceed storage limit
         if (totalStorage + file.size > storageLimit) {
             const remaining = storageLimit - totalStorage;
@@ -58,10 +70,30 @@ export default function Profile() {
         }
 
         setUploading(true);
-        const formData = new FormData();
-        formData.append("file", file);
 
         try {
+            // Generate a unique encryption key for this file
+            toast.loading("Generating encryption key...", { id: "encrypt" });
+            const fileKey = await generateFileKey();
+
+            // Encrypt the file with the file-specific key
+            toast.loading("Encrypting file...", { id: "encrypt" });
+            const encryptedBlob = await encryptFile(file, fileKey);
+
+            // Encrypt the file key with the user's master key
+            const encryptedFileKey = await encryptFileKey(
+                fileKey,
+                encryptionKey,
+            );
+            toast.success("File encrypted", { id: "encrypt" });
+
+            const formData = new FormData();
+            // Send encrypted blob with original filename
+            formData.append("file", encryptedBlob, file.name);
+            // Send the encrypted file key
+            formData.append("encrypted_key", encryptedFileKey);
+
+            toast.loading("Uploading encrypted file...", { id: "upload" });
             const response = await fetch("/api/files/upload", {
                 method: "POST",
                 headers: {
@@ -75,10 +107,10 @@ export default function Profile() {
                 throw new Error(error.error || "Upload failed");
             }
 
-            toast.success("File uploaded successfully!");
+            toast.success("File uploaded successfully!", { id: "upload" });
             fetchFiles();
         } catch (error) {
-            toast.error(error.message);
+            toast.error(error.message, { id: "upload" });
         } finally {
             setUploading(false);
             e.target.value = "";
@@ -112,7 +144,17 @@ export default function Profile() {
     };
 
     const handleGenerateShareLink = async (fileId) => {
+        console.log("Share button clicked, fileId:", fileId);
+
+        if (!encryptionKey) {
+            toast.error("Encryption key not available. Please log in again.");
+            return;
+        }
+
         try {
+            console.log("Starting share link generation...");
+            toast.loading("Generating share link...", { id: "share" });
+
             const response = await fetch(
                 `/api/files/share/generate/${fileId}`,
                 {
@@ -124,23 +166,61 @@ export default function Profile() {
             );
 
             if (!response.ok) {
-                throw new Error("Failed to generate share link");
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to generate share link");
             }
 
             const data = await response.json();
-            const shareURL = `${window.location.origin}${data.share_url}`;
+            console.log("Backend response:", data);
+
+            // Check if file has an encrypted key
+            if (!data.file_key || data.file_key.trim() === "") {
+                toast.error("This file was uploaded without encryption. Please re-upload it to enable sharing.", { id: "share" });
+                return;
+            }
+
+            // Decrypt the file key with user's master key
+            console.log("Decrypting file key...");
+            const fileKey = await decryptFileKey(
+                data.file_key,
+                encryptionKey,
+            );
+            console.log("File key decrypted successfully");
+
+            // Export the file key as raw bytes for sharing
+            const exportedKey = await window.crypto.subtle.exportKey(
+                "raw",
+                fileKey,
+            );
+            const keyArray = new Uint8Array(exportedKey);
+            let keyHex = "";
+            for (let i = 0; i < keyArray.length; i++) {
+                keyHex += keyArray[i].toString(16).padStart(2, "0");
+            }
+
+            // Create share URL with the decryption key
+            // Extract token from API URL: /api/files/share/token -> /share/token
+            const shareToken = data.share_url.split("/").pop();
+            const shareURL = `${window.location.origin}/share/${shareToken}#${keyHex}`;
 
             // Copy to clipboard
             await navigator.clipboard.writeText(shareURL);
-            toast.success("Share link copied to clipboard!");
+            toast.success("Link copied to clipboard!", { id: "share" });
             fetchFiles();
         } catch (error) {
-            toast.error("Failed to generate share link");
+            console.error("Share link error:", error);
+            toast.error(error.message || "Failed to generate share link", { id: "share" });
         }
     };
 
-    const handleDownload = async (fileId, filename) => {
+    const handleDownload = async (fileId, filename, encryptedFileKey) => {
+        if (!encryptionKey) {
+            toast.error("Encryption key not available. Please log in again.");
+            return;
+        }
+
         try {
+            toast.loading("Downloading encrypted file...", { id: "download" });
             const response = await fetch(`/api/files/download/${fileId}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -151,8 +231,19 @@ export default function Profile() {
                 throw new Error("Download failed");
             }
 
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            const encryptedBlob = await response.blob();
+
+            toast.loading("Decrypting file key...", { id: "download" });
+            // Decrypt the file-specific key with user's master key
+            const fileKey = await decryptFileKey(
+                encryptedFileKey,
+                encryptionKey,
+            );
+
+            toast.loading("Decrypting file...", { id: "download" });
+            const decryptedBlob = await decryptFile(encryptedBlob, fileKey);
+
+            const url = window.URL.createObjectURL(decryptedBlob);
             const link = document.createElement("a");
             link.href = url;
             link.download = filename;
@@ -160,8 +251,13 @@ export default function Profile() {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
+
+            toast.success("File downloaded and decrypted!", { id: "download" });
         } catch (error) {
-            toast.error("Failed to download file");
+            console.error("Download error:", error);
+            toast.error("Failed to download or decrypt file", {
+                id: "download",
+            });
         }
     };
 
@@ -288,6 +384,7 @@ export default function Profile() {
                                                     handleDownload(
                                                         file.id,
                                                         file.filename,
+                                                        file.encrypted_key,
                                                     )
                                                 }
                                                 className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-1 font-bold text-sm uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"

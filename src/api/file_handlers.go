@@ -41,11 +41,12 @@ func NewFileHandlers(database *sql.DB, logger *slog.Logger) *FileHandlers {
 }
 
 type FileInfo struct {
-	ID         int64  `json:"id"`
-	Filename   string `json:"filename"`
-	FileSize   int64  `json:"file_size"`
-	ShareToken string `json:"share_token,omitempty"`
-	CreatedAt  string `json:"created_at"`
+	ID           int64  `json:"id"`
+	Filename     string `json:"filename"`
+	FileSize     int64  `json:"file_size"`
+	EncryptedKey string `json:"encrypted_key"`
+	ShareToken   string `json:"share_token,omitempty"`
+	CreatedAt    string `json:"created_at"`
 }
 
 type FilesListResponse struct {
@@ -57,6 +58,7 @@ type FilesListResponse struct {
 type ShareLinkResponse struct {
 	ShareToken string `json:"share_token"`
 	ShareURL   string `json:"share_url"`
+	FileKey    string `json:"file_key"`
 }
 
 // generateShareToken generates a random token for file sharing
@@ -93,6 +95,13 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	// Get encrypted file key from form
+	encryptedKey := r.FormValue("encrypted_key")
+	if encryptedKey == "" {
+		h.writeError(w, "Encrypted key is required", http.StatusBadRequest)
+		return
+	}
 
 	// Check current storage usage
 	totalStorageRaw, err := h.queries.GetTotalStorageByUserID(context.Background(), userID)
@@ -146,10 +155,11 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 
 	// Save file metadata to database
 	fileRecord, err := h.queries.CreateFile(context.Background(), db.CreateFileParams{
-		UserID:   userID,
-		Filename: header.Filename,
-		FilePath: filePath,
-		FileSize: header.Size,
+		UserID:       userID,
+		Filename:     header.Filename,
+		FilePath:     filePath,
+		FileSize:     header.Size,
+		EncryptedKey: encryptedKey,
 		ShareToken: sql.NullString{
 			String: "",
 			Valid:  false,
@@ -164,10 +174,11 @@ func (h *FileHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("File uploaded", "user_id", userID, "filename", header.Filename, "size", header.Size)
 	h.writeJSON(w, FileInfo{
-		ID:        fileRecord.ID,
-		Filename:  fileRecord.Filename,
-		FileSize:  fileRecord.FileSize,
-		CreatedAt: fileRecord.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:           fileRecord.ID,
+		Filename:     fileRecord.Filename,
+		FileSize:     fileRecord.FileSize,
+		EncryptedKey: fileRecord.EncryptedKey,
+		CreatedAt:    fileRecord.CreatedAt.Format("2006-01-02 15:04:05"),
 	}, http.StatusCreated)
 }
 
@@ -208,11 +219,12 @@ func (h *FileHandlers) List(w http.ResponseWriter, r *http.Request) {
 	fileList := make([]FileInfo, len(files))
 	for i, f := range files {
 		fileList[i] = FileInfo{
-			ID:         f.ID,
-			Filename:   f.Filename,
-			FileSize:   f.FileSize,
-			ShareToken: f.ShareToken.String,
-			CreatedAt:  f.CreatedAt.Format("2006-01-02 15:04:05"),
+			ID:           f.ID,
+			Filename:     f.Filename,
+			FileSize:     f.FileSize,
+			EncryptedKey: f.EncryptedKey,
+			ShareToken:   f.ShareToken.String,
+			CreatedAt:    f.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 	}
 
@@ -348,6 +360,7 @@ func (h *FileHandlers) GenerateShareLink(w http.ResponseWriter, r *http.Request)
 	h.writeJSON(w, ShareLinkResponse{
 		ShareToken: file.ShareToken.String,
 		ShareURL:   shareURL,
+		FileKey:    file.EncryptedKey, // Return encrypted key for client to decrypt
 	}, http.StatusOK)
 }
 

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { deriveKey } from "./encryption";
 
 const AuthContext = createContext(null);
 
@@ -14,6 +15,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem("token"));
     const [loading, setLoading] = useState(true);
+    const [encryptionKey, setEncryptionKey] = useState(null);
 
     // Verify token on mount
     useEffect(() => {
@@ -70,6 +72,11 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("token", data.token);
         setToken(data.token);
         setUser(data.user);
+
+        // Derive encryption key from password and salt
+        const key = await deriveKey(password, data.user.encryption_salt);
+        setEncryptionKey(key);
+
         return data;
     };
 
@@ -91,6 +98,11 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("token", data.token);
         setToken(data.token);
         setUser(data.user);
+
+        // Derive encryption key from password and salt
+        const key = await deriveKey(password, data.user.encryption_salt);
+        setEncryptionKey(key);
+
         return data;
     };
 
@@ -98,12 +110,14 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem("token");
         setToken(null);
         setUser(null);
+        setEncryptionKey(null);
     };
 
     const value = {
         user,
         token,
         loading,
+        encryptionKey,
         login,
         register,
         logout,

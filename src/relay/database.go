@@ -65,6 +65,7 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			email TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
+			encryption_salt TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
@@ -76,6 +77,7 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 			filename TEXT NOT NULL,
 			file_path TEXT NOT NULL,
 			file_size INTEGER NOT NULL,
+			encrypted_key TEXT NOT NULL DEFAULT '',
 			share_token TEXT UNIQUE,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

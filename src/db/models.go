@@ -10,20 +10,22 @@ import (
 )
 
 type File struct {
-	ID         int64          `json:"id"`
-	UserID     int64          `json:"user_id"`
-	Filename   string         `json:"filename"`
-	FilePath   string         `json:"file_path"`
-	FileSize   int64          `json:"file_size"`
-	ShareToken sql.NullString `json:"share_token"`
-	CreatedAt  time.Time      `json:"created_at"`
-	UpdatedAt  time.Time      `json:"updated_at"`
+	ID           int64          `json:"id"`
+	UserID       int64          `json:"user_id"`
+	Filename     string         `json:"filename"`
+	FilePath     string         `json:"file_path"`
+	FileSize     int64          `json:"file_size"`
+	EncryptedKey string         `json:"encrypted_key"`
+	ShareToken   sql.NullString `json:"share_token"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 type User struct {
-	ID           int64     `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"password_hash"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID             int64     `json:"id"`
+	Email          string    `json:"email"`
+	PasswordHash   string    `json:"password_hash"`
+	EncryptionSalt string    `json:"encryption_salt"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }

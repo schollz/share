@@ -36,8 +36,9 @@ type AuthResponse struct {
 }
 
 type User struct {
-	ID    int64  `json:"id"`
-	Email string `json:"email"`
+	ID             int64  `json:"id"`
+	Email          string `json:"email"`
+	EncryptionSalt string `json:"encryption_salt"`
 }
 
 type ErrorResponse struct {
@@ -81,8 +82,9 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, AuthResponse{
 		Token: token,
 		User: User{
-			ID:    user.ID,
-			Email: user.Email,
+			ID:             user.ID,
+			Email:          user.Email,
+			EncryptionSalt: user.EncryptionSalt,
 		},
 	}, http.StatusCreated)
 }
@@ -119,8 +121,9 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, AuthResponse{
 		Token: token,
 		User: User{
-			ID:    user.ID,
-			Email: user.Email,
+			ID:             user.ID,
+			Email:          user.Email,
+			EncryptionSalt: user.EncryptionSalt,
 		},
 	}, http.StatusOK)
 }
