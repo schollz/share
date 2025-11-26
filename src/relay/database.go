@@ -4,9 +4,17 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	migratedb "github.com/golang-migrate/migrate/v4/database"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	migrationfs "github.com/schollz/e2ecp/migrations"
+	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
 
@@ -32,7 +40,8 @@ var (
 	databaseOnce sync.Once
 )
 
-// InitDatabase initializes the SQLite database for session logging
+// InitDatabase initializes the database for session logging
+// If DATABASE_URL is set, it uses PostgreSQL; otherwise, it uses SQLite
 func InitDatabase(dbPath string, log *slog.Logger) error {
 	var err error
 	databaseOnce.Do(func() {
@@ -40,37 +49,147 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 			logger: log,
 		}
 
-		database.db, err = sql.Open("sqlite", dbPath)
+		// Check if DATABASE_URL is set for PostgreSQL
+		databaseURL := os.Getenv("DATABASE_URL")
+		var driver string
+		var dsn string
+
+		if databaseURL != "" {
+			// Use PostgreSQL
+			driver = "postgres"
+			dsn = databaseURL
+			log.Info("Using PostgreSQL database", "dsn", maskPassword(dsn))
+		} else {
+			// Use SQLite
+			driver = "sqlite"
+			dsn = dbPath
+			log.Info("Using SQLite database", "path", dbPath)
+		}
+
+		database.db, err = sql.Open(driver, dsn)
 		if err != nil {
 			err = fmt.Errorf("failed to open database: %w", err)
 			return
 		}
 
-		// Create the logs table if it doesn't exist
-		createTableSQL := `
-		CREATE TABLE IF NOT EXISTS logs (
-			session_id TEXT PRIMARY KEY,
-			ip_from TEXT NOT NULL,
-			ip_to TEXT,
-			bandwidth_bytes INTEGER DEFAULT 0,
-			session_start DATETIME NOT NULL,
-			session_end DATETIME
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_session_start ON logs(session_start);
-		CREATE INDEX IF NOT EXISTS idx_ip_from ON logs(ip_from);
-		`
-
-		_, err = database.db.Exec(createTableSQL)
-		if err != nil {
-			err = fmt.Errorf("failed to create table: %w", err)
+		// Test the connection
+		if err = database.db.Ping(); err != nil {
+			err = fmt.Errorf("failed to connect to database: %w", err)
 			return
 		}
 
-		log.Info("Database initialized", "path", dbPath)
+		if err := runMigrations(database.db, driver, log); err != nil {
+			err = fmt.Errorf("failed to run migrations: %w", err)
+			return
+		}
+
+		log.Info("Database initialized successfully", "driver", driver)
 	})
 
 	return err
+}
+
+// maskPassword masks the password in a database URL for logging
+func maskPassword(dsn string) string {
+	// Simple masking for postgres URLs
+	// Format: postgresql://user:password@host:port/database
+	if len(dsn) > 20 {
+		return dsn[:20] + "***"
+	}
+	return "***"
+}
+
+func runMigrations(db *sql.DB, driver string, log *slog.Logger) error {
+	// Select the appropriate migration subdirectory based on database type
+	migrationPath := "sqlite"
+	if driver == "postgres" {
+		migrationPath = "postgres"
+	}
+
+	// Prepare embedded migrations from the appropriate subdirectory
+	srcDriver, err := iofs.New(migrationfs.FS, migrationPath)
+	if err != nil {
+		return fmt.Errorf("failed to load migrations: %w", err)
+	}
+
+	// Prepare database driver based on the database type
+	var dbDriver migratedb.Driver
+	var driverName string
+
+	if driver == "postgres" {
+		// PostgreSQL driver
+		dbDriver, err = postgres.WithInstance(db, &postgres.Config{})
+		if err != nil {
+			return fmt.Errorf("failed to init migrate postgres driver: %w", err)
+		}
+		driverName = "postgres"
+	} else {
+		// SQLite driver
+		dbDriver, err = sqlite.WithInstance(db, &sqlite.Config{})
+		if err != nil {
+			return fmt.Errorf("failed to init migrate sqlite driver: %w", err)
+		}
+		driverName = "sqlite"
+	}
+
+	m, err := migrate.NewWithInstance("iofs", srcDriver, driverName, dbDriver)
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+
+	// If schema_migrations table is missing but core tables exist (legacy),
+	// mark baseline at version 1 so we can move forward with migrations.
+	hasSchemaMigrations, _ := tableExists(db, driver, "schema_migrations")
+	if !hasSchemaMigrations {
+		tablesPresent := existingSchemaPresent(db, driver)
+		if tablesPresent {
+			log.Warn("Detected legacy database without migration history; baselining at version 1")
+			if forceErr := m.Force(1); forceErr != nil {
+				return fmt.Errorf("failed to baseline migrations: %w", forceErr)
+			}
+		}
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	log.Info("Migrations completed successfully", "driver", driver)
+	return nil
+}
+
+func tableExists(db *sql.DB, driver string, name string) (bool, error) {
+	var count int
+	var err error
+
+	if driver == "postgres" {
+		// PostgreSQL query for table existence
+		err = db.QueryRow(`
+			SELECT COUNT(1)
+			FROM information_schema.tables
+			WHERE table_schema = 'public' AND table_name = $1;
+		`, name).Scan(&count)
+	} else {
+		// SQLite query for table existence
+		err = db.QueryRow(`
+			SELECT COUNT(1)
+			FROM sqlite_master
+			WHERE type='table' AND name=?;
+		`, name).Scan(&count)
+	}
+
+	return count > 0, err
+}
+
+func existingSchemaPresent(db *sql.DB, driver string) bool {
+	// Check for any of our core tables
+	for _, tbl := range []string{"logs", "users", "files"} {
+		exists, err := tableExists(db, driver, tbl)
+		if err == nil && exists {
+			return true
+		}
+	}
+	return false
 }
 
 // GetDatabase returns the singleton database instance

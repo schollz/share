@@ -159,3 +159,4 @@ e2eecp
 e2ecp
 .claude/
 *.db
+uploads/*

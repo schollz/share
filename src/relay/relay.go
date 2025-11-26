@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,7 +25,7 @@ type Client struct {
 	Conn         *websocket.Conn
 	RoomID       string
 	IP           string
-	UseProtobuf  bool      // Track if client uses protobuf
+	UseProtobuf  bool       // Track if client uses protobuf
 	WriteMutex   sync.Mutex // Protects concurrent writes to Conn
 	SessionStart time.Time  // When the client joined
 	BytesRelayed int64      // Total bytes relayed for this client
@@ -496,6 +498,8 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	logger = log
 	maxRooms = maxRoomsLimit
 	maxRoomsPerIP = maxRoomsPerIPLimit
+	profileAllowed := allowStorageProfile(log)
+	freeLimit := parseStorageEnv("FREE_STORAGE_BYTES", 1*1024*1024*1024)
 
 	// Initialize database if path is provided
 	if dbPath != "" {
@@ -511,6 +515,20 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", wsHandler)
 	mux.HandleFunc("/health", healthHandler)
+
+	// Config endpoint always available to frontends
+	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		enabled := profileAllowed && GetDatabase() != nil && GetDatabase().db != nil
+		fmt.Fprintf(w, `{"storage_profile_enabled": %t, "free_storage_limit": %d}`, enabled, freeLimit)
+	})
+
+	// Initialize auth and file management API if database is available
+	if db := GetDatabase(); db != nil && db.db != nil {
+		SetupAPIRoutes(mux, db.db, log, profileAllowed)
+	} else {
+		logger.Warn("API endpoints disabled (database not initialized)")
+	}
 
 	installScript, err := staticFS.ReadFile("install.sh")
 	if err != nil {
@@ -539,6 +557,18 @@ func Start(port int, maxRoomsLimit int, maxRoomsPerIPLimit int, dbPath string, s
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		logger.Error("Server failed", "error", err)
 	}
+}
+
+func parseStorageEnv(key string, defaultVal int64) int64 {
+	val := os.Getenv(key)
+	if val == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.ParseInt(val, 10, 64)
+	if err != nil || parsed <= 0 {
+		return defaultVal
+	}
+	return parsed
 }
 
 // StartLocal starts a minimal local relay server on a random available port

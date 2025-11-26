@@ -68,6 +68,10 @@ You can run your own relay server if you want to self-host, using the [command-l
 e2ecp serve --port 8080
 ```
 
+### Enable profile/storage features
+
+By default, the relay only serves WebSocket rooms. To enable the profile, login, and encrypted file storage APIs, set `ALLOW_STORAGE_PROFILE=yes` in your `.env`. If it is not `yes`, those endpoints stay disabled so you don't need Mailjet or other profile dependencies for a lightweight relay-only install.
+
 ### Using Docker
 
 You can also run the relay server using Docker. There are two options:
@@ -148,6 +152,7 @@ PORT=8080
 MAX_ROOMS=50
 MAX_ROOMS_PER_IP=5
 LOG_LEVEL=debug
+ALLOW_STORAGE_PROFILE=yes
 ```
 
 #### Option 2: Build everything from source (no local dependencies required)
@@ -182,6 +187,7 @@ PORT=8080
 MAX_ROOMS=50
 MAX_ROOMS_PER_IP=5
 LOG_LEVEL=debug
+ALLOW_STORAGE_PROFILE=yes
 ```
 
 ## About

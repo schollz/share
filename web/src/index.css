@@ -22,6 +22,20 @@
   ::file-selector-button {
     border-color: var(--color-gray-200, currentcolor);
   }
+
+  /* Ensure consistent font across all pages */
+  :root,
+  html,
+  body,
+  #root {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+  }
   
   /* Toast notification color variables */
   :root {

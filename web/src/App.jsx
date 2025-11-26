@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import protobuf from "protobufjs";
 import { QRCodeSVG } from "qrcode.react";
 import JSZip from "jszip";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "./AuthContext";
+import { useConfig } from "./ConfigContext";
 
 /* ---------- Crypto helpers (ECDH + AES-GCM) ---------- */
 
@@ -467,8 +470,14 @@ function ProgressBar({ progress, label }) {
 
 export default function App() {
     // Parse room from URL path (e.g., /myroom -> "myroom")
-    const pathRoom = window.location.pathname.slice(1).toLowerCase();
+    const rawPath = window.location.pathname.slice(1).toLowerCase();
+    const reservedPaths = ["login", "profile", "settings", "verify-email"];
+    const pathRoom = reservedPaths.includes(rawPath) ? "" : rawPath;
     const [roomId, setRoomId] = useState(pathRoom);
+    const onHomePage = pathRoom === "";
+    const navigate = useNavigate();
+    const { isAuthenticated } = useAuth();
+    const { storageEnabled, loading: configLoading } = useConfig();
     const [connected, setConnected] = useState(false);
     const [peerCount, setPeerCount] = useState(1);
     const [status, setStatus] = useState("Not connected");
@@ -490,6 +499,12 @@ export default function App() {
     const [textInput, setTextInput] = useState("");
     const [receivedText, setReceivedText] = useState(null);
     const [showTextModal, setShowTextModal] = useState(false);
+    const showStorageCta =
+        onHomePage &&
+        !isAuthenticated &&
+        storageEnabled &&
+        !configLoading &&
+        !connected;
 
     const myKeyPairRef = useRef(null);
     const aesKeyRef = useRef(null);
@@ -1875,29 +1890,7 @@ export default function App() {
     }, [darkMode]);
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black p-2 sm:p-4 md:p-8 font-mono flex flex-col items-center justify-center transition-colors duration-200">
-            <Toaster
-                position="bottom-right"
-                toastOptions={{
-                    duration: 2000,
-                    style: {
-                        background: "var(--toast-bg)",
-                        color: "var(--toast-text)",
-                        border: "var(--toast-border)",
-                        fontFamily: "monospace",
-                        fontWeight: "bold",
-                        textTransform: "uppercase",
-                        fontSize: "14px",
-                        padding: "12px 16px",
-                    },
-                    success: {
-                        iconTheme: {
-                            primary: "var(--toast-icon-primary)",
-                            secondary: "var(--toast-icon-secondary)",
-                        },
-                    },
-                }}
-            />
+        <div className="min-h-screen bg-white dark:bg-black p-2 sm:p-4 md:p-8 flex flex-col items-center justify-center transition-colors duration-200">
             <div className="max-w-4xl w-full flex-grow flex flex-col justify-center">
                 {/* Header */}
                 <div
@@ -2108,6 +2101,23 @@ export default function App() {
                                 <>STATUS: {status.toUpperCase()}</>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {showStorageCta && (
+                    <div className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:sm:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] text-gray-900 dark:text-white transition-colors duration-200">
+                        <div className="font-black text-lg sm:text-xl uppercase mb-2">
+                            Need to store your files temporarily to transfer?
+                        </div>
+                        <p className="text-sm sm:text-base mb-3">
+                            Sign in to store encrypted files for transferring to many people.
+                        </p>
+                        <button
+                            onClick={() => navigate("/login")}
+                            className="border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-3 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 w-full sm:w-auto text-center"
+                        >
+                            Sign in for storage
+                        </button>
                     </div>
                 )}
 
