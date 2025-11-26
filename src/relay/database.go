@@ -7,6 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	migrationfs "github.com/schollz/e2ecp/migrations"
 	_ "modernc.org/sqlite"
 )
 
@@ -46,67 +50,74 @@ func InitDatabase(dbPath string, log *slog.Logger) error {
 			return
 		}
 
-		// Create the logs table if it doesn't exist
-		createTableSQL := `
-		CREATE TABLE IF NOT EXISTS logs (
-			session_id TEXT PRIMARY KEY,
-			ip_from TEXT NOT NULL,
-			ip_to TEXT,
-			bandwidth_bytes INTEGER DEFAULT 0,
-			session_start DATETIME NOT NULL,
-			session_end DATETIME
-		);
-
-		CREATE INDEX IF NOT EXISTS idx_session_start ON logs(session_start);
-		CREATE INDEX IF NOT EXISTS idx_ip_from ON logs(ip_from);
-
-		-- Users table for authentication
-		CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			email TEXT NOT NULL UNIQUE,
-			password_hash TEXT NOT NULL,
-			encryption_salt TEXT NOT NULL,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		);
-
-		-- Files table for user uploaded files
-		CREATE TABLE IF NOT EXISTS files (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id INTEGER NOT NULL,
-			encrypted_filename TEXT NOT NULL,
-			file_path TEXT NOT NULL,
-			file_size INTEGER NOT NULL,
-			encrypted_key TEXT NOT NULL,
-			share_token TEXT UNIQUE,
-			download_count INTEGER NOT NULL DEFAULT 0,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-		);
-
-		-- Indexes for better query performance
-		CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-		CREATE INDEX IF NOT EXISTS idx_files_user_id ON files(user_id);
-		CREATE INDEX IF NOT EXISTS idx_files_share_token ON files(share_token);
-		`
-
-		_, err = database.db.Exec(createTableSQL)
-		if err != nil {
-			err = fmt.Errorf("failed to create tables: %w", err)
+		if err := runMigrations(database.db, log); err != nil {
+			err = fmt.Errorf("failed to run migrations: %w", err)
 			return
-		}
-
-		// Add download_count column for existing deployments (noop if present)
-		if _, alterErr := database.db.Exec(`ALTER TABLE files ADD COLUMN download_count INTEGER NOT NULL DEFAULT 0`); alterErr != nil {
-			// SQLite will return an error if the column already exists; ignore in that case
-			database.logger.Debug("download_count column check", "result", alterErr)
 		}
 
 		log.Info("Database initialized", "path", dbPath)
 	})
 
 	return err
+}
+
+func runMigrations(db *sql.DB, log *slog.Logger) error {
+	// Prepare embedded migrations
+	srcDriver, err := iofs.New(migrationfs.FS, ".")
+	if err != nil {
+		return fmt.Errorf("failed to load migrations: %w", err)
+	}
+
+	// Prepare SQLite driver using existing connection
+	dbDriver, err := sqlite.WithInstance(db, &sqlite.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to init migrate sqlite driver: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", srcDriver, "sqlite", dbDriver)
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+
+	// If schema_migrations table is missing but core tables exist (legacy),
+	// mark baseline at version 1 so we can move forward with migrations.
+	hasSchemaMigrations, _ := tableExists(db, "schema_migrations")
+	if !hasSchemaMigrations {
+		tablesPresent := existingSchemaPresent(db)
+		if tablesPresent {
+			log.Warn("Detected legacy database without migration history; baselining at version 1")
+			if forceErr := m.Force(1); forceErr != nil {
+				return fmt.Errorf("failed to baseline migrations: %w", forceErr)
+			}
+		}
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	return nil
+}
+
+func tableExists(db *sql.DB, name string) (bool, error) {
+	var count int
+	err := db.QueryRow(`
+		SELECT COUNT(1)
+		FROM sqlite_master
+		WHERE type='table' AND name=?;
+	`, name).Scan(&count)
+	return count > 0, err
+}
+
+func existingSchemaPresent(db *sql.DB) bool {
+	// Check for any of our core tables
+	for _, tbl := range []string{"logs", "users", "files"} {
+		exists, err := tableExists(db, tbl)
+		if err == nil && exists {
+			return true
+		}
+	}
+	return false
 }
 
 // GetDatabase returns the singleton database instance

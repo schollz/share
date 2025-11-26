@@ -22,6 +22,15 @@ type File struct {
 	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
+type Log struct {
+	SessionID      string         `json:"session_id"`
+	IpFrom         string         `json:"ip_from"`
+	IpTo           sql.NullString `json:"ip_to"`
+	BandwidthBytes sql.NullInt64  `json:"bandwidth_bytes"`
+	SessionStart   time.Time      `json:"session_start"`
+	SessionEnd     sql.NullTime   `json:"session_end"`
+}
+
 type User struct {
 	ID             int64     `json:"id"`
 	Email          string    `json:"email"`
