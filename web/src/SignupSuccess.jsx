@@ -1,5 +1,6 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import Navbar from "./Navbar";
 
 export default function SignupSuccess() {
     const navigate = useNavigate();
@@ -7,7 +8,9 @@ export default function SignupSuccess() {
     const email = location.state?.email;
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex items-center justify-center p-4">
+        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
+            <Navbar title="Sign Up Success" />
+            <div className="flex items-center justify-center p-4">
             <div className="w-full max-w-xl border-4 border-black dark:border-white bg-white dark:bg-black p-8 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] dark:shadow-[10px_10px_0px_0px_rgba(255,255,255,1)]">
                 <h1 className="text-4xl sm:text-5xl font-black uppercase mb-4">
                     Signed up!
@@ -33,6 +36,7 @@ export default function SignupSuccess() {
                         Back to Home
                     </button>
                 </div>
+            </div>
             </div>
         </div>
     );

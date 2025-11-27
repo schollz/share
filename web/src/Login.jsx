@@ -1,11 +1,14 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
 import { useConfig } from "./ConfigContext";
+import Navbar from "./Navbar";
 
 export default function Login() {
-    const [isLogin, setIsLogin] = useState(true);
+    const [searchParams] = useSearchParams();
+    const mode = searchParams.get("mode");
+    const [isLogin, setIsLogin] = useState(mode !== "signup");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
@@ -26,6 +29,12 @@ export default function Login() {
         const rounded = value >= 10 ? value.toFixed(0) : value.toFixed(1);
         return `${rounded} ${units[i]}`;
     };
+
+    // Update mode based on URL parameter
+    React.useEffect(() => {
+        const urlMode = searchParams.get("mode");
+        setIsLogin(urlMode !== "signup");
+    }, [searchParams]);
 
     // If already signed in, bounce to storage
     React.useEffect(() => {
@@ -102,8 +111,10 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex items-center justify-center p-4">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
+            <Navbar title={isLogin ? "Sign In" : "Sign Up"} />
+            <div className="flex items-center justify-center p-4">
+                <div className="w-full max-w-md">
                 <div
                     className="bg-black dark:bg-black text-white border-4 sm:border-8 border-black dark:border-white p-4 sm:p-6 mb-6 text-center header-shadow"
                     style={{
@@ -248,6 +259,7 @@ export default function Login() {
                         </button>
                     </div>
                 </form>
+                </div>
             </div>
         </div>
     );

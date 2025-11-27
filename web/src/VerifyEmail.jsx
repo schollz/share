@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "./AuthContext";
 import { deriveKey } from "./encryption";
+import Navbar from "./Navbar";
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
@@ -64,8 +65,10 @@ export default function VerifyEmail() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md border-4 border-black dark:border-white p-6 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
+    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
+      <Navbar title="Verify Email" />
+      <div className="flex items-center justify-center p-4">
+        <div className="w-full max-w-md border-4 border-black dark:border-white p-6 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
         {status === "pending" && (
           <div className="text-center text-lg font-bold">Verifying...</div>
         )}
@@ -115,6 +118,7 @@ export default function VerifyEmail() {
             </form>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

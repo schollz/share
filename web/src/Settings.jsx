@@ -10,6 +10,7 @@ import {
     encryptString,
 } from "./encryption";
 import { useConfig } from "./ConfigContext";
+import Navbar from "./Navbar";
 
 export default function Settings() {
     const { token, user, encryptionKey, setEncryptionKey, logout } = useAuth();
@@ -218,34 +219,10 @@ export default function Settings() {
     };
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white p-4 sm:p-8">
-            <div className="max-w-6xl mx-auto space-y-8">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h1 className="text-4xl sm:text-5xl font-black uppercase">
-                            Settings
-                        </h1>
-                        {user?.email && (
-                            <p className="text-lg">{user.email}</p>
-                        )}
-                    </div>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => navigate("/storage")}
-                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
-                        >
-                            <i className="fas fa-hdd"></i>
-                            <span className="hidden sm:inline sm:ml-2">Storage</span>
-                        </button>
-                        <button
-                            onClick={logout}
-                            className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer"
-                        >
-                            <i className="fas fa-sign-out-alt"></i>
-                            <span className="hidden sm:inline sm:ml-2">Logout</span>
-                        </button>
-                    </div>
-                </div>
+        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
+            <Navbar title="Settings" subtitle={user?.email} />
+            <div className="p-4 sm:p-8">
+                <div className="max-w-6xl mx-auto space-y-8">
 
                 <div className="border-4 border-black dark:border-white p-6 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
                     <h2 className="text-2xl font-black uppercase mb-4">
@@ -360,6 +337,7 @@ export default function Settings() {
                     </div>
                 </div>
             )}
+            </div>
         </div>
     );
 }
