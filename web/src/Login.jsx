@@ -27,12 +27,12 @@ export default function Login() {
         return `${rounded} ${units[i]}`;
     };
 
-    // If already signed in, bounce to profile
+    // If already signed in, bounce to storage
     React.useEffect(() => {
         if (!configLoading && !storageEnabled) {
             navigate("/", { replace: true });
         } else if (!authLoading && isAuthenticated) {
-            navigate("/profile", { replace: true });
+            navigate("/storage", { replace: true });
         }
     }, [authLoading, isAuthenticated, navigate, storageEnabled, configLoading]);
 
@@ -76,7 +76,7 @@ export default function Login() {
             if (isLogin) {
                 await login(email, password);
                 toast.success("Logged in successfully!");
-                navigate("/profile");
+                navigate("/storage");
             } else {
                 if (!captchaToken || !captchaAnswer.trim()) {
                     setErrorMessage("Please solve the captcha to continue.");

@@ -231,15 +231,15 @@ export default function Settings() {
                     </div>
                     <div className="flex gap-4">
                         <button
-                            onClick={() => navigate("/profile")}
-                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                            onClick={() => navigate("/storage")}
+                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
                         >
-                            <i className="fas fa-file-alt"></i>
-                            <span className="hidden sm:inline sm:ml-2">Back to Files</span>
+                            <i className="fas fa-hdd"></i>
+                            <span className="hidden sm:inline sm:ml-2">Storage</span>
                         </button>
                         <button
                             onClick={logout}
-                            className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors"
+                            className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer"
                         >
                             <i className="fas fa-sign-out-alt"></i>
                             <span className="hidden sm:inline sm:ml-2">Logout</span>
@@ -292,7 +292,7 @@ export default function Settings() {
                         <button
                             type="submit"
                             disabled={changingPassword}
-                            className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors disabled:opacity-60"
+                            className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors disabled:opacity-60 cursor-pointer"
                         >
                             {changingPassword ? "Updating..." : "Update Password"}
                         </button>
@@ -322,7 +322,7 @@ export default function Settings() {
                         <button
                             type="submit"
                             disabled={deleting}
-                            className="border-2 border-red-700 text-white bg-red-700 px-4 py-2 font-bold uppercase hover:bg-red-800 transition-colors disabled:opacity-60"
+                            className="border-2 border-red-700 text-white bg-red-700 px-4 py-2 font-bold uppercase hover:bg-red-800 transition-colors disabled:opacity-60 cursor-pointer"
                         >
                             {deleting ? "Deleting..." : "Delete Account"}
                         </button>

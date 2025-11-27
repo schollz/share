@@ -50,8 +50,8 @@ export default function DeviceAuth() {
 
             toast.success("Device approved successfully!");
             setUserCode("");
-            // Optionally redirect to profile
-            setTimeout(() => navigate("/profile"), 1500);
+            // Optionally redirect to storage
+            setTimeout(() => navigate("/storage"), 1500);
         } catch (err) {
             console.error("Approval error:", err);
             toast.error(err.message || "Failed to approve device");
@@ -95,10 +95,10 @@ export default function DeviceAuth() {
 
                 <div className="mt-6 pt-6 border-t-2 border-black dark:border-white">
                     <button
-                        onClick={() => navigate("/profile")}
+                        onClick={() => navigate("/storage")}
                         className="text-sm font-bold underline"
                     >
-                        Back to Profile
+                        Back to Storage
                     </button>
                 </div>
             </div>

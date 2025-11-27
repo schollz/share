@@ -55,7 +55,7 @@ export default function VerifyEmail() {
       localStorage.setItem("encryptionKey", keyHex);
 
       toast.success("Signed in!");
-      navigate("/profile");
+      navigate("/storage");
     } catch (err) {
       toast.error("Invalid password for unlocking encryption key");
     } finally {
