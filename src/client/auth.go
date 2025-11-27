@@ -145,7 +145,8 @@ func AuthenticateDevice(server string, logger *slog.Logger) {
 	line2 := fmt.Sprintf("  2. Enter code: %s", initResp.UserCode)
 	fmt.Printf("║%-52s║\n", line2)
 	fmt.Println("║  3. Waiting for approval...                        ║")
-	fmt.Println("╚════════════════════════════════════════════════════╝\n")
+	fmt.Println("╚════════════════════════════════════════════════════╝")
+	fmt.Println()
 
 	// Poll for approval
 	pollURL := fmt.Sprintf("%s://%s/api/auth/device/poll", serverURL.Scheme, serverURL.Host)
