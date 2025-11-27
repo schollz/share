@@ -325,3 +325,117 @@ func (h *AuthHandlers) writeError(w http.ResponseWriter, message string, status 
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(ErrorResponse{Error: message})
 }
+
+// Device Auth Handlers
+// InitiateDeviceAuth starts a new device auth flow
+func (h *AuthHandlers) InitiateDeviceAuth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	session, err := h.authService.InitiateDeviceAuth()
+	if err != nil {
+		h.logger.Error("Failed to initiate device auth", "error", err)
+		h.writeError(w, "Failed to initiate device auth", http.StatusInternalServerError)
+		return
+	}
+
+	h.writeJSON(w, map[string]interface{}{
+		"device_code": session.DeviceCode,
+		"user_code":   session.UserCode,
+		"expires_in":  600, // 10 minutes in seconds
+	}, http.StatusOK)
+}
+
+// PollDeviceAuth checks if a device has been approved
+func (h *AuthHandlers) PollDeviceAuth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		DeviceCode string `json:"device_code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.DeviceCode == "" {
+		h.writeError(w, "Device code is required", http.StatusBadRequest)
+		return
+	}
+
+	session, err := h.authService.PollDeviceAuth(req.DeviceCode)
+	if err != nil {
+		if err == auth.ErrInvalidToken {
+			h.writeError(w, "Invalid or expired device code", http.StatusNotFound)
+			return
+		}
+		h.logger.Error("Failed to poll device auth", "error", err)
+		h.writeError(w, "Failed to poll device auth", http.StatusInternalServerError)
+		return
+	}
+
+	// If not approved yet, return pending status
+	if !session.Approved {
+		h.writeJSON(w, map[string]interface{}{
+			"status": "pending",
+		}, http.StatusAccepted)
+		return
+	}
+
+	// Approved - return token
+	h.writeJSON(w, map[string]interface{}{
+		"status": "approved",
+		"token":  session.Token.String,
+	}, http.StatusOK)
+}
+
+// ApproveDeviceAuth approves a device auth request from a logged-in user
+func (h *AuthHandlers) ApproveDeviceAuth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := GetUserID(r)
+	if userID == 0 {
+		h.writeError(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		UserCode string `json:"user_code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Failed to decode request body", "error", err)
+		h.writeError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Info("Received device auth approval request", "user_code", req.UserCode, "user_id", userID)
+
+	if req.UserCode == "" {
+		h.writeError(w, "User code is required", http.StatusBadRequest)
+		return
+	}
+
+	token, err := h.authService.ApproveDeviceAuth(req.UserCode, userID)
+	if err != nil {
+		if err == auth.ErrInvalidToken {
+			h.writeError(w, "Invalid or expired user code", http.StatusBadRequest)
+			return
+		}
+		h.logger.Error("Failed to approve device auth", "error", err)
+		h.writeError(w, "Failed to approve device auth", http.StatusInternalServerError)
+		return
+	}
+
+	h.writeJSON(w, map[string]interface{}{
+		"status": "approved",
+		"token":  token,
+	}, http.StatusOK)
+}

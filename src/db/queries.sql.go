@@ -8,7 +8,66 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 )
+
+const approveDeviceAuthSession = `-- name: ApproveDeviceAuthSession :one
+UPDATE device_auth_sessions
+SET approved = TRUE, user_id = $1, token = $2
+WHERE user_code = $3 AND approved = FALSE
+RETURNING id, device_code, user_code, user_id, approved, token, expires_at, created_at
+`
+
+type ApproveDeviceAuthSessionParams struct {
+	UserID   sql.NullInt64  `json:"user_id"`
+	Token    sql.NullString `json:"token"`
+	UserCode string         `json:"user_code"`
+}
+
+func (q *Queries) ApproveDeviceAuthSession(ctx context.Context, arg ApproveDeviceAuthSessionParams) (DeviceAuthSession, error) {
+	row := q.db.QueryRowContext(ctx, approveDeviceAuthSession, arg.UserID, arg.Token, arg.UserCode)
+	var i DeviceAuthSession
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceCode,
+		&i.UserCode,
+		&i.UserID,
+		&i.Approved,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createDeviceAuthSession = `-- name: CreateDeviceAuthSession :one
+INSERT INTO device_auth_sessions (device_code, user_code, expires_at)
+VALUES ($1, $2, $3)
+RETURNING id, device_code, user_code, user_id, approved, token, expires_at, created_at
+`
+
+type CreateDeviceAuthSessionParams struct {
+	DeviceCode string    `json:"device_code"`
+	UserCode   string    `json:"user_code"`
+	ExpiresAt  time.Time `json:"expires_at"`
+}
+
+// Device Auth Sessions
+func (q *Queries) CreateDeviceAuthSession(ctx context.Context, arg CreateDeviceAuthSessionParams) (DeviceAuthSession, error) {
+	row := q.db.QueryRowContext(ctx, createDeviceAuthSession, arg.DeviceCode, arg.UserCode, arg.ExpiresAt)
+	var i DeviceAuthSession
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceCode,
+		&i.UserCode,
+		&i.UserID,
+		&i.Approved,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
 
 const createFile = `-- name: CreateFile :one
 INSERT INTO files (user_id, encrypted_filename, file_size, encrypted_key, share_token, download_count, file_data)
@@ -89,6 +148,16 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteExpiredDeviceAuthSessions = `-- name: DeleteExpiredDeviceAuthSessions :exec
+DELETE FROM device_auth_sessions
+WHERE expires_at < CURRENT_TIMESTAMP
+`
+
+func (q *Queries) DeleteExpiredDeviceAuthSessions(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteExpiredDeviceAuthSessions)
+	return err
+}
+
 const deleteFile = `-- name: DeleteFile :exec
 DELETE FROM files
 WHERE id = $1 AND user_id = $2
@@ -122,6 +191,50 @@ WHERE id = $1
 func (q *Queries) DeleteUserByID(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteUserByID, id)
 	return err
+}
+
+const getDeviceAuthSessionByDeviceCode = `-- name: GetDeviceAuthSessionByDeviceCode :one
+SELECT id, device_code, user_code, user_id, approved, token, expires_at, created_at FROM device_auth_sessions
+WHERE device_code = $1
+LIMIT 1
+`
+
+func (q *Queries) GetDeviceAuthSessionByDeviceCode(ctx context.Context, deviceCode string) (DeviceAuthSession, error) {
+	row := q.db.QueryRowContext(ctx, getDeviceAuthSessionByDeviceCode, deviceCode)
+	var i DeviceAuthSession
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceCode,
+		&i.UserCode,
+		&i.UserID,
+		&i.Approved,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getDeviceAuthSessionByUserCode = `-- name: GetDeviceAuthSessionByUserCode :one
+SELECT id, device_code, user_code, user_id, approved, token, expires_at, created_at FROM device_auth_sessions
+WHERE user_code = $1
+LIMIT 1
+`
+
+func (q *Queries) GetDeviceAuthSessionByUserCode(ctx context.Context, userCode string) (DeviceAuthSession, error) {
+	row := q.db.QueryRowContext(ctx, getDeviceAuthSessionByUserCode, userCode)
+	var i DeviceAuthSession
+	err := row.Scan(
+		&i.ID,
+		&i.DeviceCode,
+		&i.UserCode,
+		&i.UserID,
+		&i.Approved,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getFileByID = `-- name: GetFileByID :one

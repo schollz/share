@@ -37,6 +37,11 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger, enab
 	mux.HandleFunc("/api/auth/verify-email", authHandlers.VerifyEmailToken)
 	mux.HandleFunc("/api/auth/captcha", authHandlers.Captcha)
 
+	// Device auth routes
+	mux.HandleFunc("/api/auth/device/init", authHandlers.InitiateDeviceAuth)
+	mux.HandleFunc("/api/auth/device/poll", authHandlers.PollDeviceAuth)
+	mux.Handle("/api/auth/device/approve", authMiddleware(http.HandlerFunc(authHandlers.ApproveDeviceAuth)))
+
 	// Auth verify route (authentication required)
 	mux.Handle("/api/auth/verify", authMiddleware(http.HandlerFunc(authHandlers.Verify)))
 	mux.Handle("/api/auth/change-password", authMiddleware(http.HandlerFunc(authHandlers.ChangePassword)))
@@ -85,6 +90,9 @@ func SetupAPIRoutes(mux *http.ServeMux, database *sql.DB, log *slog.Logger, enab
 		"/api/auth/verify-email",
 		"/api/auth/captcha",
 		"/api/auth/verify",
+		"/api/auth/device/init",
+		"/api/auth/device/poll",
+		"/api/auth/device/approve",
 		"/api/files/upload",
 		"/api/files/list",
 		"/api/files/rekey",
