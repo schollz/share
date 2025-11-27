@@ -652,7 +652,7 @@ func ReceiveFile(roomID, serverURL, outputDir string, forceOverwrite bool, logge
 						}()
 					}
 				}
-			
+
 			case "text_message":
 				if sharedSecret == nil {
 					continue
