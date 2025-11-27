@@ -11,6 +11,7 @@ import SharedFile from "./SharedFile.jsx";
 import Settings from "./Settings.jsx";
 import VerifyEmail from "./VerifyEmail.jsx";
 import SignupSuccess from "./SignupSuccess.jsx";
+import "@fontsource/monaspace-neon";
 import "./index.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 

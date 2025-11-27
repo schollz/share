@@ -10,5 +10,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0"
+  },
+  "dependencies": {
+    "@fontsource/monaspace-neon": "^5.2.5",
+    "@fontsource/monaspace-radon": "^5.2.5"
   }
 }
