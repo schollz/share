@@ -371,10 +371,21 @@ export default function SharedFile() {
         return () => darkModeQuery.removeEventListener('change', handleChange);
     }, []);
 
+    // Animated loading dots
+    const [loadingDots, setLoadingDots] = useState('.');
+    useEffect(() => {
+        if (loading) {
+            const interval = setInterval(() => {
+                setLoadingDots(prev => prev.length >= 3 ? '.' : prev + '.');
+            }, 300);
+            return () => clearInterval(interval);
+        }
+    }, [loading]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex items-center justify-center">
-                <div className="text-2xl font-bold">Loading...</div>
+                <div className="text-2xl font-bold">Loading{loadingDots}</div>
             </div>
         );
     }

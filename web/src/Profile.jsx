@@ -72,8 +72,12 @@ export default function Profile() {
             navigate("/login");
             return;
         }
+        if (!encryptionKey) {
+            // Wait for encryption key to be available
+            return;
+        }
         fetchFiles();
-    }, [user, navigate, storageEnabled, configLoading]);
+    }, [user, navigate, storageEnabled, configLoading, encryptionKey]);
 
     const fetchFiles = async () => {
         try {
