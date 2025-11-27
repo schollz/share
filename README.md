@@ -26,6 +26,22 @@ e2ecp send <file>
 e2ecp receive
 ```
 
+**Uploading to your account:**
+
+First, register at <https://e2ecp.com>. Then authenticate:
+
+```bash
+e2ecp auth
+```
+
+Upload encrypted files to your account:
+
+```bash
+e2ecp upload <file>
+```
+
+Files are end-to-end encrypted before upload. The password you enter must match your account password.
+
 ## Command-line tool
 
 The command-line tool, e2ecp, is available as a single binary for Windows, Mac OS, or Linux. Simply download the [latest release](https://github.com/schollz/e2ecp/releases/latest) or install with:
@@ -70,7 +86,26 @@ e2ecp serve --port 8080
 
 ### Enable profile/storage features
 
-By default, the relay only serves WebSocket rooms. To enable the profile, login, and encrypted file storage APIs, set `ALLOW_STORAGE_PROFILE=yes` in your `.env`. If it is not `yes`, those endpoints stay disabled so you don't need Mailjet or other profile dependencies for a lightweight relay-only install.
+By default, the relay only serves WebSocket rooms. To enable the profile, login, and encrypted file storage APIs, create a `.env` file:
+
+```bash
+ALLOW_STORAGE_PROFILE=yes
+
+# Database configuration
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=postgres
+DATABASE_PASSWORD=your_password
+DATABASE_NAME=e2ecp
+
+# Email configuration (for registration/verification)
+MAILJET_API_KEY=your_api_key
+MAILJET_API_SECRET=your_api_secret
+MAILJET_FROM_EMAIL=noreply@yourdomain.com
+MAILJET_FROM_NAME=YourAppName
+```
+
+Requires PostgreSQL for user accounts and file storage. Get Mailjet credentials at <https://www.mailjet.com>. If `ALLOW_STORAGE_PROFILE` is not `yes`, profile endpoints stay disabled and neither database nor Mailjet are required.
 
 ### Using Docker
 
