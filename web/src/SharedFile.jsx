@@ -4,6 +4,8 @@ import { decryptFile, decryptString, deriveKey } from "./encryption";
 import toast from "react-hot-toast";
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomOneDark, atomOneLight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import Navbar from "./Navbar";
+import { useDarkMode } from "./DarkModeContext";
 
 // Import language support
 import javascript from 'react-syntax-highlighter/dist/esm/languages/hljs/javascript';
@@ -148,9 +150,7 @@ export default function SharedFile() {
     const [downloading, setDownloading] = useState(false);
     const [preview, setPreview] = useState(null);
     const [previewing, setPreviewing] = useState(false);
-    const [darkMode, setDarkMode] = useState(
-        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-    );
+    const { darkMode } = useDarkMode();
 
     useEffect(() => {
         const initializeFile = async () => {
@@ -378,14 +378,6 @@ export default function SharedFile() {
         };
     }, [preview?.url]);
 
-    // Listen for dark mode changes
-    useEffect(() => {
-        const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleChange = (e) => setDarkMode(e.matches);
-        darkModeQuery.addEventListener('change', handleChange);
-        return () => darkModeQuery.removeEventListener('change', handleChange);
-    }, []);
-
     // Animated loading dots
     const [loadingDots, setLoadingDots] = useState('.');
     useEffect(() => {
@@ -430,27 +422,13 @@ export default function SharedFile() {
     }
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white p-4 sm:p-8">
-            <div className="max-w-4xl mx-auto">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                    <h1 className="text-4xl sm:text-5xl font-black uppercase">
-                        Shared File
-                    </h1>
-                    <button
-                        onClick={() => navigate("/")}
-                        className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
-                    >
-                        <i className="fas fa-home"></i>
-                        <span className="hidden sm:inline sm:ml-2">Home</span>
-                    </button>
-                </div>
+        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
+            <Navbar title={decryptedFilename || "Shared File"} />
+            <div className="p-4 sm:p-8">
+                <div className="max-w-4xl mx-auto">
 
                 {/* Download Section */}
                 <div className="border-4 border-black dark:border-white p-8 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
-                    <h2 className="text-2xl font-black uppercase mb-6 text-center">
-                        {decryptedFilename ? decryptedFilename : "Someone shared a file with you"}
-                    </h2>
 
                     {/* Preview */}
                     {preview && (
@@ -541,6 +519,7 @@ export default function SharedFile() {
                             <strong>Privacy Notice:</strong> This file is end-to-end encrypted. Decryption happens in your browser using the key in this URL. The server cannot access the file contents.
                         </p>
                     </div>
+                </div>
                 </div>
             </div>
         </div>

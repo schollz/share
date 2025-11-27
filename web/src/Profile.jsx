@@ -12,6 +12,7 @@ import {
     decryptString,
 } from "./encryption";
 import toast from "react-hot-toast";
+import Navbar from "./Navbar";
 
 function ConfirmModal({ open, title, message, confirmLabel, cancelLabel, onConfirm, onCancel }) {
     if (!open) return null;
@@ -433,40 +434,10 @@ export default function Profile() {
         }
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white p-4 sm:p-8">
-            <div className="max-w-6xl mx-auto">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                    <div>
-                        <h1 className="text-4xl sm:text-5xl font-black uppercase mb-2">
-                            Storage
-                        </h1>
-                        <p className="text-lg">{user?.email}</p>
-                    </div>
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => navigate("/")}
-                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
-                        >
-                            <i className="fas fa-home"></i>
-                            <span className="hidden sm:inline sm:ml-2">Home</span>
-                        </button>
-                        <button
-                            onClick={() => navigate("/settings")}
-                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
-                        >
-                            <i className="fas fa-cog"></i>
-                            <span className="hidden sm:inline sm:ml-2">Settings</span>
-                        </button>
-                        <button
-                            onClick={logout}
-                            className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer"
-                        >
-                            <i className="fas fa-sign-out-alt"></i>
-                            <span className="hidden sm:inline sm:ml-2">Logout</span>
-                        </button>
-                    </div>
-                </div>
+        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
+            <Navbar title="Storage" subtitle={user?.email} />
+            <div className="p-4 sm:p-8">
+                <div className="max-w-6xl mx-auto">
 
                 {/* Storage Info */}
                 <div className="border-4 border-black dark:border-white p-6 mb-8 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
@@ -626,6 +597,7 @@ export default function Profile() {
                     setConfirmState({ open: false, fileId: null, filename: "" })
                 }
             />
+            </div>
         </div>
     );
 }

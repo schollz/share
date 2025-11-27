@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
+import Navbar from "./Navbar";
 
 export default function DeviceAuth() {
     const { token } = useAuth();
@@ -61,8 +62,10 @@ export default function DeviceAuth() {
     };
 
     return (
-        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex items-center justify-center p-4">
-            <div className="w-full max-w-md border-4 border-black dark:border-white p-6 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
+        <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white">
+            <Navbar title="Device Auth" />
+            <div className="flex items-center justify-center p-4">
+                <div className="w-full max-w-md border-4 border-black dark:border-white p-6 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)]">
                 <h1 className="text-3xl font-black uppercase mb-4">Device Auth</h1>
                 <p className="mb-6 text-sm">
                     Enter the code displayed on your device to authorize it to access your account.
@@ -100,6 +103,7 @@ export default function DeviceAuth() {
                     >
                         Back to Storage
                     </button>
+                </div>
                 </div>
             </div>
         </div>
