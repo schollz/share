@@ -15,6 +15,7 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+
   *,
   ::after,
   ::before,
@@ -31,6 +32,7 @@
     font-family: "Monaspace Neon", monospace;
     text-transform: uppercase;
   }
+
   button,
   input,
   select,
@@ -42,7 +44,7 @@
   textarea::placeholder {
     text-transform: uppercase;
   }
-  
+
   /* Toast notification color variables */
   :root {
     --toast-bg: #fff;
@@ -51,7 +53,7 @@
     --toast-icon-primary: #000;
     --toast-icon-secondary: #fff;
   }
-  
+
   :root.dark {
     --toast-bg: #000;
     --toast-text: #fff;
@@ -59,16 +61,16 @@
     --toast-icon-primary: #fff;
     --toast-icon-secondary: #000;
   }
-  
+
   /* Header box shadow for dark mode */
   .header-shadow {
     box-shadow: 4px 4px 0px 0px rgb(229, 231, 235), 0 0 0 4px black;
   }
-  
+
   :root.dark .header-shadow {
     box-shadow: 4px 4px 0px 0px #fff, 0 0 0 4px #fff;
   }
-  
+
   /* Override FontAwesome font-display from block to swap for better performance
      This prevents FOIT (Flash of Invisible Text) and improves FCP/LCP metrics */
   @font-face {
@@ -78,7 +80,7 @@
     font-display: swap;
     src: url(@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2) format("woff2");
   }
-  
+
   @font-face {
     font-family: "Font Awesome 7 Free";
     font-style: normal;
@@ -86,12 +88,16 @@
     font-display: swap;
     src: url(@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2) format("woff2");
   }
-  
+
   @font-face {
     font-family: "Font Awesome 7 Free";
     font-style: normal;
     font-weight: 900;
     font-display: swap;
     src: url(@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2) format("woff2");
+  }
+
+  .nocase {
+    text-transform: none;
   }
 }
