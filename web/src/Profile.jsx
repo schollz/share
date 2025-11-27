@@ -392,7 +392,7 @@ export default function Profile() {
                         How storage works
                     </h2>
                     <p className="text-sm sm:text-base leading-relaxed">
-                        Your files and filenames are encrypted in the browser before upload. The server stores only encrypted blobs and cannot decrypt them—only you hold the key derived from your password. Share links include the encryption key so recipients can decrypt, but the server still cannot.
+                        **Files and filenames are end-to-end encrypted. The server stores only encrypted data and cannot decrypt it. Sharing links transfer the decryption key directly to recipients.**
                     </p>
                 </div>
 
