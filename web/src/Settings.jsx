@@ -234,13 +234,15 @@ export default function Settings() {
                             onClick={() => navigate("/profile")}
                             className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
                         >
-                            Back to Files
+                            <i className="fas fa-file-alt"></i>
+                            <span className="hidden sm:inline sm:ml-2">Back to Files</span>
                         </button>
                         <button
                             onClick={logout}
                             className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors"
                         >
-                            Logout
+                            <i className="fas fa-sign-out-alt"></i>
+                            <span className="hidden sm:inline sm:ml-2">Logout</span>
                         </button>
                     </div>
                 </div>

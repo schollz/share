@@ -405,7 +405,8 @@ export default function SharedFile() {
                             onClick={() => navigate("/")}
                             className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-6 py-3 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors"
                         >
-                            Go Home
+                            <i className="fas fa-home"></i>
+                            <span className="hidden sm:inline sm:ml-2">Go Home</span>
                         </button>
                     </div>
                 </div>
@@ -425,7 +426,8 @@ export default function SharedFile() {
                         onClick={() => navigate("/")}
                         className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
                     >
-                        Home
+                        <i className="fas fa-home"></i>
+                        <span className="hidden sm:inline sm:ml-2">Home</span>
                     </button>
                 </div>
 

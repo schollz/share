@@ -448,19 +448,22 @@ export default function Profile() {
                             onClick={() => navigate("/")}
                             className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
                         >
-                            Home
+                            <i className="fas fa-home"></i>
+                            <span className="hidden sm:inline sm:ml-2">Home</span>
                         </button>
                         <button
                             onClick={() => navigate("/settings")}
                             className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
                         >
-                            Settings
+                            <i className="fas fa-cog"></i>
+                            <span className="hidden sm:inline sm:ml-2">Settings</span>
                         </button>
                         <button
                             onClick={logout}
                             className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors"
                         >
-                            Logout
+                            <i className="fas fa-sign-out-alt"></i>
+                            <span className="hidden sm:inline sm:ml-2">Logout</span>
                         </button>
                     </div>
                 </div>
