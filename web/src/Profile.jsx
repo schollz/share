@@ -287,6 +287,81 @@ export default function Profile() {
         }
     };
 
+    const handleOpenShareLink = async (fileId, encryptedFilename) => {
+        console.log("Filename clicked, fileId:", fileId);
+
+        if (!encryptionKey) {
+            toast.error("Encryption key not available. Please log in again.");
+            return;
+        }
+
+        try {
+            console.log("Starting share link generation...");
+            toast.loading("Opening share link...", { id: "share" });
+
+            const response = await fetch(
+                `/api/files/share/generate/${fileId}`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                },
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Failed to generate share link");
+            }
+
+            const data = await response.json();
+            console.log("Backend response:", data);
+
+            // Check if file has an encrypted key
+            if (!data.file_key || data.file_key.trim() === "") {
+                toast.error("This file was uploaded without encryption. Please re-upload it to enable sharing.", { id: "share" });
+                return;
+            }
+
+            // Decrypt the file key with user's master key
+            console.log("Decrypting file key...");
+            const fileKey = await decryptFileKey(
+                data.file_key,
+                encryptionKey,
+            );
+            console.log("File key decrypted successfully");
+
+            // Decrypt the filename with master key, then re-encrypt with file key for sharing
+            const decryptedFilename = await decryptString(encryptedFilename, encryptionKey);
+            const filenameForShare = await encryptString(decryptedFilename, fileKey);
+
+            // Export the file key as raw bytes for sharing
+            const exportedKey = await window.crypto.subtle.exportKey(
+                "raw",
+                fileKey,
+            );
+            const keyArray = new Uint8Array(exportedKey);
+            let keyHex = "";
+            for (let i = 0; i < keyArray.length; i++) {
+                keyHex += keyArray[i].toString(16).padStart(2, "0");
+            }
+
+            // Create share URL with the decryption key and filename encrypted with file key
+            // Extract token from API URL: /api/files/share/token -> /share/token
+            const shareToken = data.share_url.split("/").pop();
+            // Format: #fileKey|filenameEncryptedWithFileKey
+            const shareURL = `${window.location.origin}/share/${shareToken}#${keyHex}|${encodeURIComponent(filenameForShare)}`;
+
+            // Open in new window
+            window.open(shareURL, '_blank');
+            toast.success("Share link opened in new window!", { id: "share" });
+            fetchFiles();
+        } catch (error) {
+            console.error("Share link error:", error);
+            toast.error(error.message || "Failed to generate share link", { id: "share" });
+        }
+    };
+
     const handleDownload = async (fileId, filename, encryptedFileKey) => {
         if (!encryptionKey) {
             toast.error("Encryption key not available. Please log in again.");
@@ -450,7 +525,11 @@ export default function Profile() {
                                 >
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="text-lg font-bold break-all">
+                                            <h3
+                                                className="text-lg font-bold break-all cursor-pointer hover:underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                                onClick={() => handleOpenShareLink(file.id, file.encrypted_filename)}
+                                                title="Click to open share link in new window"
+                                            >
                                                 {file.filename}
                                             </h3>
                                             <p className="text-sm flex flex-wrap items-center gap-2">
