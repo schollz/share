@@ -19,10 +19,10 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [encryptionKey, setEncryptionKey] = useState(null);
 
-    // Restore encryption key from sessionStorage on mount
+    // Restore encryption key from localStorage on mount
     useEffect(() => {
         const restoreEncryptionKey = async () => {
-            const storedKeyHex = sessionStorage.getItem("encryptionKey");
+            const storedKeyHex = localStorage.getItem("encryptionKey");
             if (storedKeyHex) {
                 try {
                     // Convert hex to bytes
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
                     setEncryptionKey(key);
                 } catch (error) {
                     console.error("Failed to restore encryption key:", error);
-                    sessionStorage.removeItem("encryptionKey");
+                    localStorage.removeItem("encryptionKey");
                 }
             }
         };
@@ -75,14 +75,14 @@ export const AuthProvider = ({ children }) => {
                 } else {
                     // Token is invalid, clear it
                     localStorage.removeItem("token");
-                    sessionStorage.removeItem("encryptionKey");
+                    localStorage.removeItem("encryptionKey");
                     setToken(null);
                     setUser(null);
                 }
             } catch (error) {
                 console.error("Token verification failed:", error);
                 localStorage.removeItem("token");
-                sessionStorage.removeItem("encryptionKey");
+                localStorage.removeItem("encryptionKey");
                 setToken(null);
                 setUser(null);
             } finally {
@@ -119,13 +119,13 @@ export const AuthProvider = ({ children }) => {
         const key = await deriveKey(password, data.user.encryption_salt);
         setEncryptionKey(key);
 
-        // Store encryption key in sessionStorage for persistence across page refreshes
+        // Store encryption key in localStorage for persistence across sessions
         const exportedKey = await window.crypto.subtle.exportKey("raw", key);
         const keyArray = new Uint8Array(exportedKey);
         const keyHex = Array.from(keyArray)
             .map((b) => b.toString(16).padStart(2, "0"))
             .join("");
-        sessionStorage.setItem("encryptionKey", keyHex);
+        localStorage.setItem("encryptionKey", keyHex);
 
         return data;
     };
@@ -176,7 +176,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         localStorage.removeItem("token");
-        sessionStorage.removeItem("encryptionKey");
+        localStorage.removeItem("encryptionKey");
         setToken(null);
         setUser(null);
         setEncryptionKey(null);
