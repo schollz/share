@@ -14,7 +14,7 @@ node_modules:
 web/node_modules:
 	cd web && npm install
 
-web: node_modules web/node_modules
+web: web/node_modules
 	cd web && npm run build
 	touch web/dist/.keep
 

@@ -8,6 +8,8 @@
         "preview": "vite preview"
     },
     "dependencies": {
+        "@fontsource/monaspace-neon": "^5.2.5",
+        "@fontsource/monaspace-radon": "^5.2.5",
         "@fortawesome/fontawesome-free": "^7.1.0",
         "jszip": "^3.10.1",
         "protobufjs": "^7.5.4",
