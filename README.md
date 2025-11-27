@@ -28,19 +28,21 @@ e2ecp receive
 
 **Uploading to your account:**
 
-First, register at <https://e2ecp.com>. Then authenticate:
+Register at <https://e2ecp.com> to store files in your encrypted account. Your files are end-to-end encrypted - the server never sees the plaintext.
+
+Authenticate from CLI:
 
 ```bash
 e2ecp auth
 ```
 
-Upload encrypted files to your account:
+Upload encrypted files:
 
 ```bash
 e2ecp upload <file>
 ```
 
-Files are end-to-end encrypted before upload. The password you enter must match your account password.
+Access your files anytime from the website or CLI. Share them with generated links that include the decryption key. The password you enter must match your account password.
 
 ## Command-line tool
 
