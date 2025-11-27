@@ -31,20 +31,20 @@ jobs:
           VERSION="${VERSION#v}"
           echo "clean_version=$VERSION" >> $GITHUB_OUTPUT
           echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          
+
           # Download and extract the source code
           curl -L -o source.tar.gz "https://github.com/schollz/e2ecp/archive/refs/tags/${{ github.event.release.tag_name }}.tar.gz"
           tar -xzf source.tar.gz
           cd e2ecp-*
-          
+
           # Vendor the dependencies
           go mod vendor
-          
+
           # Create vendored tarball
           cd ..
           mv e2ecp-* e2ecp-vendored
           tar -czf source_code_vendored.tar.gz e2ecp-vendored/
-          
+
           # Calculate SHA256 of vendored tarball
           SHA256=$(shasum -a 256 source_code_vendored.tar.gz | cut -d' ' -f1)
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
@@ -72,6 +72,9 @@ jobs:
             depends_on "node" => :build
 
             def install
+              # Install web dependencies
+              system "npm", "install"
+
               # Install web dependencies
               cd "web" do
                 system "npm", "install"
@@ -102,16 +105,16 @@ jobs:
           # Configure git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Clone the tap repository
           git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/schollz/homebrew-tap.git tap
-          
+
           # Ensure Formula directory exists
           mkdir -p tap/Formula
-          
+
           # Copy the formula
           cp e2ecp.rb tap/Formula/e2ecp.rb
-          
+
           # Commit and push
           cd tap
           git add Formula/e2ecp.rb

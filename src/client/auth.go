@@ -259,6 +259,15 @@ func UploadFile(filePath, server string, logger *slog.Logger) {
 		return
 	}
 
+	// Verify password by trying to decrypt an existing filename
+	fmt.Print("Verifying password... ")
+	if !verifyPassword(masterKey, token, serverURL, logger) {
+		fmt.Println("\n✗ Incorrect password. The password you entered does not match your account password.")
+		fmt.Println("Please try again with the correct password.")
+		return
+	}
+	fmt.Println("✓")
+
 	// Check if file exists
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
@@ -393,4 +402,75 @@ func readPassword() ([]byte, error) {
 	}
 
 	return password, nil
+}
+
+// verifyPassword verifies the password by attempting to decrypt an existing encrypted filename
+func verifyPassword(masterKey []byte, token string, serverURL *url.URL, logger *slog.Logger) bool {
+	// Fetch user's files to get an encrypted filename
+	listURL := fmt.Sprintf("%s://%s/api/files/list", serverURL.Scheme, serverURL.Host)
+	req, _ := http.NewRequest("GET", listURL, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Warn("Failed to fetch files for password verification", "error", err)
+		// If we can't fetch files, assume password is correct (user might have no files yet)
+		return true
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Warn("Failed to fetch files for password verification", "status", resp.StatusCode)
+		// If we can't fetch files, assume password is correct
+		return true
+	}
+
+	var filesResp struct {
+		Files []struct {
+			EncryptedFilename string `json:"encrypted_filename"`
+		} `json:"files"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&filesResp); err != nil {
+		logger.Warn("Failed to decode files response", "error", err)
+		return true
+	}
+
+	// If user has no files yet, we can't verify the password, so assume it's correct
+	if len(filesResp.Files) == 0 {
+		return true
+	}
+
+	// Try to decrypt the first file's encrypted filename
+	encryptedFilename := filesResp.Files[0].EncryptedFilename
+	if encryptedFilename == "" {
+		return true
+	}
+
+	// Decode base64
+	encryptedData, err := base64.StdEncoding.DecodeString(encryptedFilename)
+	if err != nil {
+		logger.Warn("Failed to decode encrypted filename", "error", err)
+		return true
+	}
+
+	// The encrypted data contains IV (first 12 bytes) + ciphertext
+	if len(encryptedData) < 12 {
+		logger.Warn("Encrypted filename too short", "length", len(encryptedData))
+		return true
+	}
+
+	iv := encryptedData[:12]
+	ciphertext := encryptedData[12:]
+
+	// Try to decrypt
+	_, err = crypto.DecryptAESGCM(masterKey, iv, ciphertext)
+	if err != nil {
+		// Decryption failed - password is incorrect
+		logger.Debug("Password verification failed - incorrect password")
+		return false
+	}
+
+	// Decryption succeeded - password is correct
+	return true
 }

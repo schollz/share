@@ -8,10 +8,13 @@ LDFLAGS ?=
 all: build
 	@echo "Build completed at $(shell date)"
 
+node_modules:
+	npm install
+
 web/node_modules:
 	cd web && npm install
 
-web: web/node_modules
+web: node_modules web/node_modules
 	cd web && npm run build
 	touch web/dist/.keep
 
