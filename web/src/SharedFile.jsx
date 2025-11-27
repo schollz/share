@@ -79,6 +79,11 @@ const getFileType = (filename) => {
         return { category: 'video', mimeType: `video/${ext}` };
     }
 
+    // PDF files
+    if (ext === 'pdf') {
+        return { category: 'pdf', mimeType: 'application/pdf' };
+    }
+
     // Code/text files with language mapping
     const languageMap = {
         'js': 'javascript',
@@ -330,6 +335,16 @@ export default function SharedFile() {
                     mimeType: fileType.mimeType,
                     filename: decryptedFilename
                 });
+            } else if (fileType.category === 'pdf') {
+                // Create object URL for PDF with explicit MIME type
+                const pdfBlob = new Blob([decryptedBlob], { type: 'application/pdf' });
+                const url = URL.createObjectURL(pdfBlob);
+                setPreview({
+                    type: 'pdf',
+                    url: url,
+                    mimeType: fileType.mimeType,
+                    filename: decryptedFilename
+                });
             } else {
                 toast.error("Preview not available for this file type", { id: "preview" });
                 return;
@@ -348,7 +363,7 @@ export default function SharedFile() {
     useEffect(() => {
         if (decryptedFilename && !preview && !previewing) {
             const fileType = getFileType(decryptedFilename);
-            if (['code', 'image', 'audio', 'video'].includes(fileType.category)) {
+            if (['code', 'image', 'audio', 'video', 'pdf'].includes(fileType.category)) {
                 handlePreview();
             }
         }
@@ -492,6 +507,23 @@ export default function SharedFile() {
                                         <source src={preview.url} type={preview.mimeType} />
                                         Your browser does not support video playback.
                                     </video>
+                                </div>
+                            )}
+
+                            {preview.type === 'pdf' && (
+                                <div className="border-2 border-black dark:border-white bg-gray-100 dark:bg-gray-900">
+                                    <iframe
+                                        src={preview.url}
+                                        type="application/pdf"
+                                        className="w-full h-[600px]"
+                                        style={{ minHeight: '600px', border: 'none' }}
+                                        title={preview.filename}
+                                    >
+                                        <p className="p-4">
+                                            Your browser does not support PDF preview.
+                                            Please use the download button below to view the file.
+                                        </p>
+                                    </iframe>
                                 </div>
                             )}
                         </div>
