@@ -139,8 +139,11 @@ func AuthenticateDevice(server string, logger *slog.Logger) {
 	fmt.Println("\n╔════════════════════════════════════════════════════╗")
 	fmt.Println("║          E2ECP DEVICE AUTHENTICATION               ║")
 	fmt.Println("╠════════════════════════════════════════════════════╣")
-	fmt.Printf("║  1. Visit: %s%-22s║\n", authURL, strings.Repeat(" ", max(0, 45-len(authURL))))
-	fmt.Printf("║  2. Enter code: %s                              ║\n", initResp.UserCode)
+	// Build lines with proper padding - content should be exactly 52 chars
+	line1 := fmt.Sprintf("  1. Visit: %s", authURL)
+	fmt.Printf("║%-52s║\n", line1)
+	line2 := fmt.Sprintf("  2. Enter code: %s", initResp.UserCode)
+	fmt.Printf("║%-52s║\n", line2)
 	fmt.Println("║  3. Waiting for approval...                        ║")
 	fmt.Println("╚════════════════════════════════════════════════════╝\n")
 
@@ -361,13 +364,6 @@ func UploadFile(filePath, server string, logger *slog.Logger) {
 	}
 
 	fmt.Println("✓ File uploaded successfully!")
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // deriveMasterKey derives a 256-bit encryption key from password and salt using PBKDF2
