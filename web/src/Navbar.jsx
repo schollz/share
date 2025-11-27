@@ -49,7 +49,7 @@ export default function Navbar({ title = "e2ecp", subtitle = null }) {
                     </button>
                     <button
                         onClick={() => navigate("/about")}
-                        className={`border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-2 sm:px-4 text-sm sm:text-base font-bold hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:scale-105 transition-all cursor-pointer ${isAboutActive ? activeRing : ""}`}
+                        className={`hidden sm:inline-flex border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-2 sm:px-4 text-sm sm:text-base font-bold hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:scale-105 transition-all cursor-pointer ${isAboutActive ? activeRing : ""}`}
                         aria-label="About"
                         aria-current={isAboutActive ? "page" : undefined}
                     >
