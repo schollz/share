@@ -392,7 +392,7 @@ export default function Profile() {
                         How storage works
                     </h2>
                     <p className="text-sm sm:text-base leading-relaxed">
-                        **Files and filenames are end-to-end encrypted. The server stores only encrypted data and cannot decrypt it. Sharing links transfer the decryption key directly to recipients.**
+                        <strong>Files and filenames are end-to-end encrypted. The server stores only encrypted data and cannot decrypt it. Sharing links transfer the decryption key directly to recipients.</strong>
                     </p>
                 </div>
 
