@@ -52,7 +52,7 @@ export default function VerifyEmail() {
       const keyHex = Array.from(keyArray)
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
-      sessionStorage.setItem("encryptionKey", keyHex);
+      localStorage.setItem("encryptionKey", keyHex);
 
       toast.success("Signed in!");
       navigate("/profile");
