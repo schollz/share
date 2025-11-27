@@ -29,12 +29,18 @@
   body,
   #root {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    text-transform: uppercase;
   }
   button,
   input,
   select,
   textarea {
     font-family: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    text-transform: uppercase;
   }
   
   /* Toast notification color variables */
