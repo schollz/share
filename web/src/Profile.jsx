@@ -439,28 +439,28 @@ export default function Profile() {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-4xl sm:text-5xl font-black uppercase mb-2">
-                            My Files
+                            Storage
                         </h1>
                         <p className="text-lg">{user?.email}</p>
                     </div>
                     <div className="flex gap-4">
                         <button
                             onClick={() => navigate("/")}
-                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
                         >
                             <i className="fas fa-home"></i>
                             <span className="hidden sm:inline sm:ml-2">Home</span>
                         </button>
                         <button
                             onClick={() => navigate("/settings")}
-                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                            className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 font-bold uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
                         >
                             <i className="fas fa-cog"></i>
                             <span className="hidden sm:inline sm:ml-2">Settings</span>
                         </button>
                         <button
                             onClick={logout}
-                            className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors"
+                            className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 font-bold uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer"
                         >
                             <i className="fas fa-sign-out-alt"></i>
                             <span className="hidden sm:inline sm:ml-2">Logout</span>
@@ -572,7 +572,7 @@ export default function Profile() {
                                                         file.encrypted_key,
                                                     )
                                                 }
-                                                className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-1 font-bold text-sm uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                                                className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-1 font-bold text-sm uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
                                                 title="Download"
                                             >
                                                 <i className="fas fa-download"></i>
@@ -584,7 +584,7 @@ export default function Profile() {
                                                         file.encrypted_filename,
                                                     )
                                                 }
-                                                className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-1 font-bold text-sm uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                                                className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-1 font-bold text-sm uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer"
                                                 title="Generate share link"
                                             >
                                                 <i className="fas fa-share"></i>
@@ -597,7 +597,7 @@ export default function Profile() {
                                                         filename: file.filename,
                                                     })
                                                 }
-                                                className="border-2 border-black dark:border-white bg-red-600 text-white px-3 py-1 font-bold text-sm uppercase hover:bg-red-700 transition-colors"
+                                                className="border-2 border-black dark:border-white bg-red-600 text-white px-3 py-1 font-bold text-sm uppercase hover:bg-red-700 transition-colors cursor-pointer"
                                                 title="Delete"
                                             >
                                                 <i className="fas fa-trash"></i>

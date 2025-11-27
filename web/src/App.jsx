@@ -2113,11 +2113,11 @@ export default function App() {
                         {isAuthenticated ? (
                             <div className="flex flex-wrap gap-2 sm:gap-3">
                                 <button
-                                    onClick={() => navigate("/profile")}
+                                    onClick={() => navigate("/storage")}
                                     className="border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 text-center"
                                 >
-                                    <i className="fas fa-user mr-2"></i>
-                                    Profile
+                                    <i className="fas fa-hdd mr-2"></i>
+                                    Storage
                                 </button>
                                 <button
                                     onClick={logout}

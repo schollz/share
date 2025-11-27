@@ -36,7 +36,7 @@ createRoot(document.getElementById("root")).render(
                     <Routes>
                         <Route path="/" element={<Landing />} />
                         <Route path="/login" element={<Login />} />
-                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/storage" element={<Profile />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/verify-email" element={<VerifyEmail />} />
                         <Route path="/signup-success" element={<SignupSuccess />} />
