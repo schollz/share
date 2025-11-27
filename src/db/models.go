@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+type DeviceAuthSession struct {
+	ID         int64          `json:"id"`
+	DeviceCode string         `json:"device_code"`
+	UserCode   string         `json:"user_code"`
+	UserID     sql.NullInt64  `json:"user_id"`
+	Approved   bool           `json:"approved"`
+	Token      sql.NullString `json:"token"`
+	ExpiresAt  time.Time      `json:"expires_at"`
+	CreatedAt  time.Time      `json:"created_at"`
+}
+
 type File struct {
 	ID                int64          `json:"id"`
 	UserID            int64          `json:"user_id"`

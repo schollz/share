@@ -370,6 +370,120 @@ func (s *Service) VerifyEmail(token string) (*db.User, string, error) {
 	return &user, jwtToken, nil
 }
 
+// Device Auth: InitiateDeviceAuth creates a new device auth session
+func (s *Service) InitiateDeviceAuth() (*db.DeviceAuthSession, error) {
+	// Generate random device code and user code
+	deviceCode, err := generateSalt() // Using existing function for random hex
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate device code: %w", err)
+	}
+
+	// Generate a short, user-friendly code (6 chars uppercase)
+	userCodeBytes := make([]byte, 3)
+	if _, err := rand.Read(userCodeBytes); err != nil {
+		return nil, fmt.Errorf("failed to generate user code: %w", err)
+	}
+	userCode := fmt.Sprintf("%02X%02X%02X", userCodeBytes[0], userCodeBytes[1], userCodeBytes[2])
+
+	// Session expires in 10 minutes (use UTC for consistency)
+	expiresAt := time.Now().UTC().Add(10 * time.Minute)
+
+	s.logger.Info("Creating device auth session", "user_code", userCode, "expires_at", expiresAt)
+
+	session, err := s.queries.CreateDeviceAuthSession(context.Background(), db.CreateDeviceAuthSessionParams{
+		DeviceCode: deviceCode,
+		UserCode:   userCode,
+		ExpiresAt:  expiresAt,
+	})
+	if err != nil {
+		s.logger.Error("Failed to create device auth session", "error", err)
+		return nil, fmt.Errorf("failed to create device auth session: %w", err)
+	}
+
+	s.logger.Info("Device auth session created", "session_id", session.ID, "user_code", userCode)
+	return &session, nil
+}
+
+// PollDeviceAuth checks if a device auth session has been approved
+func (s *Service) PollDeviceAuth(deviceCode string) (*db.DeviceAuthSession, error) {
+	session, err := s.queries.GetDeviceAuthSessionByDeviceCode(context.Background(), deviceCode)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrInvalidToken
+		}
+		return nil, fmt.Errorf("failed to get device auth session: %w", err)
+	}
+
+	// Check if expired (compare in UTC)
+	if time.Now().UTC().After(session.ExpiresAt.UTC()) {
+		return nil, ErrInvalidToken
+	}
+
+	return &session, nil
+}
+
+// ApproveDeviceAuth approves a device auth session and generates a token
+func (s *Service) ApproveDeviceAuth(userCode string, userID int64) (string, error) {
+	s.logger.Info("ApproveDeviceAuth called", "user_code", userCode, "user_id", userID)
+
+	// Get session
+	session, err := s.queries.GetDeviceAuthSessionByUserCode(context.Background(), userCode)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			s.logger.Warn("Device auth session not found", "user_code", userCode)
+			return "", ErrInvalidToken
+		}
+		s.logger.Error("Failed to query device auth session", "error", err, "user_code", userCode)
+		return "", fmt.Errorf("failed to get device auth session: %w", err)
+	}
+
+	s.logger.Info("Found device auth session", "session_id", session.ID, "approved", session.Approved, "expires_at", session.ExpiresAt)
+
+	// Check if expired (compare in UTC)
+	now := time.Now().UTC()
+	expiresAt := session.ExpiresAt.UTC()
+	if now.After(expiresAt) {
+		s.logger.Warn("Device auth session expired", "user_code", userCode, "now", now, "expires_at", expiresAt)
+		return "", ErrInvalidToken
+	}
+
+	// Check if already approved
+	if session.Approved {
+		s.logger.Warn("Device auth session already approved", "user_code", userCode)
+		return "", errors.New("session already approved")
+	}
+
+	// Get user to generate token
+	user, err := s.queries.GetUserByID(context.Background(), userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Generate JWT token
+	token, err := s.GenerateJWT(user.ID, user.Email)
+	if err != nil {
+		return "", err
+	}
+
+	// Update session as approved
+	_, err = s.queries.ApproveDeviceAuthSession(context.Background(), db.ApproveDeviceAuthSessionParams{
+		UserID: sql.NullInt64{
+			Int64: userID,
+			Valid: true,
+		},
+		Token: sql.NullString{
+			String: token,
+			Valid:  true,
+		},
+		UserCode: userCode,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to approve device auth session: %w", err)
+	}
+
+	return token, nil
+}
+
 func (s *Service) sendVerificationEmail(email, token string) error {
 	apiKey := os.Getenv("MAILJET_API_KEY")
 	apiSecret := os.Getenv("MAILJET_API_SECRET")

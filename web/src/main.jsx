@@ -11,6 +11,7 @@ import SharedFile from "./SharedFile.jsx";
 import Settings from "./Settings.jsx";
 import VerifyEmail from "./VerifyEmail.jsx";
 import SignupSuccess from "./SignupSuccess.jsx";
+import DeviceAuth from "./DeviceAuth.jsx";
 import "@fontsource/monaspace-neon";
 import "./index.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
@@ -39,6 +40,7 @@ createRoot(document.getElementById("root")).render(
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/verify-email" element={<VerifyEmail />} />
                         <Route path="/signup-success" element={<SignupSuccess />} />
+                        <Route path="/device-auth" element={<DeviceAuth />} />
                         <Route path="/share/:token" element={<SharedFile />} />
                         <Route path="/:room" element={<Landing />} />
                     </Routes>

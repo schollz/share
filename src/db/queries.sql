@@ -82,3 +82,29 @@ RETURNING *;
 UPDATE files
 SET encrypted_filename = $1, encrypted_key = $2, updated_at = CURRENT_TIMESTAMP
 WHERE id = $3 AND user_id = $4;
+
+-- Device Auth Sessions
+-- name: CreateDeviceAuthSession :one
+INSERT INTO device_auth_sessions (device_code, user_code, expires_at)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: GetDeviceAuthSessionByDeviceCode :one
+SELECT * FROM device_auth_sessions
+WHERE device_code = $1
+LIMIT 1;
+
+-- name: GetDeviceAuthSessionByUserCode :one
+SELECT * FROM device_auth_sessions
+WHERE user_code = $1
+LIMIT 1;
+
+-- name: ApproveDeviceAuthSession :one
+UPDATE device_auth_sessions
+SET approved = TRUE, user_id = $1, token = $2
+WHERE user_code = $3 AND approved = FALSE
+RETURNING *;
+
+-- name: DeleteExpiredDeviceAuthSessions :exec
+DELETE FROM device_auth_sessions
+WHERE expires_at < CURRENT_TIMESTAMP;

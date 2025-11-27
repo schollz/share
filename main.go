@@ -117,6 +117,36 @@ var receiveCmd = &cobra.Command{
 	},
 }
 
+var authCmd = &cobra.Command{
+	Use:   "auth",
+	Short: "Authenticate CLI with your e2ecp account",
+	Long:  "Start device authentication flow to link this CLI with your e2ecp account. You'll receive a code to enter on the website.",
+	Run: func(cmd *cobra.Command, args []string) {
+		server, _ := cmd.Flags().GetString("server")
+		if server == "" {
+			server = domain
+		}
+		logger := createLogger(logLevel)
+		client.AuthenticateDevice(server, logger)
+	},
+}
+
+var uploadCmd = &cobra.Command{
+	Use:   "upload <file>",
+	Short: "Upload a file to your authenticated account",
+	Long:  "Upload a file to your e2ecp account storage. You must be authenticated first using 'e2ecp auth'.",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		filePath := args[0]
+		server, _ := cmd.Flags().GetString("server")
+		if server == "" {
+			server = domain
+		}
+		logger := createLogger(logLevel)
+		client.UploadFile(filePath, server, logger)
+	},
+}
+
 func promptForRoom() string {
 	fmt.Print("Enter room name: ")
 	reader := bufio.NewReader(os.Stdin)
@@ -187,10 +217,14 @@ func init() {
 	receiveCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 	receiveCmd.Flags().StringP("output", "o", ".", "Output directory")
 	receiveCmd.Flags().BoolP("force", "f", false, "Force overwrite existing files without prompting")
+	authCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
+	uploadCmd.Flags().StringP("server", "s", "", "Server URL (overrides --domain)")
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(sendCmd)
 	rootCmd.AddCommand(receiveCmd)
+	rootCmd.AddCommand(authCmd)
+	rootCmd.AddCommand(uploadCmd)
 }
 
 func main() {
