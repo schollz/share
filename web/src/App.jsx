@@ -1843,7 +1843,7 @@ export default function App() {
                                 </a>
                             </h1>
                             <p className="text-sm sm:text-lg md:text-xl font-bold leading-tight mb-2 sm:mb-3">
-                                TRANSFER FILES OR FOLDERS BETWEEN MACHINES
+                                TRANSFER FILES OR FOLDERS BETWEEN MACHINES, FOR FREE.
                             </p>
                             {myMnemonic && (
                                 <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
@@ -2011,52 +2011,25 @@ export default function App() {
                         </div>
                     )}
 
-                    {showStorageCta && (
+                    {showStorageCta && !isAuthenticated && (
                         <div className="bg-white dark:bg-black border-4 sm:border-8 border-black dark:border-white p-4 sm:p-6 mb-3 sm:mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:sm:shadow-[8px_8px_0px_0px_rgba(255,255,255,1)] text-gray-900 dark:text-white transition-colors duration-200">
-                            {!isAuthenticated && (
-                                <div className="font-black text-lg sm:text-xl uppercase mb-2">
-                                    Need to store your files temporarily to transfer?
-                                </div>
-                            )}
-                            {isAuthenticated ? (
-                                <div className="flex flex-wrap gap-2 sm:gap-3">
-                                    <button
-                                        onClick={() => navigate("/storage")}
-                                        className="border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 text-center"
-                                    >
-                                        <i className="fas fa-hdd mr-2"></i>
-                                        Storage
-                                    </button>
-                                    <button
-                                        onClick={() => navigate("/about")}
-                                        className="border-2 sm:border-4 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-2 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 text-center"
-                                    >
-                                        More information
-                                    </button>
-                                    <button
-                                        onClick={logout}
-                                        className="border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-2 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 text-center"
-                                    >
-                                        <i className="fas fa-sign-out-alt mr-2"></i>
-                                        Logout
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                                    <button
-                                        onClick={() => navigate("/login")}
-                                        className="border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-3 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 text-center"
-                                    >
-                                        Sign in for storage
-                                    </button>
-                                    <button
-                                        onClick={() => navigate("/about")}
-                                        className="border-2 sm:border-4 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-3 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 text-center"
-                                    >
-                                        More information
-                                    </button>
-                                </div>
-                            )}
+                            <div className="font-black text-lg sm:text-xl uppercase mb-2">
+                                Need to store your files temporarily to transfer?
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                                <button
+                                    onClick={() => navigate("/login")}
+                                    className="border-2 sm:border-4 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-4 py-3 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-900 dark:hover:bg-gray-300 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 text-center"
+                                >
+                                    Sign in for storage
+                                </button>
+                                <button
+                                    onClick={() => navigate("/about")}
+                                    className="border-2 sm:border-4 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-4 py-3 sm:px-6 sm:py-3 font-black uppercase hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none active:translate-x-2 active:translate-y-2 text-center"
+                                >
+                                    More information
+                                </button>
+                            </div>
                         </div>
                     )}
 
