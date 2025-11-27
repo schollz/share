@@ -43,7 +43,7 @@ export default function Navbar({ title = "e2ecp", subtitle = null }) {
                             {storageEnabled && (
                                 <button
                                     onClick={() => navigate("/storage")}
-                                    className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-3 py-2 sm:px-4 text-sm sm:text-base font-bold uppercase hover:bg-white hover:text-black dark:hover:bg-black dark:hover:text-white hover:scale-105 transition-all cursor-pointer"
+                                    className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-2 sm:px-4 text-sm sm:text-base font-bold uppercase hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:scale-105 transition-all cursor-pointer"
                                 >
                                     <i className="fas fa-hdd"></i>
                                     <span className="hidden sm:inline sm:ml-2">Storage</span>
@@ -51,7 +51,7 @@ export default function Navbar({ title = "e2ecp", subtitle = null }) {
                             )}
                             <button
                                 onClick={logout}
-                                className="border-2 border-black dark:border-white bg-black dark:bg-white text-white dark:text-black px-3 py-2 sm:px-4 text-sm sm:text-base font-bold uppercase hover:bg-white hover:text-black dark:hover:bg-black dark:hover:text-white hover:scale-105 transition-all cursor-pointer"
+                                className="border-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white px-3 py-2 sm:px-4 text-sm sm:text-base font-bold uppercase hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:scale-105 transition-all cursor-pointer"
                             >
                                 <i className="fas fa-sign-out-alt"></i>
                                 <span className="hidden sm:inline sm:ml-2">Logout</span>

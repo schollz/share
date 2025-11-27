@@ -1839,11 +1839,11 @@ export default function App() {
                                     href="/"
                                     className="text-white no-underline cursor-pointer hover:text-white hover:underline"
                                 >
-                                    e2ecp
+                                    TRANSFER
                                 </a>
                             </h1>
                             <p className="text-sm sm:text-lg md:text-xl font-bold leading-tight mb-2 sm:mb-3">
-                                TRANSFER FILES OR FOLDERS BETWEEN MACHINES, FOR FREE.
+                                SECURELY TRANSFER FILES OR FOLDERS BETWEEN MACHINES
                             </p>
                             {myMnemonic && (
                                 <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2">
